@@ -1,6 +1,8 @@
 import * as React from 'react'
 import { createRoot } from 'react-dom/client';
 
+import socket from './../utils/socket'
+
 class App extends React.Component {
   constructor() {
     super();
@@ -14,40 +16,41 @@ class App extends React.Component {
   }
 
   componentDidMount() {
-    this.socket = new WebSocket('wss://' + location.host);
+    socket.init();
 
-    this.socket.addEventListener('message', (event) => {
-      console.log(event);
-    });
+    socket.on('message', (data) => {
+      const oldMessages = [...this.state.messages];
+
+      oldMessages.push({
+        nick: 'sammich',
+        message: data.data
+      })
+      this.setState({messages:oldMessages})
+    })
   }
+
   handleInput(event) {
     const target = event.target;
 
     if (event.which == 13) {
-      console.log('enter key');
 
-      const messages = [...this.state.messages];
-      const newMessage = {
-        nick: 'sammich',
-        message: target.value
-      }
-
-      this.socket.send(target.value);
+      socket.emit('message', target.value);
 
     }
-    console.log(event);
+  }
+
+  renderMessage (message) {
+    return <div className="message" key={message.message}>
+      <div className="nick">{message.nick}: </div>
+      <div className="messageContent">{' ' + message.message}</div>
+    </div>
   }
 
   render() {
     return (
       <>
         <div id="message-container">{
-          this.state.messages.map(message => {
-            return <div className="message">
-              <div className="nick">{message.nick}: </div>
-              <div className="messageContent">{' ' + message.message}</div>
-            </div>
-          })
+          this.state.messages.map(message =>  this.renderMessage(message))
         }</div>
 
         <div className="input-container" onKeyUp={this.handleInput.bind(this)}>
