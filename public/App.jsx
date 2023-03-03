@@ -2,31 +2,21 @@ import * as React from 'react'
 import { createRoot } from 'react-dom/client';
 
 import socket from './../utils/socket'
+socket.init();
+
+import Messages from './comps/Messages'
+import Menu from './comps/Menu'
 
 class App extends React.Component {
   constructor() {
     super();
 
-    this.state = {
-      messages: [{
-        nick: 'username',
-        message: 'this is a test'
-      }]
-    }
+    this.state = {}
   }
 
   componentDidMount() {
-    socket.init();
+    
 
-    socket.on('message', (data) => {
-      const oldMessages = [...this.state.messages];
-
-      oldMessages.push({
-        nick: 'sammich',
-        message: data.data
-      })
-      this.setState({messages:oldMessages})
-    })
   }
 
   handleInput(event) {
@@ -35,27 +25,25 @@ class App extends React.Component {
     if (event.which == 13) {
 
       socket.emit('message', target.value);
-
+      target.value = '';
     }
-  }
-
-  renderMessage (message) {
-    return <div className="message" key={message.message}>
-      <div className="nick">{message.nick}: </div>
-      <div className="messageContent">{' ' + message.message}</div>
-    </div>
   }
 
   render() {
     return (
       <>
-        <div id="message-container">{
-          this.state.messages.map(message =>  this.renderMessage(message))
-        }</div>
+        <div id='main-container'>
+          <Messages 
+            socket={socket}
+          />
 
-        <div className="input-container" onKeyUp={this.handleInput.bind(this)}>
-          <input placeholder="Type anything then press enter." />
+          <div className="input-container" onKeyDown={this.handleInput.bind(this)}>
+            <input placeholder="Type anything then press enter." />
+          </div>
         </div>
+
+        <Menu />
+
 
       </>
     );
