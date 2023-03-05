@@ -6,6 +6,7 @@ socket.init();
 
 import Messages from './comps/Messages'
 import Menu from './comps/Menu'
+import InputBar from './comps/InputBar'
 
 class App extends React.Component {
   constructor() {
@@ -19,16 +20,6 @@ class App extends React.Component {
 
   }
 
-  handleInput(event) {
-    const target = event.target;
-
-    if (event.which == 13) {
-
-      socket.emit('message', target.value);
-      target.value = '';
-    }
-  }
-
   render() {
     return (
       <>
@@ -37,9 +28,9 @@ class App extends React.Component {
             socket={socket}
           />
 
-          <div className="input-container" onKeyDown={this.handleInput.bind(this)}>
-            <input placeholder="Type anything then press enter." />
-          </div>
+          <InputBar
+            socket={socket}
+          />
         </div>
 
         <Menu />

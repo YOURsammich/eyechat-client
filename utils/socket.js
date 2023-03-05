@@ -6,10 +6,15 @@ const socket = {
 
     this._serverEvents = {};
 
+    this._socket.addEventListener('open', (event) => {
+      this.emit('join');
+    });
+  
+
     this._socket.addEventListener('message', (e) => {
       const data = JSON.parse(e.data);
-
-      this._triggerEvent(data.event, data.value);
+      console.log(data);
+      this._triggerEvent(data.event, data.data);
     });
 
   },
