@@ -38,3 +38,10 @@ body {
   padding: 5px;
   flex: 1;
 }
+
+.menuContainer {
+  background-color: #111;
+  color: white;
+  padding: 10px 10px;
+  width: 200px;
+}

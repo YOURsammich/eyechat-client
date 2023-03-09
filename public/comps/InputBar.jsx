@@ -11,9 +11,20 @@ class InputBar extends React.Component {
 
     if (event.which == 13) {
 
-      handleInput.handle(target.value);
-      //this.props.socket.emit('message', target.value);
-      target.value = '';
+      try {
+        const inputData = handleInput.handle(target.value);
+
+        if (inputData.commandName) {
+          this.props.socket.emit('command', inputData);
+        } else {
+          this.props.socket.emit('message', inputData);
+        }
+
+        target.value = '';
+      } catch (e) {
+        console.log(e);
+      }
+
     }
   }
 

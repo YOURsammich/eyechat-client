@@ -12,16 +12,23 @@ class App extends React.Component {
   constructor() {
     super();
 
-    this.state = {}
+    this.state = {
+      connected: false
+    }
   }
 
   componentDidMount() {
     
+    socket.init()
+      .then(() => {
+        socket.emit('joinChannel');
+        this.setState({connected: true})
+      })
 
   }
 
   render() {
-    return (
+    return this.state.connected ? (
       <>
         <div id='main-container'>
           <Messages 
@@ -33,11 +40,11 @@ class App extends React.Component {
           />
         </div>
 
-        <Menu />
-
-
+        <Menu 
+          socket={socket}
+        />
       </>
-    );
+    ) : 'connecting';
   }
 
 }

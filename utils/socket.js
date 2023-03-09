@@ -1,22 +1,18 @@
 const socket = {
 
   init () {
-
-    this._socket = new WebSocket('ws://' + location.host);
-
-    this._serverEvents = {};
-
-    this._socket.addEventListener('open', (event) => {
-      this.emit('join');
-    });
+    return new Promise((resolve, reject) => {
+      this._socket = new WebSocket('ws://' + location.host);
   
-
-    this._socket.addEventListener('message', (e) => {
-      const data = JSON.parse(e.data);
-      console.log(data);
-      this._triggerEvent(data.event, data.data);
-    });
-
+      this._serverEvents = {};
+  
+      this._socket.addEventListener('open', resolve);
+    
+      this._socket.addEventListener('message', (e) => {
+        const data = JSON.parse(e.data);
+        this._triggerEvent(data.event, data.data);
+      });
+    })
   },
 
   _triggerEvent (event, data) {
