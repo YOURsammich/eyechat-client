@@ -1,5 +1,5 @@
 import * as React from 'react';
-import handleInput from './../../utils/handleInput'
+import handleInput from '../../utils/handleInput'
 
 class InputBar extends React.Component {
   constructor () {

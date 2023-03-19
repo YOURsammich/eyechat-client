@@ -1,6 +1,5 @@
 import * as React from 'react';
 
-
 class Messages extends React.Component {
   constructor () {
     super();
@@ -12,27 +11,37 @@ class Messages extends React.Component {
 
   componentDidMount () {
     this.props.socket.on('message', (data) => {
-      console.log(data);
       const oldMessages = [...this.state.messages];
 
+      data.time = this.renderTimeStamp(data)
       oldMessages.push(data)
+
       this.setState({messages:oldMessages})
     })
   }
 
+  renderTimeStamp (msgData) {
+    const shortTime = new Intl.DateTimeFormat("en", {
+      timeStyle: "short",
+    });
+
+    return <div className='time' title={msgData.msgCount}>{shortTime.format(Date.now())} </div>
+  }
+
   renderMessage (message) {
     return <div className="message" key={message.msgCount}>
-      <div className="nick">{message.nick}: </div>
+      { message.time }
+      <div className="nick" style={{color: 'orange'}}>
+        {message.nick + ': '}
+      </div>
       <div className="messageContent">{message.message}</div>
     </div>
   }
 
   render () {
-
     return <div id="message-container">
       { this.state.messages.map(message => this.renderMessage(message)) }
     </div>
-
   }
 }
 

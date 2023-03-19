@@ -29,7 +29,7 @@ const handleCommand = {
 
 const handleInput = {
   handle (input) {
-    const command = /\/(\w+) ?([\s\S]*)/.exec(input);
+    const command = /^\/(\w+) ?([\s\S]*)/.exec(input);
     if (command) {
       const cmdData = handleCommand.handle(command);
 
