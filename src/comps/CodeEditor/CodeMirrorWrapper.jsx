@@ -62,19 +62,6 @@ function peerExtension(startVersion, connection) {
       this.pulling = false;
       this.done = false
       this.pull()
-
-      // connection.on('pullUpdates', (data) => {
-      //   console.log('pullUpdates', data);
-      //   this.pulling = false;
-      //   //this.pushing = false
-      //   const updates = data.map(u => ({
-      //     changes: ChangeSet.fromJSON(u.changes),
-      //     clientID: u.clientID
-      //   }))
-
-      //   this.view.dispatch(receiveUpdates(this.view.state, updates))
-      // });
-
      }
 
     update(update) {
@@ -114,7 +101,7 @@ async function createPeer(parent, connection) {
   let {version, doc} = await getDocument()
   let state = EditorState.create({
     doc,
-    extensions: [basicSetup, peerExtension(version, connection)]
+    extensions: [basicSetup, oneDark, javascript(), peerExtension(version, connection)]
   })
   return new EditorView({state, parent})
 }
