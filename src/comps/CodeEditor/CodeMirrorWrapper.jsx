@@ -1,39 +1,40 @@
 import React, { useEffect, useRef, useState  } from "react";
-import { EditorView, ViewPlugin } from "@codemirror/view";
+import { EditorView, ViewPlugin, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { EditorState, ChangeSet, Text } from "@codemirror/state";
-import { basicSetup } from "codemirror";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { javascript } from "@codemirror/lang-javascript";
 import { collab, sendableUpdates, getSyncedVersion, receiveUpdates } from "@codemirror/collab";
+//import history from commands
+import { history } from "@codemirror/commands";
 
-
-async function pushUpdates(connection, version, fullUpdates){
+async function pushUpdates(version, fullUpdates, plugin) {
 
   const updates = fullUpdates.map(u => ({
     changes: u.changes.toJSON(),
     clientID: u.clientID
   }))
-
+  
   return fetch('/pushUpdates', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
       },
-      body: JSON.stringify({version, updates})
+      body: JSON.stringify({version, updates, plugin: plugin.name})
     });
 
 }
 
-async function pullUpdates(connection, version) {
+async function pullUpdates(version, plugin) {
   return fetch('/pullUpdates', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
       },
-      body: JSON.stringify({version})
+      body: JSON.stringify({version, plugin: plugin.name})
     })
     .then(res => res.json())
     .then(data => {
+      console.log('pulled', plugin.name)
       //if there are no updates, return
       if (!data) return []
 
@@ -45,7 +46,7 @@ async function pullUpdates(connection, version) {
     });
 }
 
-async function getDocument() {
+async function getDocument(plugin) {
   return fetch('/getDocument')
     .then(res => res.json())
     .then(data => ({
@@ -54,8 +55,62 @@ async function getDocument() {
     }))
 }
 
-function peerExtension(startVersion, connection) {
-  let plugin = ViewPlugin.fromClass(class {
+function peerExtensionSocket(startVersion, plugin, getCurrPlugin, socket) {
+
+  let colabPlugun = ViewPlugin.fromClass(class {
+    constructor(view) {
+      this.view = view;
+      this.pushing = false
+      this.pulling = false;
+      this.done = false
+      
+      socket.on('codePull', (data) => {
+        console.log('pulled socket', plugin.name, data)
+        const version = getSyncedVersion(this.view.state)
+        const updates = data.updates.map(u => ({
+          changes: ChangeSet.fromJSON(u.changes),
+          clientID: u.clientID
+        }));
+        this.view.dispatch(receiveUpdates(this.view.state, updates))
+
+      });
+     }
+
+    update(update) {
+      if (update.docChanged) this.push()
+    }
+
+    push () {
+      let updates = sendableUpdates(this.view.state)
+      if (this.pushing || !updates.length) return
+      this.pushing = true
+      let version = getSyncedVersion(this.view.state)
+      socket.emit('codePush', {
+        version,
+        updates,
+        plugin: plugin.name
+      })
+      console.log('pushed socket', plugin.name, version)
+      this.pushing = false
+      // Regardless of whether the push failed or new updates came in
+      // while it was running, try again if there's updates remaining
+      if (sendableUpdates(this.view.state).length) {
+        setTimeout(() => this.push(), 100)
+      }
+    }
+
+    destroy() {
+      this.done = true
+     }
+
+  })
+
+  return [collab({startVersion}), colabPlugun]
+
+}
+
+function peerExtension(startVersion, plugin, getCurrPlugin) {
+  let colabPlugun = ViewPlugin.fromClass(class {
     constructor(view) { 
       this.view = view;
       this.pushing = false
@@ -73,69 +128,74 @@ function peerExtension(startVersion, connection) {
       if (this.pushing || !updates.length) return
       this.pushing = true
       let version = getSyncedVersion(this.view.state)
-      await pushUpdates(connection, version, updates)
+      await pushUpdates(version, updates, plugin)
+      console.log('pushed', plugin.name, version)
       this.pushing = false
       // Regardless of whether the push failed or new updates came in
       // while it was running, try again if there's updates remaining
-      if (sendableUpdates(this.view.state).length)
+      if (sendableUpdates(this.view.state).length) {
+        console.log(sendableUpdates(this.view.state))
         setTimeout(() => this.push(), 100)
+      }
     }
 
     async pull() {
-      while (!this.done) {
+      const loopId = Math.random();
+      while (plugin.name === getCurrPlugin().name && !this.done) {
+        console.log(loopId)
         let version = getSyncedVersion(this.view.state)
-        let updates = await pullUpdates(connection, version)
+        let updates = await pullUpdates(version, plugin)
         this.view.dispatch(receiveUpdates(this.view.state, updates))
       }
     }
 
     destroy() { 
-      console.log('this was called');
       this.done = true
      }
   })
-  return [collab({startVersion}), plugin]
+  return [collab({startVersion}), colabPlugun]
 }
 
-async function createPeer(parent, connection) {
-  let {version, doc} = await getDocument()
+async function createPeerState(plugin, getCurrPlugin, socket) {
+  console.log(socket);
+  let {version, doc} = await getDocument(plugin);
   let state = EditorState.create({
     doc,
-    extensions: [basicSetup, oneDark, javascript(), peerExtension(version, connection)]
+    extensions: [
+      highlightActiveLine(),
+      highlightActiveLineGutter(),
+      history(),
+      lineNumbers(),
+      javascript(),
+      oneDark,
+      peerExtensionSocket(version, plugin, getCurrPlugin, socket)
+    ]
   })
-  return new EditorView({state, parent})
+  return state;
 }
 
-const CodeMirrorEditor = ({socket, value, onChange }) => {
+const CodeMirrorEditor = ({socket, value, plugin }) => {
   const editorRef = useRef();
   const [editorView, setEditorView] = useState();
+  const [currPlugin, setCurrPlugin] = useState(plugin);
   
   useEffect(() => {
     if (editorView) {
+      if (editorView.then) return;
+
+      if (plugin.name !== currPlugin.name) {
+        setCurrPlugin(plugin);
+      }
+      
       return;
     }
-    
-    const updateListener = EditorView.updateListener.of(update => {
-      if (update.docChanged) {
-        onChange && onChange(update.state.doc.toString());
-      }
+
+    let view = true;
+    createPeerState(plugin, () => plugin, socket).then(state => {
+      view = new EditorView({state, parent: editorRef.current});
+      setEditorView(view);
     });
 
-    // await getDocument(connection)
-    // const editorState = EditorState.create({
-    //   doc: value,
-    //   extensions: [
-    //     basicSetup,
-    //     oneDark,
-    //     javascript(),
-    //     updateListener
-    //   ],
-    // });
-    
-    
-
-    //const view = new EditorView({ state: editorState, parent: editorRef.current });
-    const view = createPeer(editorRef.current, socket);
     setEditorView(view);
 
     return () => {

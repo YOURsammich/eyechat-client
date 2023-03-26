@@ -33,6 +33,7 @@ display: none
   display: flex;
   flex-direction: row;
   flex: 1;
+  width: 100%;
 }
 
 #message-container {
@@ -42,6 +43,7 @@ display: none
   padding: 10px 10px;
   font-size: 18px;
   overflow-y: scroll;
+  scroll-behavior: smooth;
 }
 
 .nick {
@@ -73,22 +75,51 @@ display: none
 }
 
 .menuContainer {
-  background-color: #111;
+  background-color: #181818;
   color: white;
   padding: 10px 10px;
   width: 150px;
 }
 
 .codeEditorContainer {
+  display: flex;
   flex: 1;
+  overflow-x: hidden;
 }
 
 .codemirror-editor {
-  height: 100%;
-  width: 100%;
+  flex: 1;
+  overflow-x: auto;
 }
 
 .codemirror-editor > .cm-editor {
   height: 100%;
   width: 100%;
+}
+
+.pluginList {
+  width: 140px;
+  word-wrap: break-word;
+  background-color: #181818;
+  color: white;
+  padding: 5px 15px;
+}
+
+.pluginList .plugin {
+  margin: 7px 0;
+  cursor: pointer;
+}
+
+.pluginList .plugin:hover {
+  text-decoration: underline;
+}
+
+/* chat */
+.chatContainer {
+  display: flex;
+  flex-direction: column;
+  width: 500px;
+  overflow-y: hidden;
+  z-index: 1;
+  box-shadow: #111 0px 0px 4px;
 }

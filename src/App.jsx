@@ -68,9 +68,10 @@ class App extends React.Component {
         <CodeEditor 
           socket={socket}
         />
-        <ChatWindow 
+        {false && <ChatWindow 
           socket={socket}
-        />
+          userlist={this.state.userlist}
+        />}
         <Menu 
           userlist={this.state.userlist}
         />
