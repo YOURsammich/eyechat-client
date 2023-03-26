@@ -72,7 +72,7 @@ function peerExtensionSocket(startVersion, plugin, getCurrPlugin, socket) {
           clientID: u.clientID
         }));
         this.view.dispatch(receiveUpdates(this.view.state, updates))
-
+        this.pushing = false
       });
      }
 
@@ -85,13 +85,16 @@ function peerExtensionSocket(startVersion, plugin, getCurrPlugin, socket) {
       if (this.pushing || !updates.length) return
       this.pushing = true
       let version = getSyncedVersion(this.view.state)
-      socket.emit('codePush', {
-        version,
-        updates,
-        plugin: plugin.name
-      })
+
+      //setTimeout(() => {
+          
+        socket.emit('codePush', {
+          version,
+          updates,
+          plugin: plugin.name
+        })
+      //}, 100 * Math.floor(Math.random() * 5));
       console.log('pushed socket', plugin.name, version)
-      this.pushing = false
       // Regardless of whether the push failed or new updates came in
       // while it was running, try again if there's updates remaining
       if (sendableUpdates(this.view.state).length) {
@@ -192,7 +195,8 @@ const CodeMirrorEditor = ({socket, value, plugin }) => {
 
     let view = true;
     createPeerState(plugin, () => plugin, socket).then(state => {
-      view = new EditorView({state, parent: editorRef.current});
+      window.view = view = new EditorView({state, parent: editorRef.current});
+      console.log('ass');
       setEditorView(view);
     });
 
