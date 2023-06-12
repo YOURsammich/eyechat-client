@@ -1,8 +1,8 @@
 const socket = {
 
-  init ({ getActiveChannel }) {
+  init ({ getActiveChannel } = {}) {
     this.getActiveChannel = getActiveChannel;
-    
+
     return new Promise((resolve, reject) => {
       this._socket = new WebSocket('ws://' + location.host);
   
