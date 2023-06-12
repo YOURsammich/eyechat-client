@@ -1,17 +1,33 @@
 const COMMANDS = {
   nick: {
     params: ['nick']
+  },
+  login: {
+    params: ['nick', 'password']
   }
 }
 
 const handleCommand = {
   formatParams (cmd, params, type='firstWord') {
-    const paramKey = cmd.params[0];
 
-    return {
-      [paramKey]:  params.split(' ')[0]
+    if (cmd.params.length > 1) {
+      
+      const paramObj = {};
+      const paramKeys = cmd.params;
+      const paramValues = params.split(' ');
+
+      paramKeys.forEach((key, i) => {
+        paramObj[key] = paramValues[i];
+      });
+
+      return paramObj;
+
+    } else {
+      const paramKey = cmd.params[0];
+      return {
+        [paramKey]:  params.split(' ')[0]
+      }
     }
-
   },
   handle (command) {
     const [, commandName, params] = command;

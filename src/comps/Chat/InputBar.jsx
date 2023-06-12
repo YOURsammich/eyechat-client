@@ -10,7 +10,7 @@ class InputBar extends React.Component {
     const target = event.target;
 
     if (event.which == 13) {
-
+      event.preventDefault();
       try {
         const inputData = handleInput.handle(target.value);
 
@@ -28,9 +28,17 @@ class InputBar extends React.Component {
     }
   }
 
+  handleKeyUp (event) {
+    const target = event.target;
+
+    if (event.which == 13) {
+      target.value = '';
+    }
+  }
+
   render () {
-    return <div className="input-container" onKeyDown={this.handleInput.bind(this)}>
-      <input placeholder="Type anything then press enter." />
+    return <div className="input-container" onKeyDown={this.handleInput.bind(this)} onKeyUp={this.handleKeyUp.bind(this)}>
+      <textarea rows="1" placeholder="Type anything then press enter."></textarea>
     </div>
   }
 }

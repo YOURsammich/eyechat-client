@@ -7,6 +7,7 @@ socket.init();
 import ChatWindow from './comps/Chat/ChatWindow';
 import Menu from './comps/Menu'
 import CodeEditor from './comps/CodeEditor/CodeEditor';
+import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 
 
 class App extends React.Component {
@@ -15,13 +16,17 @@ class App extends React.Component {
 
     this.state = {
       connected: false,
-      userlist: []
+      showApp: false,
+      userlist: [],
+      activeChannel: '/main'
     }
   }
 
   componentDidMount() {
     
-    socket.init()
+    socket.init({
+      getActiveChannel: () => this.state.activeChannel,
+    })
       .then(() => {
         socket.on('userlist', (userlist) => {
           this.setState({userlist: userlist})
@@ -63,19 +68,40 @@ class App extends React.Component {
 
   render() {
     return this.state.connected ? (
-      <div id='main-container'>
+      
+      <div style={{flexDirection: 'column', display: 'flex', flex: 1, overflow:'hidden'}}>
+        <div className="chatHeader">
+          <span className="material-symbols-outlined appViewToggle" onClick={()=> this.setState({showApp: !this.state.showApp})}>code</span>
+        </div>
 
-        <CodeEditor 
-          socket={socket}
-        />
-        {false && <ChatWindow 
-          socket={socket}
-          userlist={this.state.userlist}
-        />}
-        <Menu 
-          userlist={this.state.userlist}
-        />
+        <div id='main-container'>
 
+          {
+            this.state.showApp ? <CodeEditor 
+              socket={socket}
+            /> : null
+          }
+          
+          <div style={{display: 'flex',flexDirection: 'column', flex:1}}>
+
+            {/* <CodeRunWindow 
+              socket={socket}
+              userlist={this.state.userlist}
+            /> */}
+
+            <ChatWindow 
+              socket={socket}
+              userlist={this.state.userlist}
+              toggleEditor={() => this.setState({showApp: !this.state.showApp})}
+              editorShown={this.state.showApp}
+            />
+          </div>
+          <Menu 
+            userlist={this.state.userlist}
+          />
+
+        </div>
+      
       </div>
     ) : 'connecting';
   }

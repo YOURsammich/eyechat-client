@@ -69,9 +69,16 @@ display: none
   display: flex;
 }
 
-.input-container input {
+.input-container textarea {
   padding: 5px;
   flex: 1;
+  resize: none;
+  font-size: 14px;
+  background: rgba(20, 20, 20, 0.75);
+  color: white;
+  border: 1px solid #0C0D0E;
+  border-radius: 5px;
+  line-height: 1.3;
 }
 
 .menuContainer {
@@ -85,7 +92,65 @@ display: none
   display: flex;
   flex: 1;
   overflow-x: hidden;
+  background-color: #181818;
+  color: white;
 }
+
+.editorHome {
+  padding: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0 auto;
+  width: 700px;
+}
+
+.newPlugin {
+  background-color: #39f;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: none;
+  font-weight: bold;
+}
+
+.lineBreak {
+  width: 100%;
+  height: 5px;
+  border: 1px solid #333;
+  border-radius: 3px;
+  background-color: #333;
+}
+
+.editorHome h3 {
+  margin: 0;
+}
+
+.edtiorHomeContent {
+  flex: 1;
+}
+
+.editorHomeNav {
+  display: flex;
+  font-size: 20px;
+  font-weight: bold;
+  gap: 30px;
+  padding: 0 15px;
+}
+
+.editorHomeNavCategoryHeader {
+  cursor: pointer;
+  color: grey;
+  display: flex;
+  align-items: center;
+}
+
+.editorHomeNavCategoryHeader:hover {
+  color: white;
+}
+
+/* balls */
 
 .codemirror-editor {
   flex: 1;
@@ -97,12 +162,63 @@ display: none
   width: 100%;
 }
 
+.pluginControlPanel {
+  display: flex;
+  flex-direction: column;
+  width: 150px;
+  background-color: #181818;
+  color: white;
+  padding: 10px 10px;
+}
+
+.pluginControlPanel button {
+  margin: 5px 0;
+  padding: 5px 10px;
+  border: none;
+  background-color: #444;
+  color: white;
+  cursor: pointer;
+}
+
+.editorTopBar {
+  display: flex;
+  justify-content: flex-end;
+  height: 45px;
+  background-color: #181818;
+  align-items: center;
+  gap: 15px;
+  padding-right: 15px;
+}
+
+.editorTopBar button, .codeEditorTopBar button {
+  background-color: #39f;
+  color: white;
+  padding: 3px 15px 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  gap: 10px;
+}
+
+.codeEditorTopBar {
+  color: white;
+  display: flex;
+  height: 45px;
+  background-color: #282828;
+  align-items: center;
+  gap: 15px;
+  padding-left: 15px;
+}
+
 .pluginList {
   width: 140px;
   word-wrap: break-word;
   background-color: #181818;
   color: white;
   padding: 5px 15px;
+  overflow-y: auto;
 }
 
 .pluginList .plugin {
@@ -114,12 +230,68 @@ display: none
   text-decoration: underline;
 }
 
+.newPluginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 300px;
+  margin: auto auto;
+}
+
+.newPluginForm button {
+  background-color: #39f;
+  color: white;
+  padding: 8px 30px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: none;
+  font-weight: bold;
+  width: max-content;
+  margin-left: auto;
+}
+
+.newPluginForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pluginFormInput {
+  border-radius: 3px;
+  padding: 5px;
+  border: none;
+}
+
 /* chat */
 .chatContainer {
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+  z-index: 1;
+  box-shadow: #111 0px 0px 4px;
+  flex:1;
+}
+
+.chatHeader {
+  background-color: #111;
+  color: #fff;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  padding-left: 15px;
+}
+
+/* code runner panel */
+
+.codeRunnerPanel {
   display: flex;
   flex-direction: column;
   width: 500px;
   overflow-y: hidden;
   z-index: 1;
   box-shadow: #111 0px 0px 4px;
+}
+
+.appViewToggle {
+  cursor: pointer;
 }
