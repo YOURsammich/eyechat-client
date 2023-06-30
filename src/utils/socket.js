@@ -49,7 +49,7 @@ const socket = {
 
   emit (event, data) {
     this._socket.send(JSON.stringify({
-      event, data
+      event, data, channelName: this.getActiveChannel()
     }))
   }
 

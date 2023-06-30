@@ -18,8 +18,13 @@ class App extends React.Component {
       connected: false,
       showApp: false,
       userlist: [],
-      activeChannel: '/main'
+      activeChannel: 'main'
     }
+
+    this.actionBtns = [{
+
+    }];
+
   }
 
   componentDidMount() {
@@ -70,12 +75,14 @@ class App extends React.Component {
     return this.state.connected ? (
       
       <div style={{flexDirection: 'column', display: 'flex', flex: 1, overflow:'hidden'}}>
-        <div className="chatHeader">
-          <span className="material-symbols-outlined appViewToggle" onClick={()=> this.setState({showApp: !this.state.showApp})}>code</span>
-        </div>
 
         <div id='main-container'>
 
+          <div className="chatHeader">
+            <div className="appViewToggle" onClick={()=> this.setState({showApp: !this.state.showApp})}>
+              <span className="material-symbols-outlined">code</span>
+            </div>
+          </div>
           {
             this.state.showApp ? <CodeEditor 
               socket={socket}

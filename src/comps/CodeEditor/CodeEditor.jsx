@@ -97,6 +97,7 @@ class EditorHomePage extends React.Component {
 
 function EditorContainer (props) {
   const [isSaving, setSaving] = React.useState(false);
+  const [listShown, setListShown] = React.useState(false);
 
   React.useEffect(() => {
     if (isSaving) {
@@ -116,27 +117,31 @@ function EditorContainer (props) {
   }, [isSaving]);
   
   return <div className="codeEditorContainer">
-
-    <div className='pluginControlPanel'>
-
-      {/* return to home page */}
-      <button className='backToHome' style={{cursor: 'pointer',textAlign: 'center'}}
-        onClick={() => props.setView('home')}
-      >Back to home</button>
-      <h3 style={{textAlign: 'center'}}>{props.plugin.name}</h3>
-
-      <button className='savePlugin'>CLIENT</button>
-      <button className='savePlugin'>SERVER</button>
-
-    </div>
     
     <div style={{display:'flex', flex: 1, flexDirection:'column'}}>
       
       <div className="editorTopBar">
 
+        <div style={{display:'flex',gap:'15px', paddingLeft: '20px'}}>
+
+          <button className='backToHome' style={{cursor: 'pointer',textAlign: 'center'}}
+            onClick={() => props.setView('home')}
+          >
+            <span class="material-symbols-outlined">home</span>
+          </button>
+          
+          <button className='backToHome' style={{cursor: 'pointer',textAlign: 'center'}}
+            onClick={() => setListShown(!listShown)}
+          >
+            <span class="material-symbols-outlined">list</span>
+          </button>
+        </div>
+
+        <h3 style={{textAlign: 'center'}}>{props.plugin.name}</h3>
+
         {isSaving && <div>SAVING</div>}
 
-        <button onClick={() => {
+        <button className="stdBtn" onClick={() => {
           setSaving(true);
         }}>
           <span className="material-symbols-outlined">play_arrow</span>
@@ -144,6 +149,14 @@ function EditorContainer (props) {
         </button>
 
       </div>
+
+      {
+        listShown ? <div className='pluginControlPanel'>
+          {/* return to home page */}
+          <button className='savePlugin'>CLIENT</button>
+          <button className='savePlugin'>SERVER</button>
+        </div> : null 
+      }
 
       <CodeMirrorEditor 
         socket={props.socket}

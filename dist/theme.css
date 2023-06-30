@@ -91,6 +91,7 @@ display: none
 
 .codeEditorContainer {
   display: flex;
+  flex-direction: column;
   flex: 1;
   overflow-x: hidden;
   background-color: #181818;
@@ -103,7 +104,6 @@ display: none
   flex-direction: column;
   gap: 5px;
   margin: 0 auto;
-  width: 700px;
 }
 
 .newPlugin {
@@ -165,8 +165,7 @@ display: none
 
 .pluginControlPanel {
   display: flex;
-  flex-direction: column;
-  width: 150px;
+  gap: 20px;
   background-color: #181818;
   color: white;
   padding: 10px 10px;
@@ -183,7 +182,7 @@ display: none
 
 .editorTopBar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   height: 45px;
   background-color: #181818;
   align-items: center;
@@ -191,7 +190,17 @@ display: none
   padding-right: 15px;
 }
 
-.editorTopBar button, .codeEditorTopBar button {
+.backToHome {
+  background-color: #333;
+  color: white;
+  border: none;
+}
+
+.backToHome:hover {
+  background-color: #39f;
+}
+
+.stdBtn {
   background-color: #39f;
   color: white;
   padding: 3px 15px 3px 6px;
@@ -279,7 +288,9 @@ display: none
   height: 45px;
   display: flex;
   align-items: center;
-  padding-left: 15px;
+  flex-direction: column;
+  height: 100%;
+  z-index: 4;
 }
 
 /* code runner panel */
@@ -294,5 +305,11 @@ display: none
 }
 
 .appViewToggle {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 20px;
+  background-color: #205b96;
   cursor: pointer;
+  height: 45px;
 }
