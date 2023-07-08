@@ -116,7 +116,8 @@ async function createPeerState(plugin, getCurrPlugin, socket) {
       // }),
       // lineNumbers(),
       javascript(),
-      oneDark
+      oneDark,
+      EditorView.lineWrapping,
     ]
   })
   return state;
@@ -146,8 +147,6 @@ const CodeMirrorEditor = ({socket, value, plugin }) => {
 
           });
         }
-
-
 
         setCurrPlugin(plugin);
       }

@@ -18,7 +18,8 @@ class App extends React.Component {
       connected: false,
       showApp: false,
       userlist: [],
-      activeChannel: 'main'
+      activeChannel: 'main',
+      chatWidth: 300
     }
 
     this.actionBtns = [{
@@ -66,8 +67,35 @@ class App extends React.Component {
 
         socket.emit('joinChannel');
 
-        this.setState({connected: true})
+        this.resizeBarRef = React.createRef();
+
+        this.setState({connected: true}, this.scrollListenerInit.bind(this));
       })
+  }
+
+  scrollListenerInit() {
+    this.draggingWindow = false;
+
+    this.resizeBarRef.current.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+
+      this.draggingWindow = true;
+
+      console.log('mousedown', (window.innerWidth - e.clientX) - 170, e.target.offsetLeft);
+
+      // document.addEventListener('mousemove', this.resizePanel);
+      // document.addEventListener('mouseup', this.stopResize);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (this.draggingWindow) {
+        this.setState({chatWidth: (window.innerWidth - e.clientX) - 170})
+      }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      this.draggingWindow = false;
+    });
 
   }
 
@@ -89,12 +117,20 @@ class App extends React.Component {
             /> : null
           }
           
-          <div style={{display: 'flex',flexDirection: 'column', flex:1}}>
+          <div style={{
+            display: 'flex',flexDirection: 'row', 
+            flex:this.state.showApp ? 'unset' : 1,
+            width: this.state.showApp ? (this.state.chatWidth + 'px') : 'unset',
+          }}>
 
             {/* <CodeRunWindow 
               socket={socket}
               userlist={this.state.userlist}
             /> */}
+
+            <div className='resizeBar'>
+              <div className='resizeHandle' ref={this.resizeBarRef}></div>
+            </div>
 
             <ChatWindow 
               socket={socket}

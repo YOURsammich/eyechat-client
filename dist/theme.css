@@ -293,6 +293,24 @@ display: none
   z-index: 4;
 }
 
+.resizeBar {
+  width: 0;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.resizeHandle {
+  left: -10px;
+  width: 20px;
+  position: absolute;
+  height: 20px;
+  background-color: #f00;
+  cursor: col-resize;
+  z-index: 100;
+}
+
 /* code runner panel */
 
 .codeRunnerPanel {
@@ -312,4 +330,15 @@ display: none
   background-color: #205b96;
   cursor: pointer;
   height: 45px;
+}
+
+/* messages */
+
+.general .messageContent:before,
+.general .messageContent:after{
+    content: ' ** '
+}
+
+.general {
+  color: #2CE72C;
 }

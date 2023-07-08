@@ -107,7 +107,6 @@ function NestMessage (props) {
 
   const messages = props.message.children;
   return messages.map((message, i) => {
-    console.log(message);
     return <span key={message.data} style={props.getMsgCss(message.data.strdata)}>
       {/* render text if text comp */}
       {
@@ -131,42 +130,39 @@ class Messages extends React.Component {
   constructor () {
     super();
 
-    this.state = {
-      messages: []
-    }
+    this.state = {}
+
+    this.cacheMessage = {};
 
     this.messageCon = React.createRef();
   }
 
-  componentDidMount () {
-    this.props.socket.on('message', (data) => {
-      const oldMessages = [...this.state.messages];
-
-      data.time = this.renderTimeStamp(data)
-      data.nick = this.renderNick(data)
-      data.message = this.renderMessageContent(data)
-      oldMessages.push(data)
-
-      this.setState({messages:oldMessages});
-    })
-  }
-
   componentDidUpdate (prevProps, prevState) {
     //check if the messages have changed by comparing message from this.state and prevState
-    const oldMessage = this.state.messages[this.state.messages.length - 1];
-    const newMessage = prevState.messages[prevState.messages.length - 1];
+    const oldMessage = this.props.messages[this.props.messages.length - 1];
+    const newMessage = prevProps.messages[prevProps.messages.length - 1];
 
-    if (oldMessage && newMessage && oldMessage.msgCount !== newMessage.msgCount) {
-      const messageCon = this.messageCon.current;
+    const messageCon = this.messageCon.current;
+    if (oldMessage && newMessage && oldMessage.count !== newMessage.count) {
       
       //don't scroll if the user has scrolled 50 pixels up
+
+      console.log(messageCon.scrollTop + messageCon.clientHeight,  messageCon.scrollHeight);
+
       if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - 50) {
+        console.log('should scroll');
         messageCon.scrollTo({
           top: messageCon.scrollHeight,
-          behavior: 'smooth'
+          behavior: document.hasFocus() ? 'smooth' : 'instant'
         });
       }
+    } else if (prevProps.messages.length == 0) {
+      messageCon.scrollTo({
+        top: messageCon.scrollHeight,
+        behavior: 'instant'
+      });
     }
+    console.log('prevProps.messages', prevProps.messages);
   }
 
   renderTimeStamp (msgData) {
@@ -174,7 +170,7 @@ class Messages extends React.Component {
       timeStyle: "short",
     });
 
-    return <div className='time' title={msgData.msgCount}>{shortTime.format(Date.now())} </div>
+    return <div className='time' title={msgData.count}>{shortTime.format(Date.now())} </div>
   }
 
   renderNick (msgData) {
@@ -201,16 +197,21 @@ class Messages extends React.Component {
   }
 
   renderMessage (message) {
-    return <div className="message" key={message.msgCount}>
-      { message.time }
-      { message.nick }
-      { message.message }
+    return <div className={'message' + (message.type ? ' ' + message.type : '')} key={message.count}>
+      { this.renderTimeStamp(message) }
+      { !message.type ? this.renderNick(message) : null }
+      { this.renderMessageContent(message) }
     </div>
   }
 
   render () {
     return <div id="message-container" ref={this.messageCon}>
-      { this.state.messages.map(message => this.renderMessage(message)) }
+      { this.props.messages.map(message => {
+        if (this.cacheMessage[message.count]) return this.cacheMessage[message.count];
+        const msg = this.renderMessage(message);
+        this.cacheMessage[message.count] = msg;
+        return msg;
+      }) }
     </div>
   }
 }
