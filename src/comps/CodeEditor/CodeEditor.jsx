@@ -127,13 +127,13 @@ function EditorContainer (props) {
           <button className='backToHome' style={{cursor: 'pointer',textAlign: 'center'}}
             onClick={() => props.setView('home')}
           >
-            <span class="material-symbols-outlined">home</span>
+            <span className="material-symbols-outlined">home</span>
           </button>
           
           <button className='backToHome' style={{cursor: 'pointer',textAlign: 'center'}}
             onClick={() => setListShown(!listShown)}
           >
-            <span class="material-symbols-outlined">list</span>
+            <span className="material-symbols-outlined">list</span>
           </button>
         </div>
 

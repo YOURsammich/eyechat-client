@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState  } from "react";
-import { EditorView, ViewPlugin, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { EditorState, ChangeSet, Text, StateField } from "@codemirror/state";
+import { EditorView, ViewPlugin, keymap, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
+import {defaultKeymap} from "@codemirror/commands"
 import { oneDark } from "@codemirror/theme-one-dark";
 import { javascript } from "@codemirror/lang-javascript";
 import { collab, sendableUpdates, getSyncedVersion, receiveUpdates } from "@codemirror/collab";
-
-import {basicSetup} from "codemirror"
+//import basic setup
+import { basicSetup} from "codemirror"
 
 //import history from commands
-import { history, historyField } from "@codemirror/commands";
 
 async function getDocument(plugin) {
   return fetch('/getDocument', {
@@ -99,8 +99,7 @@ async function createPeerState(plugin, getCurrPlugin, socket) {
   let state = EditorState.create({
     doc,
     extensions: [
-      highlightActiveLine(),
-      highlightActiveLineGutter(),
+      keymap.of(defaultKeymap),
       basicSetup,
       peerExtensionSocket(version, plugin, getCurrPlugin, socket),
       // history(),
@@ -114,10 +113,11 @@ async function createPeerState(plugin, getCurrPlugin, socket) {
       //   }
 
       // }),
-      // lineNumbers(),
+      highlightActiveLine(),
+      highlightActiveLineGutter(),
       javascript(),
       oneDark,
-      EditorView.lineWrapping,
+      // lineNumbers(),
     ]
   })
   return state;
