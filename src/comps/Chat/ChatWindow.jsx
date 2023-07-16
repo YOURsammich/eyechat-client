@@ -62,9 +62,9 @@ class ChatWindow extends React.Component {
 
     return <div className='chatContainer'>
 
-      {/* <div className="chatHeader">
+       <div className="chatHeader">
         <span className="material-symbols-outlined" onClick={()=> this.props.toggleEditor()}>code</span>
-      </div> */}
+      </div> 
 
       <Messages 
         socket={this.props.socket}

@@ -4,6 +4,9 @@ const COMMANDS = {
   },
   login: {
     params: ['nick', 'password']
+  },
+  register: {
+    params: ['nick', 'password']
   }
 }
 

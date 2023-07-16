@@ -289,6 +289,16 @@ display: none
   display: flex;
   align-items: center;
   flex-direction: column;
+  z-index: 4;
+}
+
+.sideBar {
+  background-color: #111;
+  color: #fff;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
   height: 100%;
   z-index: 4;
 }
