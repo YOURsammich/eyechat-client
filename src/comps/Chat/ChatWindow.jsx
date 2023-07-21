@@ -5,14 +5,13 @@ class ChatWindow extends React.Component {
   
   constructor () {
     super();
-
     this.state = {
-      messages: []
+      messages: [],
+      showUsers: true
     }
   }
 
   componentDidMount () {
-
     this.props.socket.on('message', (data) => {
       const oldMessages = [...this.state.messages];
       console.log(data)
@@ -59,11 +58,14 @@ class ChatWindow extends React.Component {
   }
 
   render () {
-
+    
     return <div className='chatContainer'>
 
-       <div className="chatHeader">
-        <span className="material-symbols-outlined" onClick={()=> this.props.toggleEditor()}>code</span>
+      <div className="chatHeader">
+        <span className='channelName'>{this.props.channelName}</span>
+        <span className={`material-symbols-outlined toggleUsers`} onClick={this.props.toggleUsers}>
+          {this.props.showUsers ? 'chevron_right' : 'chevron_left'}
+        </span>
       </div> 
 
       <Messages 

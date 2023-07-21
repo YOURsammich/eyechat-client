@@ -3,10 +3,12 @@ const COMMANDS = {
     params: ['nick']
   },
   login: {
-    params: ['nick', 'password']
+    params: ['nick', 'password'],
+    secureFetch: true
   },
   register: {
-    params: ['nick', 'password']
+    params: ['nick', 'password'],
+    secureFetch: true
   }
 }
 
@@ -32,13 +34,25 @@ const handleCommand = {
       }
     }
   },
-  handle (command) {
+  handle(command) {
     const [, commandName, params] = command;
     const cmd = COMMANDS[commandName];
 
     if (!cmd) throw new Error("Invalid Command");
 
     const paramaObj = this.formatParams(cmd, params);
+
+    if (cmd.secureFetch) {
+      fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ params: paramaObj, type: commandName })
+      })
+      return;
+    }
+
     return {
       commandName,
       params: paramaObj
