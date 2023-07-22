@@ -26,7 +26,7 @@ const messageParser = {
     return {index: index, strdata: str.slice(index, nextSpace), type: 'link'};
   },
   returnEmoji (str) {
-    return 
+    return;
   },
   getNextEmojiComp (str) {
 
@@ -34,9 +34,9 @@ const messageParser = {
     if (index == -1) return null;
 
     const nextSpace = str.indexOf(' ', index);
-    if (nextSpace == -1 && str[str.length - 1] == ':') return {index, strdata: str.slice(index), type: 'emoji'};
+    if (nextSpace == -1 && str[str.length - 1] == ':' && str.length -1 != index) return {index, strdata: str.slice(index), type: 'emoji'};
 
-    if (str[nextSpace - 1] == ':') return {index: index, strdata: str.slice(index, nextSpace), type: 'emoji'};
+    if (str[nextSpace - 1] == ':' && ((nextSpace - 1) != index)) return {index: index, strdata: str.slice(index, nextSpace), type: 'emoji'};
 
     return null;
   },

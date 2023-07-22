@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { createRoot } from 'react-dom/client';
 
+import Store from './utils/store';
 import socket from './utils/socket'
 socket.init();
 
@@ -22,11 +23,6 @@ class App extends React.Component {
       chatWidth: 300,
       showUsers: true
     }
-
-    this.actionBtns = [{
-
-    }];
-
   }
 
   componentDidMount() {
@@ -35,6 +31,8 @@ class App extends React.Component {
       getActiveChannel: () => this.state.activeChannel,
     })
       .then(() => {
+        this.store = new Store();
+
         socket.on('userlist', (userlist) => {
           this.setState({userlist: userlist})
         });
@@ -66,6 +64,11 @@ class App extends React.Component {
           }
         });
 
+        socket.on('channelInfo', (channelInfo) => {
+          store.handleStates(channelInfo);
+          console.log(store);
+        });
+
         socket.emit('joinChannel');
 
         this.resizeBarRef = React.createRef();
@@ -81,8 +84,6 @@ class App extends React.Component {
       e.preventDefault();
 
       this.draggingWindow = true;
-
-      console.log('mousedown', (window.innerWidth - e.clientX) - 170, e.target.offsetLeft);
 
       // document.addEventListener('mousemove', this.resizePanel);
       // document.addEventListener('mouseup', this.stopResize);

@@ -14,17 +14,15 @@ class ChatWindow extends React.Component {
   componentDidMount () {
     this.props.socket.on('message', (data) => {
       const oldMessages = [...this.state.messages];
-      console.log(data)
       oldMessages.push(data)
 
       this.setState({messages:oldMessages});
     })
 
     this.props.socket.on('channelInfo', (channelInfo) => {
-      console.log(channelInfo);
       const oldMessages = [...this.state.messages];
 
-      const messageLog = channelInfo.messages.reverse().map(a=>{
+      const messageLog = channelInfo.message_log.reverse().map(a=>{
         return {
           message: a.message,
           type: a.type,
@@ -36,13 +34,13 @@ class ChatWindow extends React.Component {
       oldMessages.push(...messageLog);
 
       oldMessages.push({
-        message: channelInfo.info.note,
+        message: channelInfo.note,
         type: 'general',
         count: 'note'
       });
 
       oldMessages.push({
-        message: 'Topic: ' + channelInfo.info.topic,
+        message: 'Topic: ' + channelInfo.topic,
         type: 'general',
         count: 'topic'
       });
