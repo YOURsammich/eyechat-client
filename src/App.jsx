@@ -65,8 +65,8 @@ class App extends React.Component {
         });
 
         socket.on('channelInfo', (channelInfo) => {
-          store.handleStates(channelInfo);
-          console.log(store);
+          this.store.handleStates(channelInfo);
+          console.log(this.store);
         });
 
         socket.emit('joinChannel');
