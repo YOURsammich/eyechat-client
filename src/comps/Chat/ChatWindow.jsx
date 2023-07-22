@@ -33,17 +33,23 @@ class ChatWindow extends React.Component {
 
       oldMessages.push(...messageLog);
 
-      oldMessages.push({
-        message: channelInfo.note,
-        type: 'general',
-        count: 'note'
-      });
+      if (channelInfo.note) {
+        oldMessages.push({
+          message: channelInfo.note,
+          type: 'general',
+          count: 'note'
+        });
+      }
 
-      oldMessages.push({
-        message: 'Topic: ' + channelInfo.topic,
-        type: 'general',
-        count: 'topic'
-      });
+      if (channelInfo.topic) {
+
+        oldMessages.push({
+          message: 'Topic: ' + channelInfo.topic,
+          type: 'general',
+          count: 'topic'
+        });
+      }
+
 
       this.setState({messages:oldMessages});
     })
