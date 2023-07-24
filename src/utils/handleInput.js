@@ -1,14 +1,33 @@
 const COMMANDS = {
   nick: {
-    params: ['nick']
-  },
-  login: {
-    params: ['nick', 'password'],
-    secureFetch: true
+    params: ['nick'],
+    handler (params) {
+      fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ params, type: 'nickAvailable' })
+      });
+    }
   },
   register: {
     params: ['nick', 'password'],
-    secureFetch: true
+    handler (params) {
+      fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ params, type: 'register' })
+      });
+    }
+  },
+  login: {
+    params: ['nick', 'password'],
+    handler (params) {
+      fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ params, type: 'login' })
+      });
+    }
   }
 }
 
@@ -42,20 +61,10 @@ const handleCommand = {
 
     const paramaObj = this.formatParams(cmd, params);
 
-    if (cmd.secureFetch) {
-      fetch('/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ params: paramaObj, type: commandName })
-      })
-      return;
-    }
-
     return {
       commandName,
-      params: paramaObj
+      params: paramaObj,
+      handler: cmd.handler
     }
   }
 }

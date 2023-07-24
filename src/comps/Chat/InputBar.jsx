@@ -15,7 +15,11 @@ class InputBar extends React.Component {
         const inputData = handleInput.handle(target.value);
 
         if (inputData.commandName) {
-          this.props.socket.emit('command', inputData);
+          if (inputData.handler) {
+            inputData.handler(inputData.params);
+          } else {
+            this.props.socket.emit('command', inputData);
+          }
         } else {
           this.props.socket.emit('message', inputData);
         }
