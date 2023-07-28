@@ -323,14 +323,23 @@ display: none
 }
 
 .resizeHandle {
-  left: -10px;
-  width: 20px;
+  left: -4px;
+  width: 9px;
   position: absolute;
-  height: 20px;
-  background-color: #f00;
+  height: 30px;
+  background-color: #7373739e;
+  background-image: repeating-linear-gradient(
+  0deg,
+  transparent,
+  transparent 2px,
+  rgba(255, 255, 255, 0.5) 5px,
+  rgba(255, 255, 255, 0.5)5px
+);
   cursor: col-resize;
   z-index: 100;
+  border-radius: 10px;
 }
+
 
 /* code runner panel */
 
