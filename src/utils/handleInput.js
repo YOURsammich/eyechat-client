@@ -2,10 +2,11 @@ const COMMANDS = {
   nick: {
     params: ['nick'],
     handler (params) {
+      console.log(window.sessionID)
       fetch('/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ params, type: 'nickAvailable' })
+        body: JSON.stringify({ params, type: 'nickAvailable', sessionID: window.sessionID })
       });
     }
   },
@@ -15,7 +16,7 @@ const COMMANDS = {
       fetch('/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ params, type: 'register' })
+        body: JSON.stringify({ params, type: 'register', sessionID: window.sessionID })
       });
     }
   },
@@ -25,7 +26,7 @@ const COMMANDS = {
       fetch('/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ params, type: 'login' })
+        body: JSON.stringify({ params, type: 'login', sessionID: window.sessionID })
       });
     }
   }

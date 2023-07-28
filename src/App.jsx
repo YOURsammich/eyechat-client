@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 
 import Store from './utils/store';
 import socket from './utils/socket'
-socket.init();
 
 import ChatWindow from './comps/Chat/ChatWindow';
 import Menu from './comps/Menu'
@@ -68,6 +67,10 @@ class App extends React.Component {
           this.store.handleStates(channelInfo);
           console.log(this.store);
         });
+
+        socket.on('anonTrack', (token) => {
+          window.sessionID = token;
+        })
 
         socket.emit('joinChannel');
 
