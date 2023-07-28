@@ -1,5 +1,6 @@
 import Messages from './Messages';
 import InputBar from './InputBar';
+import Menu from './../Menu'
 
 class ChatWindow extends React.Component {
   
@@ -63,23 +64,34 @@ class ChatWindow extends React.Component {
 
   render () {
     
-    return <div className='chatContainer'>
+    return <div className='' style={{ display: 'flex', flex: 1}}>
+      <div className='chatContainer'>
 
-      <div className="chatHeader">
-        <span className='channelName'>{this.props.channelName}</span>
-        <span className={`material-symbols-outlined toggleUsers`} onClick={this.props.toggleUsers}>
-          {this.props.showUsers ? 'chevron_right' : 'chevron_left'}
-        </span>
-      </div> 
+        <div className="chatHeader">
+          <span className='channelName'>{this.props.channelName}</span>
+          <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({showUsers: !this.state.showUsers})}>
+            {this.state.showUsers ? 'chevron_right' : 'chevron_left'}
+          </span>
+        </div> 
 
-      <Messages 
-        socket={this.props.socket}
-        getUserFlair={this.getUserFlair.bind(this)}
-        messages={this.state.messages}
-      />
-      <InputBar 
-        socket={this.props.socket}
-      />
+        <Messages 
+          socket={this.props.socket}
+          getUserFlair={this.getUserFlair.bind(this)}
+          messages={this.state.messages}
+        />
+        <InputBar 
+          socket={this.props.socket}
+        />
+      </div>
+
+      {
+        this.state.showUsers ?
+        <Menu 
+          userlist={this.props.userlist}
+        /> : null
+      }
+
+
 
     </div>
 

@@ -19,8 +19,7 @@ class App extends React.Component {
       showApp: false,
       userlist: [],
       activeChannel: 'main',
-      chatWidth: 300,
-      showUsers: true
+      chatWidth: 300
     }
   }
 
@@ -94,7 +93,7 @@ class App extends React.Component {
 
     document.addEventListener('mousemove', (e) => {
       if (this.draggingWindow) {
-        this.setState({chatWidth: (window.innerWidth - e.clientX) - (this.state.showUsers ? 170 : 0)});
+        this.setState({chatWidth: (window.innerWidth - e.clientX)});
       }
     });
 
@@ -139,21 +138,12 @@ class App extends React.Component {
 
             <ChatWindow 
               socket={socket}
-              showUsers={this.state.showUsers}
               userlist={this.state.userlist}
-              toggleUsers={() => this.setState({showUsers: !this.state.showUsers})}
               channelName={this.state.activeChannel}
               toggleEditor={() => this.setState({showApp: !this.state.showApp})}
               editorShown={this.state.showApp}
             />
           </div>
-
-          {this.state.showUsers ?
-          <Menu 
-            userlist={this.state.userlist}
-          /> :
-          null}
-
         </div>
       
       </div>
