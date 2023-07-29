@@ -121,6 +121,7 @@ class App extends React.Component {
             display: 'flex',flexDirection: 'row', 
             flex:this.state.showApp ? 'unset' : 1,
             width: this.state.showApp ? (this.state.chatWidth + 'px') : 'unset',
+            overflowX: 'hidden'
           }}>
 
             {/* <CodeRunWindow 

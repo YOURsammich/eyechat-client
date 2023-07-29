@@ -53,7 +53,7 @@ class ChatWindow extends React.Component {
       }
 
 
-      this.setState({messages:oldMessages});
+      this.setState({messages:oldMessages, ...channelInfo});
     })
 
   }
@@ -65,7 +65,7 @@ class ChatWindow extends React.Component {
 
   render () {
     
-    return <div className='' style={{ display: 'flex', flex: 1}}>
+    return <div className='' style={{ display: 'flex', flex: 1, overflow: 'hidden'}}>
       <div className='chatContainer'>
 
         <div className="chatHeader">
@@ -81,6 +81,7 @@ class ChatWindow extends React.Component {
           messages={this.state.messages}
         />
         <InputBar 
+          emoji={this.state.emojis}
           socket={this.props.socket}
         />
       </div>
