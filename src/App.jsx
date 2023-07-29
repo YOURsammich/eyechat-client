@@ -67,10 +67,6 @@ class App extends React.Component {
           console.log(this.store);
         });
 
-        socket.on('anonTrack', (token) => {
-          window.sessionID = token;
-        })
-
         socket.emit('joinChannel');
 
         this.resizeBarRef = React.createRef();
