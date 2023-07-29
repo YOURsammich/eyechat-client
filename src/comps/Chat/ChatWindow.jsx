@@ -29,6 +29,7 @@ class ChatWindow extends React.Component {
           type: a.type,
           count: a.count,
           nick: a.nick,
+          flair: a.flair
         }
       });
 

@@ -29,6 +29,9 @@ const COMMANDS = {
         body: JSON.stringify({ params, type: 'login', sessionID: window.sessionID })
       });
     }
+  },
+  flair: {
+    params: ['flair']
   }
 }
 

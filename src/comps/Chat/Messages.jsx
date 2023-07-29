@@ -29,7 +29,6 @@ const messageParser = {
     return;
   },
   getNextEmojiComp (str) {
-
     const index = str.indexOf(':');
     if (index == -1) return null;
 
@@ -41,12 +40,24 @@ const messageParser = {
     return null;
   },
 
+  getColorComp (str) {
+    const index = str.indexOf('#');
+    if (index == -1) return null;
+
+    const hex = str.slice(index).match(/^#([0-9a-f]){6}|^#([0-9a-f]){3}/i);
+    if (!hex) return null;
+
+    const stopPoint = hex[0].length;
+    return {index: index, strdata: str.slice(index, stopPoint), type: 'color'};
+  },
+
   getNextComp (str, msgStyles) {
     const nextStyleComp = this.getNextStyleComp(str, msgStyles);
     const nextLinkComp = this.getNextLinkComp(str, msgStyles);
     const nextEmojiComp = this.getNextEmojiComp(str, msgStyles);
+    const nextColorComp = this.getColorComp(str, msgStyles);
 
-    const comps = [nextStyleComp, nextLinkComp, nextEmojiComp].filter(comp => comp != null);
+    const comps = [nextStyleComp, nextLinkComp, nextEmojiComp, nextColorComp].filter(comp => comp != null);
     if (comps.length == 0) return null;
 
     const nextComp = comps.reduce((prev, curr) => {
@@ -146,9 +157,6 @@ class Messages extends React.Component {
     if (oldMessage && newMessage && oldMessage.count !== newMessage.count) {
       
       //don't scroll if the user has scrolled 50 pixels up
-
-      console.log(messageCon.scrollTop + messageCon.clientHeight,  messageCon.scrollHeight);
-
       if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - 50) {
         console.log('should scroll');
         messageCon.scrollTo({
@@ -162,7 +170,6 @@ class Messages extends React.Component {
         behavior: 'instant'
       });
     }
-    console.log('prevProps.messages', prevProps.messages);
   }
 
   renderTimeStamp (msgData) {
@@ -174,7 +181,11 @@ class Messages extends React.Component {
   }
 
   renderNick (msgData) {
-    return <div className='nick' style={{color: this.props.getUserFlair(msgData.nick)}}>{msgData.nick + ': '}</div>
+    const flair = messageParser.parse(msgData.flair || msgData.nick, msgStyles);
+
+    return <div className='nick'>
+      { <NestMessage message={flair} getMsgCss={this.getMsgCss} /> }{': '}
+    </div>
   }
 
   getMsgCss (compName) {
@@ -182,6 +193,11 @@ class Messages extends React.Component {
       '/*': { fontWeight: 'bold' },
       '/%': { fontStyle: 'italic' },
       '/^': { fontSize: '1.2em' }
+    }
+
+    if (compName && compName[0] == '#') {
+      const color = compName;
+      return { color };
     }
 
     return styles[compName] || {};

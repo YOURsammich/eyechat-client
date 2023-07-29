@@ -48,13 +48,16 @@ display: none
 }
 
 .nick {
-  font-weight: bold;
+  color: rgb(100, 100, 192);
+  text-shadow: rgb(0, 0, 0) -1px -1px 0px, rgb(0, 0, 0) 1px -1px 0px, rgb(0, 0, 0) -1px 1px 0px, rgb(0, 0, 0) 1px 1px 0px;
 }
 
 .message {
+  text-shadow: rgb(0, 0, 0) -1px -1px 0px, rgb(0, 0, 0) 1px -1px 0px, rgb(0, 0, 0) -1px 1px 0px, rgb(0, 0, 0) 1px 1px 0px;
   display: flex;
   flex-direction: row;
   white-space: pre-wrap;
+  word-wrap: break-word;
   margin: 5px 0;
   align-items: baseline;
 }
