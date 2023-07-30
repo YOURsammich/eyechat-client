@@ -31,6 +31,9 @@ const COMMANDS = {
   },
   flair: {
     params: ['flair']
+  },
+  background: {
+    params: ['code']
   }
 }
 

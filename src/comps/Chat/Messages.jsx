@@ -221,7 +221,7 @@ class Messages extends React.Component {
   }
 
   render () {
-    return <div id="message-container" ref={this.messageCon}>
+    return <div id="message-container" ref={this.messageCon} style={{background: `${this.props.background}`}}>
       { this.props.messages.map(message => {
         if (this.cacheMessage[message.count]) return this.cacheMessage[message.count];
         const msg = this.renderMessage(message);

@@ -56,6 +56,9 @@ class ChatWindow extends React.Component {
       this.setState({messages:oldMessages, ...channelInfo});
     })
 
+    this.props.socket.on('bgUpdate', (newBackground) => {
+      this.setState({background: newBackground})
+    })
   }
 
   getUserFlair (nick) {
@@ -79,6 +82,7 @@ class ChatWindow extends React.Component {
           socket={this.props.socket}
           getUserFlair={this.getUserFlair.bind(this)}
           messages={this.state.messages}
+          background={this.state.background}
         />
         <InputBar 
           emoji={this.state.emojis}

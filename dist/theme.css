@@ -38,7 +38,6 @@ display: none
 }
 
 #message-container {
-  background-color: #222;
   color: white;
   flex: 1;
   padding: 10px 10px;
