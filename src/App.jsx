@@ -136,7 +136,6 @@ class App extends React.Component {
             <ChatWindow 
               socket={socket}
               userlist={this.state.userlist}
-              channelName={this.state.activeChannel}
               toggleEditor={() => this.setState({showApp: !this.state.showApp})}
               editorShown={this.state.showApp}
             />

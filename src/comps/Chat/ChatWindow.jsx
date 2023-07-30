@@ -56,8 +56,13 @@ class ChatWindow extends React.Component {
       this.setState({messages:oldMessages, ...channelInfo});
     })
 
-    this.props.socket.on('bgUpdate', (newBackground) => {
-      this.setState({background: newBackground})
+    this.props.socket.on('setState', (data) => {
+      const key = data[0];
+      const value = data[1];
+      
+      if (this.state.hasOwnProperty(key)) {
+        this.setState({ [key]: value });
+      }
     })
   }
 
@@ -68,11 +73,12 @@ class ChatWindow extends React.Component {
 
   render () {
     
-    return <div className='' style={{ display: 'flex', flex: 1, overflow: 'hidden'}}>
+    return <div className='a' style={{ display: 'flex', flex: 1}}>
       <div className='chatContainer'>
 
         <div className="chatHeader">
-          <span className='channelName'>{this.props.channelName}</span>
+        <div className='topic'>{this.state.topic}</div>
+          <div className='channelName'>{this.state.channelName}</div>
           <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({showUsers: !this.state.showUsers})}>
             {this.state.showUsers ? 'chevron_right' : 'chevron_left'}
           </span>

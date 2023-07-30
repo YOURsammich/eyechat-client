@@ -34,6 +34,10 @@ const COMMANDS = {
   },
   background: {
     params: ['code']
+  },
+  topic: {
+    params: ['topic'],
+    leaveSpace: true
   }
 }
 
@@ -55,7 +59,7 @@ const handleCommand = {
     } else {
       const paramKey = cmd.params[0];
       return {
-        [paramKey]:  params.split(' ')[0]
+        [paramKey]:  cmd.leaveSpace ? params : params.split(' ')[0]
       }
     }
   },
