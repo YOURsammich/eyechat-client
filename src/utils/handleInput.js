@@ -80,10 +80,11 @@ const handleCommand = {
 }
 
 const handleInput = {
-  handle (input) {
+  handle (input, channelName) {
     const command = /^\/(\w+) ?([\s\S]*)/.exec(input);
     if (command) {
       const cmdData = handleCommand.handle(command);
+      cmdData.params.channelName = channelName; // inject channelName for fetch requests
 
       return cmdData;
     } else {

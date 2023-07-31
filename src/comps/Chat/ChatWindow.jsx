@@ -77,28 +77,29 @@ class ChatWindow extends React.Component {
       <div className='chatContainer'>
 
         <div className="chatHeader">
-        <div className='topic'>{this.state.topic}</div>
+          <div className='topic'>{this.state.topic}</div>
           <div className='channelName'>{this.state.channelName}</div>
-          <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({showUsers: !this.state.showUsers})}>
+          <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ showUsers: !this.state.showUsers })}>
             {this.state.showUsers ? 'chevron_right' : 'chevron_left'}
           </span>
-        </div> 
+        </div>
 
-        <Messages 
+        <Messages
           socket={this.props.socket}
           getUserFlair={this.getUserFlair.bind(this)}
           messages={this.state.messages}
           background={this.state.background}
         />
-        <InputBar 
+        <InputBar
           emoji={this.state.emojis}
           socket={this.props.socket}
+          channelName={this.props.channelName}
         />
       </div>
 
       {
         this.state.showUsers ?
-        <Menu 
+          <Menu 
           userlist={this.props.userlist}
         /> : null
       }

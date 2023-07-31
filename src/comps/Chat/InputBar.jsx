@@ -2,17 +2,17 @@ import * as React from 'react';
 import handleInput from '../../utils/handleInput'
 
 class InputBar extends React.Component {
-  constructor () {
+  constructor() {
     super();
   }
 
-  handleInput (event) {
+  handleInput(event) {
     const target = event.target;
 
     if (event.which == 13) {
       event.preventDefault();
       try {
-        const inputData = handleInput.handle(target.value);
+        const inputData = handleInput.handle(target.value, this.props.channelName);
 
         if (inputData.commandName) {
           if (inputData.handler) {
@@ -32,7 +32,7 @@ class InputBar extends React.Component {
     }
   }
 
-  handleKeyUp (event) {
+  handleKeyUp(event) {
     const target = event.target;
 
     if (event.which == 13) {
@@ -40,7 +40,7 @@ class InputBar extends React.Component {
     }
   }
 
-  render () {
+  render() {
     return <div className="input-container" onKeyDown={this.handleInput.bind(this)} onKeyUp={this.handleKeyUp.bind(this)}>
       <textarea rows="1" placeholder="Type anything then press enter."></textarea>
     </div>
