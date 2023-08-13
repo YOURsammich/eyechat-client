@@ -54,7 +54,7 @@ const messageParser = {
   getNextComp (str, msgStyles) {
     const nextStyleComp = this.getNextStyleComp(str, msgStyles);
     const nextLinkComp = this.getNextLinkComp(str, msgStyles);
-    const nextEmojiComp = this.getNextEmojiComp(str, msgStyles);
+    const nextEmojiComp = this.getNextEmojiComp(str);
     const nextColorComp = this.getColorComp(str, msgStyles);
 
     const comps = [nextStyleComp, nextLinkComp, nextEmojiComp, nextColorComp].filter(comp => comp != null);
@@ -113,6 +113,36 @@ const messageParser = {
 
 }
 
+function Emoji (props) {
+  const [loaded, setLoaded] = React.useState(false);
+  const emoji = props.emojis.find(emoji => emoji.id == props.emojiId.replaceAll(':', ''));
+
+  return emoji ? (<div className='emoji' onClick={() => {
+    const target = document.querySelector('.input-container textarea');
+    const start = target.selectionStart;
+    const end = target.selectionEnd;
+    const value = target.value;
+    const newValue = value.slice(0, start) + ':' + emoji.id + ':' + value.slice(end);
+    target.value = newValue;
+
+    target.focus();
+    target.selectionStart = start + emoji.id.length + 2;
+    target.selectionEnd = start + emoji.id.length + 2;
+
+  }}>
+    {loaded ? null : <div style={{height: '64px', width: '64px'}}></div>}
+    <img
+    className='emoji'
+    onLoad={(e) => {
+      if (!loaded) {
+        setLoaded(true);
+      }
+    }}
+    src={'/images/emojis/' + emoji.imageName}
+  />
+  </div>) : props.emojiId
+}
+
 function NestMessage (props) {
   if (!props.message) return null;
 
@@ -123,13 +153,19 @@ function NestMessage (props) {
       {
         typeof message.data == 'string' ? message.data : 
           message.data.type == 'link' ? <a href={message.data.strdata}>{message.data.strdata}</a> : 
-            message.data.type == 'emoji' ? <img src={message.data.strdata} /> : null
+            message.data.type == 'emoji' ? <Emoji 
+              emojiId={message.data.strdata} 
+              emojis={props.emojis} 
+              _imageLoaded={(image) => props._imageLoaded(image)}
+            /> : null
       }
 
       
       {message.children.length > 0 ? <NestMessage 
         getMsgCss={props.getMsgCss}
         message={message} 
+        emojis={props.emojis}
+        _imageLoaded={(image) => props._imageLoaded(image)}
       /> : null}
     </span>
 
@@ -155,10 +191,11 @@ class Messages extends React.Component {
 
     const messageCon = this.messageCon.current;
     if (oldMessage && newMessage && oldMessage.count !== newMessage.count) {
-      
+
+      const newMessageHeight = messageCon.children[messageCon.children.length - 1].offsetHeight;
+
       //don't scroll if the user has scrolled 50 pixels up
-      if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - 50) {
-        console.log('should scroll');
+      if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - newMessageHeight - 30) {
         messageCon.scrollTo({
           top: messageCon.scrollHeight,
           behavior: document.hasFocus() ? 'smooth' : 'instant'
@@ -167,6 +204,22 @@ class Messages extends React.Component {
     } else if (prevProps.messages.length == 0) {
       messageCon.scrollTo({
         top: messageCon.scrollHeight,
+        behavior: 'instant'
+      });
+    }
+  }
+
+  _imageLoaded (image) {
+    const messageCon = this.messageCon.current;
+    if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - 100) {
+
+      messageCon.scrollTo({
+        top: messageCon.scrollHeight,
+        behavior: 'instant'
+      });
+    } else {
+      messageCon.scrollTo({
+        top: messageCon.scrollTop,
         behavior: 'instant'
       });
     }
@@ -208,7 +261,12 @@ class Messages extends React.Component {
     //console.log(message);
 
     return <div className='messageContent'>
-      <NestMessage message={message} getMsgCss={this.getMsgCss} />
+      <NestMessage
+        message={message} 
+        emojis={this.props.emojis}
+        getMsgCss={this.getMsgCss} 
+        _imageLoaded={(image) => this._imageLoaded(image)} 
+      />
     </div>
   }
 

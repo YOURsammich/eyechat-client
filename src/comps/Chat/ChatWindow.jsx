@@ -1,6 +1,8 @@
 import Messages from './Messages';
 import InputBar from './InputBar';
 import Menu from './../Menu'
+import Store from '../../utils/store';
+const storeTtest = new Store();
 
 class ChatWindow extends React.Component {
   
@@ -52,8 +54,9 @@ class ChatWindow extends React.Component {
         });
       }
 
+      console.log('init data',  storeTtest.handleStates(channelInfo));
 
-      this.setState({messages:oldMessages, ...channelInfo});
+      this.setState({messages:oldMessages, ...storeTtest.handleStates(channelInfo)});
     })
 
     this.props.socket.on('setState', (data) => {
@@ -73,7 +76,7 @@ class ChatWindow extends React.Component {
 
   render () {
     
-    return <div className='a' style={{ display: 'flex', flex: 1}}>
+    return <div style={{ display: 'flex', flex: 1, overflow: 'hidden'}}>
       <div className='chatContainer'>
 
         <div className="chatHeader">
@@ -84,7 +87,8 @@ class ChatWindow extends React.Component {
           </span>
         </div>
 
-        <Messages
+        <Messages 
+          emojis={this.state.emojis}
           socket={this.props.socket}
           getUserFlair={this.getUserFlair.bind(this)}
           messages={this.state.messages}

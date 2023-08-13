@@ -116,9 +116,9 @@ class Store {
   }
 
   assignState (stateName, setData) {
-    if (!this.storedAttributes[stateName]) this.storedAttributes[stateName] = {};
+    //if (!this.storedAttributes[stateName]) this.storedAttributes[stateName] = {};
     
-    const state = this.storedAttributes[stateName];
+    const state = {};
     const stateInstructions = this.stateStruct[stateName];
     
     if (!stateInstructions) return;
@@ -160,15 +160,17 @@ class Store {
         if (!ref[primeKeyName]) ref[primeKeyName] = [];
 
         //remove old value
-        if (!stateInstructions.dubs) {
-          this.searchRemove(ref, primeKeyName, stateValue);
-        }
+        // if (!stateInstructions.dubs) {
+        //   this.searchRemove(ref, primeKeyName, stateValue);
+        // }
 
         ref[primeKeyName].push(stateValue);
       } else {
         ref[primeKeyName] = stateValue;
       }
     }
+
+    return state;
   }
 
   get (attribute) {
@@ -241,8 +243,10 @@ class Store {
 
   handleStates (states) {
     const toggles = ['channelTgl-filteredWords', 'channeltglcentermsg', 'channelTgl-logMessages'];
-    const assignToState = ['themecolors', 'filteredWords', 'emojis', 'polls', 'poll_votes', 'joinnick', 'roles', 'pms', 'plugins', 'plugin_opt', 'messages', 'keyframes', 'pinned', 'block', 'user_inventory'];
+    const assignToState = ['themecolors', 'filteredWords', 'emojiss', 'polls', 'poll_votes', 'joinnick', 'roles', 'pms', 'plugins', 'plugin_opt', 'messages', 'keyframes', 'pinned', 'block', 'user_inventory'];
     
+    const formattedStates = {};
+
     const stateKeys = Object.keys(states);
     for (let state of stateKeys) {
       try {
@@ -256,11 +260,13 @@ class Store {
       if (toggles.indexOf(state) !== -1) {
         //this.setToggle(state, value);
       } else if (assignToState.indexOf(state) !== -1) {
-        this.assignState(state, value);
+        formattedStates[state] = this.assignState(state, value);
       } else {
-        this.setState(state, value);
+        formattedStates[state] = value;
       }
     }
+
+    return formattedStates;
   }
 
 }
