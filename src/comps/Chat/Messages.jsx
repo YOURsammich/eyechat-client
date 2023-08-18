@@ -8,6 +8,22 @@ const msgStyles = {
 
 const messageParser = {
 
+  getTextContent (dataTree, txt = '') {
+    dataTree.children.reduce((prev, curr) => {
+      if (typeof curr.data == 'string') {
+        txt += curr.data;
+      };
+      return txt;
+    }, '');
+
+    
+    if (dataTree.children.length > 0) {
+      txt = this.getTextContent(dataTree.children[0], txt);
+    }
+
+    return txt;
+  },
+
   getNextStyleComp (str, msgStyles) {
     const index = str.indexOf('/');
     if (index == -1) return null;
@@ -236,9 +252,19 @@ class Messages extends React.Component {
   renderNick (msgData) {
     const flair = messageParser.parse(msgData.flair || msgData.nick, msgStyles);
 
-    return <div className='nick'>
+    const textContent = messageParser.getTextContent(flair);
+    
+    if (textContent != msgData.nick) {
+      return <div className='nick'>
+        <span>{msgData.nick}{': '}</span>
+      </div>
+    }
+
+    const nickEl = <div className='nick'>
       { <NestMessage message={flair} getMsgCss={this.getMsgCss} /> }{': '}
     </div>
+
+    return nickEl;
   }
 
   getMsgCss (compName) {
