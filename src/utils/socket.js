@@ -4,7 +4,10 @@ const socket = {
     this.getActiveChannel = getActiveChannel;
 
     return new Promise((resolve, reject) => {
-      this._socket = new WebSocket('ws://' + location.host);
+
+      const prefix = window.location.protocol === 'https:' ? 'wss' : 'ws';
+
+      this._socket = new WebSocket(prefix + '://' + location.host);
   
       this._serverEvents = {};
   

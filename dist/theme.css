@@ -5,6 +5,12 @@ body {
   font-family: 'Archivo', sans-serif;
 }
 
+a {
+  text-decoration: underline;
+  color: lightblue;
+  cursor: pointer;
+}
+
 ::-webkit-scrollbar{
   width: 10px;
 }
@@ -49,6 +55,7 @@ display: none
 .nick {
   color: rgb(100, 100, 192);
   text-shadow: rgb(0, 0, 0) -1px -1px 0px, rgb(0, 0, 0) 1px -1px 0px, rgb(0, 0, 0) -1px 1px 0px, rgb(0, 0, 0) 1px 1px 0px;
+  align-items: center;
 }
 
 .message {
@@ -62,7 +69,7 @@ display: none
 }
 
 .message div {
-  display: inline-flex;
+  display: inline;
 }
 
 .messageContent {
@@ -72,6 +79,7 @@ display: none
 .time {
   font-size: 0.8em;
   color: grey;
+  flex-shrink: 0;
 }
 
 .input-container {

@@ -30,10 +30,12 @@ const COMMANDS = {
     }
   },
   flair: {
-    params: ['flair']
+    params: ['flair'],
+    leaveSpace: true
   },
   background: {
-    params: ['code']
+    params: ['code'],
+    leaveSpace: true
   },
   topic: {
     params: ['topic'],

@@ -41,9 +41,6 @@ const messageParser = {
     if (nextSpace == -1) return {index, strdata: str.slice(index), type: 'link'};
     return {index: index, strdata: str.slice(index, nextSpace), type: 'link'};
   },
-  returnEmoji (str) {
-    return;
-  },
   getNextEmojiComp (str) {
     const index = str.indexOf(':');
     if (index == -1) return null;
@@ -55,25 +52,77 @@ const messageParser = {
 
     return null;
   },
-
-  getColorComp (str) {
-    const index = str.indexOf('#');
+  getNextQuoteComp (str) {
+    const index = str.indexOf('>>');
     if (index == -1) return null;
 
-    const hex = str.slice(index).match(/^#([0-9a-f]){6}|^#([0-9a-f]){3}/i);
+    const nextSpace = str.indexOf(' ', index);
+    if (nextSpace == -1) return {index, strdata: str.slice(index), type: 'quote'};
+
+    return {index: index, strdata: str.slice(index, nextSpace), type: 'quote'};
+  },
+  getColorComp (str) {
+
+    const colorTypes = [{
+      type: 'glow',
+      start: '###',
+    }, {
+      type: 'color',
+      start: '#',
+    }]
+
+    const colorIndex = colorTypes.reduce((prev, curr) => {
+      const index = str.indexOf(curr.start);
+      if (index == -1) return prev;
+
+      if (index < prev?.index || prev?.index == -1) return {index, type: curr.type};
+
+      return prev;
+    }, {index:-1});
+
+    if (colorIndex.index == -1) return null;
+
+    const hex = str.slice(colorIndex.index).match(/^###([0-9a-f]){6}|^###([0-9a-f]){3}|^#([0-9a-f]){6}|^#([0-9a-f]){3}/i);
     if (!hex) return null;
 
     const stopPoint = hex[0].length;
-    return {index: index, strdata: str.slice(index, stopPoint), type: 'color'};
+
+    return {index: colorIndex.index, strdata: str.slice(colorIndex.index, stopPoint), type: colorIndex.type};
+  },
+  getFontComp (str) {
+    const index = str.indexOf('$');
+    if (index == -1) return null;
+
+    const pipeBreak = str.indexOf('|', index);
+    if (pipeBreak == -1) return null;
+
+    return {index: index, strdata: str.slice(index, pipeBreak + 1), type: 'font'};
+  },
+  getStyleBreaker (str) {
+    const index = str.indexOf('|');
+    if (index == -1) return null;
+
+    return {index, strdata: '|', type: 'styleBreaker'};
   },
 
   getNextComp (str, msgStyles) {
+    const nextStyleBreaker = this.getStyleBreaker(str);
     const nextStyleComp = this.getNextStyleComp(str, msgStyles);
     const nextLinkComp = this.getNextLinkComp(str, msgStyles);
     const nextEmojiComp = this.getNextEmojiComp(str);
     const nextColorComp = this.getColorComp(str, msgStyles);
+    const nextFontComp = this.getFontComp(str, msgStyles);
+    const nextQuoteComp = this.getNextQuoteComp(str, msgStyles);
 
-    const comps = [nextStyleComp, nextLinkComp, nextEmojiComp, nextColorComp].filter(comp => comp != null);
+    const comps = [
+      nextStyleBreaker, 
+      nextQuoteComp, 
+      nextFontComp, 
+      nextStyleComp, 
+      nextLinkComp, 
+      nextEmojiComp, 
+      nextColorComp
+    ].filter(comp => comp != null);
     if (comps.length == 0) return null;
 
     const nextComp = comps.reduce((prev, curr) => {
@@ -93,6 +142,12 @@ const messageParser = {
     return null;
   },
   parse (str, msgStyles, tracker = {data: '',parent: null,children: []}) {
+
+    if (!tracker) {
+      tracker = {data: '',parent: null,children: []};
+      console.log('tracker is null');
+    }
+
     const currComp = this.getCurrComp(str, msgStyles);
 
     if (currComp) {
@@ -102,7 +157,12 @@ const messageParser = {
         children: []
       });
 
-      this.parse(str.slice(currComp.strdata.length), msgStyles, tracker.children[tracker.children.length - 1]);
+      if (currComp.type == 'styleBreaker') {
+        this.parse(str.slice(currComp.strdata.length), msgStyles, tracker);
+      } else {
+        this.parse(str.slice(currComp.strdata.length), msgStyles, tracker.children[tracker.children.length - 1]);
+      }
+
 
     } else {//if a component doesn't match, then it's a text component
       const nextComp = this.getNextComp(str, msgStyles);
@@ -120,8 +180,13 @@ const messageParser = {
         parent: tracker,
         children: []
       });
-  
-      this.parse(str.slice(nextComp.index), msgStyles, tracker.children[tracker.children.length - 1]);
+      
+      if (nextComp.type == 'styleBreaker') {
+        this.parse(str.slice(nextComp.index), msgStyles, tracker.parent);
+      } else {
+        this.parse(str.slice(nextComp.index), msgStyles, tracker.children[tracker.children.length - 1]);
+      }
+
     }
 
     return tracker;
@@ -146,7 +211,7 @@ function Emoji (props) {
     target.selectionEnd = start + emoji.id.length + 2;
 
   }}>
-    {loaded ? null : <div style={{height: '64px', width: '64px'}}></div>}
+    {loaded ? null : <div style={{height: '64px', width: '64px', display: 'inline-block'}}></div>}
     <img
     className='emoji'
     onLoad={(e) => {
@@ -159,23 +224,71 @@ function Emoji (props) {
   </div>) : props.emojiId
 }
 
+function QuoteMsg (props) {
+
+  const [quote, setQuote] = React.useState(null);
+  const [noQuote, setNoQuote] = React.useState(null);
+
+  React.useEffect(() => {
+    console.log('what');
+    fetch('/getMessage/' + props.message.data.strdata.slice(2))
+    .then(res => res.json())
+    .then(res => {
+      console.log(res);
+      if (res.error || !res) {
+        setNoQuote(true);
+      } else {
+        //setQuote(res);
+        setNoQuote(false);
+      }
+    });
+
+  }, []);
+
+  const color = noQuote === null ? '#c7c4bf' : noQuote === false ? '' : '#ad0000'
+  return <a className='quote' style={{color:color, position: 'relative'}} onMouseOver={() => {
+    console.log(quote);
+  }}>
+    {props.message.data.strdata}
+
+    {
+      quote ? <div className='quote-container' style={{position: 'absolute'}}>
+        <div className='quote-nick'>{quote.nick}</div>
+        <div className='quote-message'>{quote.message}</div>
+      </div> : null
+    }
+
+  </a>
+
+}
+
+function getCompRender (message, props) {
+
+  switch (true) {
+    case typeof message.data == 'string':
+      return message.data;
+    case message.data.type == 'link':
+      return <a href={message.data.strdata}>{message.data.strdata}</a>;
+    case message.data.type == 'emoji':
+      return <Emoji emojiId={message.data.strdata} emojis={props.emojis} _imageLoaded={(image) => props._imageLoaded(image)} />;
+    case message.data.type == 'quote':
+      return <QuoteMsg message={message} />;
+    default:
+      return null;
+  }
+
+}
+
 function NestMessage (props) {
   if (!props.message) return null;
 
   const messages = props.message.children;
   return messages.map((message, i) => {
-    return <span key={message.data} style={props.getMsgCss(message.data.strdata)}>
-      {/* render text if text comp */}
-      {
-        typeof message.data == 'string' ? message.data : 
-          message.data.type == 'link' ? <a href={message.data.strdata}>{message.data.strdata}</a> : 
-            message.data.type == 'emoji' ? <Emoji 
-              emojiId={message.data.strdata} 
-              emojis={props.emojis} 
-              _imageLoaded={(image) => props._imageLoaded(image)}
-            /> : null
-      }
+    if (message.data?.type == 'styleBreaker') return null;
 
+    return <span key={i} style={props.getMsgCss(message.data?.type, message.data.strdata)}>
+
+      { getCompRender(message, props) }
       
       {message.children.length > 0 ? <NestMessage 
         getMsgCss={props.getMsgCss}
@@ -198,6 +311,8 @@ class Messages extends React.Component {
     this.cacheMessage = {};
 
     this.messageCon = React.createRef();
+
+    this.fonts = {};
   }
 
   componentDidUpdate (prevProps, prevState) {
@@ -206,39 +321,44 @@ class Messages extends React.Component {
     const newMessage = prevProps.messages[prevProps.messages.length - 1];
 
     const messageCon = this.messageCon.current;
-    if (oldMessage && newMessage && oldMessage.count !== newMessage.count) {
+    if (oldMessage && newMessage) {
 
       const newMessageHeight = messageCon.children[messageCon.children.length - 1].offsetHeight;
+      console.log(newMessageHeight, newMessage);
 
       //don't scroll if the user has scrolled 50 pixels up
-      if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - newMessageHeight - 30) {
+      if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - newMessageHeight - 50) {
         messageCon.scrollTo({
           top: messageCon.scrollHeight,
           behavior: document.hasFocus() ? 'smooth' : 'instant'
         });
       }
     } else if (prevProps.messages.length == 0) {
-      messageCon.scrollTo({
-        top: messageCon.scrollHeight,
-        behavior: 'instant'
-      });
-    }
-  }
-
-  _imageLoaded (image) {
-    const messageCon = this.messageCon.current;
-    if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - 100) {
-
+      console.log('inital scroll', messageCon.scrollHeight, this.props.messages[this.props.messages.length-1]);
       messageCon.scrollTo({
         top: messageCon.scrollHeight,
         behavior: 'instant'
       });
     } else {
-      messageCon.scrollTo({
-        top: messageCon.scrollTop,
-        behavior: 'instant'
-      });
+      console.log('no scroll');
+      console.log(oldMessage && newMessage);
     }
+  }
+
+  _imageLoaded (image) {
+    // const messageCon = this.messageCon.current;
+    // if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - 100) {
+
+    //   messageCon.scrollTo({
+    //     top: messageCon.scrollHeight,
+    //     behavior: 'instant'
+    //   });
+    // } else {
+    //   messageCon.scrollTo({
+    //     top: messageCon.scrollTop,
+    //     behavior: 'instant'
+    //   });
+    // }
   }
 
   renderTimeStamp (msgData) {
@@ -251,7 +371,6 @@ class Messages extends React.Component {
 
   renderNick (msgData) {
     const flair = messageParser.parse(msgData.flair || msgData.nick, msgStyles);
-
     const textContent = messageParser.getTextContent(flair);
     
     if (textContent != msgData.nick) {
@@ -261,36 +380,50 @@ class Messages extends React.Component {
     }
 
     const nickEl = <div className='nick'>
-      { <NestMessage message={flair} getMsgCss={this.getMsgCss} /> }{': '}
+      { <NestMessage message={flair} getMsgCss={this.getMsgCss.bind(this)} /> }{': '}
     </div>
 
     return nickEl;
   }
 
-  getMsgCss (compName) {
+  getMsgCss (compName, value) {
     const styles = {
       '/*': { fontWeight: 'bold' },
       '/%': { fontStyle: 'italic' },
       '/^': { fontSize: '1.2em' }
     }
-
-    if (compName && compName[0] == '#') {
-      const color = compName;
+    
+    if (compName == 'color') {
+      const color = value;
       return { color };
+    } else if (compName == 'glow') {
+      const color = value.slice(2);
+      return { textShadow: `0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}` };
+    } else if (compName == 'font') {
+      const fontFamily = value.slice(1, -1);
+      if (!this.fonts[fontFamily]) {
+        this.fonts[fontFamily] = true;
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://fonts.googleapis.com/css2?family=' + fontFamily.replaceAll(' ', '+') + '&display=swap';
+        document.head.appendChild(link);
+      }
+
+      return { fontFamily };
     }
 
-    return styles[compName] || {};
+
+    return styles[value] || {};
   }
 
   renderMessageContent (msgData) {
     const message = messageParser.parse(msgData.message, msgStyles); //parse the message for links and other things
-    //console.log(message);
-
     return <div className='messageContent'>
       <NestMessage
         message={message} 
         emojis={this.props.emojis}
-        getMsgCss={this.getMsgCss} 
+        getMsgCss={this.getMsgCss.bind(this)} 
         _imageLoaded={(image) => this._imageLoaded(image)} 
       />
     </div>
@@ -304,8 +437,19 @@ class Messages extends React.Component {
     </div>
   }
 
+  handleClick (e) {
+    const target = e.target;
+
+    if (target.className.includes('time')) {
+      const input = document.querySelector('.input-container textarea');
+      input.value += '>>' + target.title + ' ';
+      input.focus();
+    }
+
+  }
+
   render () {
-    return <div id="message-container" ref={this.messageCon} style={{background: `${this.props.background}`}}>
+    return <div id="message-container" ref={this.messageCon} style={{background: `${this.props.background}`}} onClick={this.handleClick.bind(this)}>
       { this.props.messages.map(message => {
         if (this.cacheMessage[message.count]) return this.cacheMessage[message.count];
         const msg = this.renderMessage(message);
