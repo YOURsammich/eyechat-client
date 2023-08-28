@@ -40,6 +40,9 @@ const COMMANDS = {
   topic: {
     params: ['topic'],
     leaveSpace: true
+  },
+  pay: {
+    params: ['recipient', 'amount'],
   }
 }
 
