@@ -18,7 +18,9 @@ const messageParser = {
 
     
     if (dataTree.children.length > 0) {
-      txt = this.getTextContent(dataTree.children[0], txt);
+      for (let child of dataTree.children) {
+        txt = this.getTextContent(child, txt);
+      }
     }
 
     return txt;
@@ -128,7 +130,7 @@ const messageParser = {
     const nextComp = comps.reduce((prev, curr) => {
       if (curr.index < prev.index) return curr;
       return prev;
-    });
+    }, {index: Infinity});
 
     return {index: nextComp.index, strdata: nextComp.strdata, type: nextComp.type};
   },
@@ -140,6 +142,20 @@ const messageParser = {
     if (nextComp.index == 0) return nextComp;
 
     return null;
+  },
+  getStyleParent (dataTree) {
+
+    if (!dataTree.parent) return dataTree;
+
+    if (!['color', 'glow'].includes(dataTree.data.type)) return dataTree;
+
+    if (dataTree.parent) {
+      return this.getStyleParent(dataTree.parent);
+    } else {
+      return null;
+    }
+
+
   },
   parse (str, msgStyles, tracker = {data: '',parent: null,children: []}) {
 
@@ -158,7 +174,9 @@ const messageParser = {
       });
 
       if (currComp.type == 'styleBreaker') {
-        this.parse(str.slice(currComp.strdata.length), msgStyles, tracker);
+        let styleParent = this.getStyleParent(tracker);
+        const styleLayer = (styleParent?.parent) || tracker;
+        this.parse(str.slice(currComp.strdata.length), msgStyles, styleLayer);
       } else {
         this.parse(str.slice(currComp.strdata.length), msgStyles, tracker.children[tracker.children.length - 1]);
       }
@@ -175,14 +193,19 @@ const messageParser = {
         return tracker
       }
 
-      tracker.children.push({
-        data: str.slice(0, nextComp.index),
-        parent: tracker,
-        children: []
-      });
+      if (tracker.type != 'styleBreaker') {
+        tracker.children.push({
+          data: str.slice(0, nextComp.index),
+          parent: tracker,
+          children: []
+        });
+      }
       
       if (nextComp.type == 'styleBreaker') {
-        this.parse(str.slice(nextComp.index), msgStyles, tracker.parent);
+        let styleParent = this.getStyleParent(tracker);
+        const styleLayer = (styleParent?.parent) || tracker;
+
+        this.parse(str.slice(nextComp.index), msgStyles, styleLayer);
       } else {
         this.parse(str.slice(nextComp.index), msgStyles, tracker.children[tracker.children.length - 1]);
       }
@@ -230,11 +253,9 @@ function QuoteMsg (props) {
   const [noQuote, setNoQuote] = React.useState(null);
 
   React.useEffect(() => {
-    console.log('what');
     fetch('/getMessage/' + props.message.data.strdata.slice(2))
     .then(res => res.json())
     .then(res => {
-      console.log(res);
       if (res.error || !res) {
         setNoQuote(true);
       } else {
@@ -268,7 +289,7 @@ function getCompRender (message, props) {
     case typeof message.data == 'string':
       return message.data;
     case message.data.type == 'link':
-      return <a href={message.data.strdata}>{message.data.strdata}</a>;
+      return <a href={message.data.strdata} target='_blank'>{message.data.strdata}</a>;
     case message.data.type == 'emoji':
       return <Emoji emojiId={message.data.strdata} emojis={props.emojis} _imageLoaded={(image) => props._imageLoaded(image)} />;
     case message.data.type == 'quote':
@@ -324,7 +345,7 @@ class Messages extends React.Component {
     if (oldMessage && newMessage) {
 
       const newMessageHeight = messageCon.children[messageCon.children.length - 1].offsetHeight;
-      console.log(newMessageHeight, newMessage);
+      // console.log(newMessageHeight, newMessage);
 
       //don't scroll if the user has scrolled 50 pixels up
       if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - newMessageHeight - 50) {
@@ -341,7 +362,6 @@ class Messages extends React.Component {
       });
     } else {
       console.log('no scroll');
-      console.log(oldMessage && newMessage);
     }
   }
 
@@ -419,6 +439,7 @@ class Messages extends React.Component {
 
   renderMessageContent (msgData) {
     const message = messageParser.parse(msgData.message, msgStyles); //parse the message for links and other things
+
     return <div className='messageContent'>
       <NestMessage
         message={message} 

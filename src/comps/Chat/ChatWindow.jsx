@@ -15,6 +15,17 @@ class ChatWindow extends React.Component {
   }
 
   componentDidMount () {
+
+    this.props.socket.onDisconnect(() => {
+      const oldMessages = [...this.state.messages];
+      oldMessages.push({
+        message: 'You have been disconnected from the server.',
+        type: 'error',
+      })
+
+      this.setState({messages:oldMessages});
+    });
+
     this.props.socket.on('message', (data) => {
       const oldMessages = [...this.state.messages];
       oldMessages.push(data)
@@ -57,6 +68,7 @@ class ChatWindow extends React.Component {
       const parsedChannelData = storeTtest.handleStates(channelInfo);
       parsedChannelData.messages = oldMessages
 
+      this.state.messages = oldMessages;
       this.setState(parsedChannelData);
     })
 
@@ -81,6 +93,12 @@ class ChatWindow extends React.Component {
     })
   }
 
+  addMessage (message) {
+    const oldMessages = [...this.state.messages];
+    oldMessages.push(message);
+    this.setState({messages:oldMessages});
+  }
+
   getUserFlair (nick) {
     const user = this.props.userlist.find(a=> a.nick == nick);
     return user ? user.flairColor : '';
@@ -93,9 +111,11 @@ class ChatWindow extends React.Component {
 
         <div className="chatHeader">
           <div className='topic'>{this.state.topic}</div>
-          <div className='channelName'>{this.state.channelName}</div>
+          <div className='channelNameHeader'>
+            {'/' + this.props.channelName}
+          </div>
           <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ showUsers: !this.state.showUsers })}>
-            {this.state.showUsers ? 'chevron_right' : 'chevron_left'}
+            {this.state.showUsers ? 'group' : 'group'}
           </span>
         </div>
 
@@ -110,6 +130,7 @@ class ChatWindow extends React.Component {
           emoji={this.state.emojis}
           socket={this.props.socket}
           channelName={this.props.channelName}
+          addMessage={this.addMessage.bind(this)}
         />
       </div>
 

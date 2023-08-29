@@ -137,8 +137,17 @@ display: none
 .menuContainer {
   background-color: #181818;
   color: white;
-  padding: 10px 10px;
-  width: 150px;
+  padding: 10px 0;
+  width: 200px;
+}
+
+.userLi {
+  cursor: pointer;
+  padding: 5px 10px;
+}
+
+.userLi:hover {
+  background-color: #39f;
 }
 
 .codeEditorContainer {
@@ -243,7 +252,7 @@ display: none
 }
 
 .backToHome {
-  background-color: #333;
+  background-color: transparent;
   color: white;
   border: none;
 }
@@ -368,27 +377,40 @@ display: none
   color: #fff;
   height: 45px;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   vertical-align: middle;
   position: relative;
   z-index: 4;
+  padding: 0 0 0 10px;
+  overflow: hidden;
 }
 
-.channelName {
+.channelNameHeader {
+  background-color: #1b274f;
+  /* border-radius: 3px; */
   font-size: 20px;
+  display: flex;
+  height: 45px;
+  /* align-items: center; */
+  font-size: 16px;
+  cursor: pointer;
+  /* flex-direction: column; */
+  gap: 50px;
+  padding: 0px 18px 0px 18px;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 0 6px 4px #1b274f;
 }
 
 .topic {
   font-size: 16px;
-  position: absolute;
-  left: 8px;
   font-style: italic;
+  color: lightgray;
 }
 
 .toggleUsers {
-  position: absolute;
-  right: 0;
+  margin-right: 20px;
 }
 
 .sideBar {
@@ -523,13 +545,17 @@ display: none
   justify-content: center;
   align-items: center;
   padding: 0 20px;
-  background-color: #205b96;
+  background-color: #283669;
   cursor: pointer;
   height: 45px;
 }
 
 /* messages */
 
+.action .messageContent:before,
+.action .messageContent:after,
+.note .messageContent:before,
+.note .messageContent:after,
 .general .messageContent:before,
 .general .messageContent:after{
     content: ' ** '
@@ -537,4 +563,13 @@ display: none
 
 .general {
   color: #2CE72C;
+}
+
+.action {
+  color: #66B2FF;
+}
+
+.error {
+  color: #FF0000;
+  font-weight: bold;
 }

@@ -54,6 +54,10 @@ const socket = {
     this._socket.send(JSON.stringify({
       event, data, channelName: this.getActiveChannel()
     }))
+  },
+
+  onDisconnect (callback) {
+    this._socket.addEventListener('close', callback);
   }
 
 

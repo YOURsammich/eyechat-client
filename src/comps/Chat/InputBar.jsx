@@ -165,6 +165,8 @@ class InputBar extends React.Component {
       wordEnd = input.length;
     }
 
+    console.log(word);
+
     target.value = input.slice(0, wordStart) + word + input.slice(wordEnd);
     target.focus();
 
@@ -195,12 +197,9 @@ class InputBar extends React.Component {
   }
 
   _handleEnter (event) {
-    event.preventDefault();
-
     const target = event.target;
     if (this.state.inputAuto) {
       //replace text
-
       this.replaceSelectedWord(':' + this.state.inputAuto[this.state.inputIndex].id + ':', target.selectionStart);
 
     } else {
@@ -216,17 +215,30 @@ class InputBar extends React.Component {
         } else {
           this.props.socket.emit('message', inputData);
         }
-  
-        target.value = '';
       } catch (e) {
-        console.log(e);
+
+        this.props.addMessage({
+          message: e.message,
+          type: 'error',
+          count: 'error' + Math.random()
+        });
       }
+
+      target.value = '';
     }
   }
 
   handleInput(event) {
+    const target = event.target;
+
     if (event.which == 13) {
-      this._handleEnter(event);
+      if (!event.shiftKey) {
+        event.preventDefault();
+
+        if (target.value) {
+          this._handleEnter(event);
+        }
+      }
     } else if (event.which == 9) {
       this._handleTab(event);
     }
@@ -277,7 +289,7 @@ class InputBar extends React.Component {
     if (event.which == 13) {
       if (this.state.inputAuto) {
         this.setState({inputAuto: false, emojis: false});
-      } else {
+      } else if (!event.shiftKey) {
         target.value = '';
       }
     }
