@@ -47,6 +47,12 @@ const COMMANDS = {
   part: {
     params: ['message'],
     leaveSpace: true
+  },
+  me: {
+    params: ['message']
+  },
+  afk : {
+    params : ['message']
   }
 }
 
