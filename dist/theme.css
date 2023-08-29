@@ -58,6 +58,13 @@ display: none
   align-items: center;
 }
 
+.informer {
+  color: lightgrey;
+  font-size: 12px;
+  font-style: italic;
+  word-break: break-all;
+}
+
 .message {
   text-shadow: rgb(0, 0, 0) -1px -1px 0px, rgb(0, 0, 0) 1px -1px 0px, rgb(0, 0, 0) -1px 1px 0px, rgb(0, 0, 0) 1px 1px 0px;
   display: flex;
