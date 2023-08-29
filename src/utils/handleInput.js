@@ -43,6 +43,10 @@ const COMMANDS = {
   },
   pay: {
     params: ['recipient', 'amount'],
+  },
+  part: {
+    params: ['message'],
+    leaveSpace: true
   }
 }
 

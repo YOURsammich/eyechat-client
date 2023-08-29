@@ -25,6 +25,8 @@ class ChatWindow extends React.Component {
     this.props.socket.on('channelInfo', (channelInfo) => {
       const oldMessages = [...this.state.messages];
 
+      console.log('before message logg', oldMessages);
+
       const messageLog = channelInfo.message_log.reverse().map(a=>{
         return {
           message: a.message,
@@ -54,10 +56,25 @@ class ChatWindow extends React.Component {
         });
       }
 
-      console.log('init data',  storeTtest.handleStates(channelInfo));
+      
+      const parsedChannelData = storeTtest.handleStates(channelInfo);
+      parsedChannelData.messages = oldMessages
+      console.log('init balls', parsedChannelData);
 
-      this.setState({messages:oldMessages, ...storeTtest.handleStates(channelInfo)});
+      this.setState(parsedChannelData);
     })
+
+    this.props.socket.on('userJoin', (user) => {
+      const oldMessages = [...this.state.messages];
+      console.log('before user joined and sam gay', oldMessages);
+      oldMessages.push({
+        message: user.nick + ' has joined',
+        type: 'general',
+        count: Math.random()
+      })
+
+      this.setState({messages:oldMessages});
+    });
 
     this.props.socket.on('setState', (data) => {
       const key = data[0];
