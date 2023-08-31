@@ -6,7 +6,7 @@ const storeTtest = new Store();
 
 class ChatWindow extends React.Component {
   
-  constructor () {
+  constructor() {
     super();
     this.state = {
       messages: [],
@@ -30,7 +30,7 @@ class ChatWindow extends React.Component {
       const oldMessages = [...this.state.messages];
       oldMessages.push(data)
 
-      this.setState({messages:oldMessages});
+      this.setState({ messages: oldMessages });
     })
 
     this.props.socket.on('channelInfo', (channelInfo) => {

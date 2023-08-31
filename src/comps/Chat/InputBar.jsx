@@ -330,6 +330,11 @@ class InputBar extends React.Component {
             }}>
               <span className="material-symbols-outlined">mood</span>
             </div>
+            <div className='inputBarBtn' onClick={() => {
+              console.log('open pms')
+            }}>
+              <span className="material-symbols-outlined">forum</span>
+            </div>
           </div>
         </div>
 

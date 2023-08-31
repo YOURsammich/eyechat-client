@@ -110,7 +110,7 @@ display: none
 
 .inputBarBtns {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 5px;
   color: white;
   padding: 0 10px;
