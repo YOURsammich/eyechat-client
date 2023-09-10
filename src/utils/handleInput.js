@@ -31,52 +31,65 @@ const COMMANDS = {
   },
   flair: {
     params: ['flair'],
-    leaveSpace: true
+    parseMethod: 'leaveSpace'
   },
   background: {
     params: ['code'],
-    leaveSpace: true
+    parseMethod: 'leaveSpace'
   },
   topic: {
     params: ['topic'],
-    leaveSpace: true
+    parseMethod: 'leaveSpace'
   },
   pay: {
     params: ['recipient', 'amount'],
   },
   part: {
     params: ['message'],
-    leaveSpace: true
+    parseMethod: 'leaveSpace'
   },
   me: {
-    params: ['message']
+    params: ['message'],
+    parseMethod: 'leaveSpace'
   },
   afk : {
-    params : ['message']
+    params : ['message'],
+    parseMethod: 'leaveSpace'
+  },
+  pm: {
+    params: ['recipient', 'message'],
+    parseMethod: 'leaveSpace'
   }
 }
 
 const handleCommand = {
-  formatParams (cmd, params, type='firstWord') {
+  parseParamSpaces(params, paramQuantity) {
+    const parsedInput = [];
 
-    if (cmd.params.length > 1) {
-      
-      const paramObj = {};
-      const paramKeys = cmd.params;
-      const paramValues = params.split(' ');
-
-      paramKeys.forEach((key, i) => {
-        paramObj[key] = paramValues[i];
-      });
-
-      return paramObj;
-
-    } else {
-      const paramKey = cmd.params[0];
-      return {
-        [paramKey]:  cmd.leaveSpace ? params : params.split(' ')[0]
+    for (let i = 0; i < params.length; i++) {
+      if (i === paramQuantity - 1) {
+        parsedInput.push(params.slice(i).join(' '));
+        break;
+      } else {
+        parsedInput.push(params[i]);
       }
     }
+    return parsedInput;
+  },
+  formatParams(cmd, params) {
+    const parseMethod = {
+      leaveSpace: this.parseParamSpaces(params, cmd.params.length),
+    }
+
+    const paramObj = {};
+    const paramKeys = cmd.params;
+    const paramValues = parseMethod[cmd.parseMethod] ?? params;
+
+    paramKeys.forEach((key, i) => {
+      paramObj[key] = paramValues[i];
+    });
+
+    return paramObj;
   },
   handle(command) {
     const [, commandName, params] = command;
@@ -84,8 +97,8 @@ const handleCommand = {
 
     if (!cmd) throw new Error("Invalid Command");
 
-    const paramaObj = this.formatParams(cmd, params);
-
+    const paramaObj = this.formatParams(cmd, params.split(' '));
+    console.log('command sent', paramaObj)
     return {
       commandName,
       params: paramaObj,

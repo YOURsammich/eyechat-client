@@ -105,7 +105,6 @@ class ChatWindow extends React.Component {
   }
 
   render () {
-    
     return <div style={{ display: 'flex', flex: 1, overflow: 'hidden'}}>
       <div className='chatContainer'>
 
@@ -131,6 +130,9 @@ class ChatWindow extends React.Component {
           socket={this.props.socket}
           channelName={this.props.channelName}
           addMessage={this.addMessage.bind(this)}
+          conversationList={this.props.conversationList}
+          getMyNick={this.props.getMyNick}
+          findConvo={this.props.findConvo}
         />
       </div>
 
