@@ -10,7 +10,8 @@ class InputBar extends React.Component {
     this.state = {
       value: '',
       inputIndex: -1,
-      unreadConvo: false
+      unreadConvo: false,
+      showConvos: true
     }
 
   }
@@ -177,10 +178,8 @@ class InputBar extends React.Component {
       }
 
       {this.state.showConvos ? <PrivateConvo
-        conversationList={this.props.conversationList}
         socket={this.props.socket}
         getMyNick={this.props.getMyNick}
-        findConvo={this.props.findConvo}
       /> : null}
 
 

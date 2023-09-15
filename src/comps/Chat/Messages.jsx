@@ -483,15 +483,19 @@ class Messages extends React.Component {
 
   }
 
-  render () {
-    return <div id="message-container" ref={this.messageCon} style={{background: `${this.props.background}`}} onClick={this.handleClick.bind(this)}>
-      { this.props.messages.map(message => {
-        if (this.cacheMessage[message.count]) return this.cacheMessage[message.count];
-        const msg = this.renderMessage(message);
-        this.cacheMessage[message.count] = msg;
-        return msg;
-      }) }
-    </div>
+  render() {
+    return (
+      <div id="message-container" ref={this.messageCon} style={{ background: `${this.props.background}` }} onClick={this.handleClick.bind(this)}>
+
+        {this.props.messages.map(message => {
+          if (this.cacheMessage[message.count]) return this.cacheMessage[message.count];
+          const msg = this.renderMessage(message);
+          this.cacheMessage[message.count] = msg;
+          return msg;
+        })}
+
+      </div>
+    )
   }
 }
 

@@ -20,12 +20,10 @@ class App extends React.Component {
       userlist: [],
       activeChannel: 'main',
       chatWidth: 300,
-      conversationList: [],
       userID: null
     }
 
     this.getMyNick = this.getMyNick.bind(this)
-    this.findConvo = this.findConvo.bind(this)
   }
 
   componentDidMount() {
@@ -37,44 +35,6 @@ class App extends React.Component {
 
         socket.on('userlist', (userlist) => {
           this.setState({ userlist: userlist })
-        });
-
-        socket.on('pmConvos', (convos) => {
-          console.log('pmConvos start', convos)
-          let oldConvos = this.state.conversationList;
-
-          convos.forEach(convo => {
-            oldConvos.push(convo);
-          });
-
-          this.setState({ conversationList: oldConvos }, () => {
-            console.log('pmConvos set', this.state.conversationList);
-          })
-        })
-
-        socket.on('pmMessage', (messages) => {
-          const { conversationList } = this.state;
-          const updatedConvoId = messages[0].convoid;
-
-          messages.forEach((message) => {
-            const timeString = message.time_sent;
-            const newTime = this.parseTimeString(timeString)
-            message.time_sent = newTime;
-          })
-
-          const updatedConvos = conversationList.map(convo => {
-            if (convo.convoid === updatedConvoId) {
-              const updatedMessages = convo.messages ? [...convo.messages, ...messages] : messages;
-              updatedMessages.sort((a, b) => a.messageid - b.messageid); 
-              return {
-                ...convo,
-                messages: updatedMessages,
-              };
-            }
-            return convo;
-          });
-
-          this.setState({ conversationList: updatedConvos });
         });
 
         socket.on('setID', (ID) => {
@@ -91,7 +51,7 @@ class App extends React.Component {
         socket.on('userLeft', (user) => {
           const userlist = [...this.state.userlist];
           const index = userlist.findIndex(a => a.id == user.id);
-
+     
           if (index !== -1) {
             userlist.splice(index, 1);
             this.setState({ userlist })
@@ -145,26 +105,6 @@ class App extends React.Component {
 
   }
 
-  parseTimeString(timeString) {
-    const date = new Date(timeString);
-
-    const optionsForDate = { year: 'numeric', month: 'numeric', day: 'numeric' };
-    const optionsForTime = { hour: '2-digit', minute: '2-digit', hour12: true };
-
-    const datePart = date.toLocaleDateString(undefined, optionsForDate);
-    const timePart = date.toLocaleTimeString(undefined, optionsForTime);
-
-    return {
-      date: datePart,
-      hhmm: timePart,
-    };
-  };
-
-  findConvo(convoid) {
-    const index = this.state.conversationList.findIndex((convo) => convo.convoid === convoid)
-    return this.state.conversationList[index]
-  }
-
   getMyNick() {
     const user = this.state.userlist.find((user) => user.id === this.state.userID);
 
@@ -213,7 +153,6 @@ class App extends React.Component {
               toggleEditor={() => this.setState({ showApp: !this.state.showApp })}
               editorShown={this.state.showApp}
               getMyNick={this.getMyNick}
-              findConvo={this.findConvo}
             />
           </div>
         </div>

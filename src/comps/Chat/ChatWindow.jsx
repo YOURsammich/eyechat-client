@@ -1,20 +1,24 @@
 import Messages from './Messages';
 import InputBar from './InputBar';
+import { Overlay } from './../Menu';
 import Menu from './../Menu'
 import Store from '../../utils/store';
 const storeTtest = new Store();
 
 class ChatWindow extends React.Component {
-  
+
   constructor() {
     super();
     this.state = {
       messages: [],
-      showUsers: true
+      showUsers: true,
+      showOverlay: false
     }
+
+    this.toggleOverlay = this.toggleOverlay.bind(this)
   }
 
-  componentDidMount () {
+  componentDidMount() {
 
     this.props.socket.onDisconnect(() => {
       const oldMessages = [...this.state.messages];
@@ -23,7 +27,7 @@ class ChatWindow extends React.Component {
         type: 'error',
       })
 
-      this.setState({messages:oldMessages});
+      this.setState({ messages: oldMessages });
     });
 
     this.props.socket.on('message', (data) => {
@@ -36,7 +40,7 @@ class ChatWindow extends React.Component {
     this.props.socket.on('channelInfo', (channelInfo) => {
       const oldMessages = [...this.state.messages];
 
-      const messageLog = channelInfo.message_log.reverse().map(a=>{
+      const messageLog = channelInfo.message_log.reverse().map(a => {
         return {
           message: a.message,
           type: a.type,
@@ -80,72 +84,90 @@ class ChatWindow extends React.Component {
         count: Math.random()
       })
 
-      this.setState({messages:oldMessages});
+      this.setState({ messages: oldMessages });
     });
 
     this.props.socket.on('setState', (data) => {
       const key = data[0];
       const value = data[1];
-      
+
       if (this.state.hasOwnProperty(key)) {
         this.setState({ [key]: value });
       }
     })
   }
 
-  addMessage (message) {
+  addMessage(message) {
     const oldMessages = [...this.state.messages];
     oldMessages.push(message);
-    this.setState({messages:oldMessages});
+    this.setState({ messages: oldMessages });
   }
 
-  getUserFlair (nick) {
-    const user = this.props.userlist.find(a=> a.nick == nick);
+  getUserFlair(nick) {
+    const user = this.props.userlist.find(a => a.nick == nick);
     return user ? user.flairColor : '';
   }
 
-  render () {
-    return <div style={{ display: 'flex', flex: 1, overflow: 'hidden'}}>
-      <div className='chatContainer'>
+  toggleOverlay(id) {
+    const toggle = (id === this.state.showOverlay)
 
-        <div className="chatHeader">
-          <div className='topic'>{this.state.topic}</div>
-          <div className='channelNameHeader'>
-            {'/' + this.props.channelName}
+    if (toggle) {
+      this.setState({ showOverlay: false })
+    } else {
+      this.setState({ showOverlay: id })
+    }
+  }
+
+  render() {
+    return (
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        <div className='chatContainer'>
+
+          <div className="chatHeader">
+            <div className='topic'>{this.state.topic}</div>
+            <div className='channelNameHeader'>
+              {'/' + this.props.channelName}
+            </div>
+            <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ showUsers: !this.state.showUsers })}>
+              {this.state.showUsers ? 'group' : 'group'}
+            </span>
           </div>
-          <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ showUsers: !this.state.showUsers })}>
-            {this.state.showUsers ? 'group' : 'group'}
-          </span>
+
+          <Messages
+            emojis={this.state.emojis}
+            socket={this.props.socket}
+            getUserFlair={this.getUserFlair.bind(this)}
+            messages={this.state.messages}
+            background={this.state.background}
+          />
+          <InputBar
+            emoji={this.state.emojis}
+            socket={this.props.socket}
+            channelName={this.props.channelName}
+            addMessage={this.addMessage.bind(this)}
+            getMyNick={this.props.getMyNick}
+          />
+
+          {
+            this.state.showOverlay ?
+              <Overlay
+                type={this.state.showOverlay}
+              /> : null
+          }
+
         </div>
 
-        <Messages 
-          emojis={this.state.emojis}
-          socket={this.props.socket}
-          getUserFlair={this.getUserFlair.bind(this)}
-          messages={this.state.messages}
-          background={this.state.background}
-        />
-        <InputBar
-          emoji={this.state.emojis}
-          socket={this.props.socket}
-          channelName={this.props.channelName}
-          addMessage={this.addMessage.bind(this)}
-          conversationList={this.props.conversationList}
-          getMyNick={this.props.getMyNick}
-          findConvo={this.props.findConvo}
-        />
+        {
+          this.state.showUsers ?
+            <Menu
+              userlist={this.props.userlist}
+              toggleOverlay={this.toggleOverlay}
+            /> : null
+        }
+
       </div>
-
-      {
-        this.state.showUsers ?
-          <Menu 
-          userlist={this.props.userlist}
-        /> : null
-      }
-
-
-
-    </div>
+    )
 
   }
 

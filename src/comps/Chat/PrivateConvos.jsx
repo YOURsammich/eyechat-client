@@ -6,14 +6,53 @@ class PrivateConvo extends React.Component {
 		super();
 
 		this.state = {
-			showConvos: false,
-			selectedConvo: null
+			selectedConvo: null,
+      conversationList: []
 		};
 
 		this.handleScroll = this.handleScroll.bind(this);
+    this.findConvo = this.findConvo.bind(this);
 	}
 
 	componentDidMount() {
+		const socket = this.props.socket;
+
+		socket.on('pmConvos', (convos) => {
+			let oldConvos = this.state.conversationList;
+
+			convos.forEach(convo => {
+				oldConvos.push(convo);
+			});
+
+			this.setState({ conversationList: oldConvos });
+		})
+
+		socket.on('pmMessage', (messages) => {
+			const { conversationList } = this.state;
+			const updatedConvoId = messages[0].convoid;
+
+			messages.forEach((message) => {
+				const timeString = message.time_sent;
+				const newTime = this.parseTimeString(timeString)
+				message.time_sent = newTime;
+			})
+
+			const updatedConvos = conversationList.map(convo => {
+				if (convo.convoid === updatedConvoId) {
+					const updatedMessages = convo.messages ? [...convo.messages, ...messages] : messages;
+					updatedMessages.sort((a, b) => a.messageid - b.messageid);
+					return {
+						...convo,
+						messages: updatedMessages,
+					};
+				}
+				return convo;
+			});
+			console.log(updatedConvos)
+			this.setState({ conversationList: updatedConvos }, () => {
+				console.log(this.state.conversationList)
+			});
+		});
 	}
 
 	componentDidUpdate() {
@@ -22,21 +61,47 @@ class PrivateConvo extends React.Component {
 		}
 	}
 
+	toggle(prop) {
+		this.setState( prevState => ({ [prop]: !prevState[prop] }))
+	}
+
 	handleScroll = (convo) => (event) => {
 		if (this.convoDetailsRef && this.convoDetailsRef.scrollTop === 0) {
 			const offset = convo.messages.length ?? 0;
-			this.props.socket.emit('pmRequest', {convoid: convo.convoid, offset: offset})
+			this.props.socket.emit('pmRequest', { convoid: convo.convoid, offset: offset })
 		}
 	};
 
+	parseTimeString(timeString) {
+    const date = new Date(timeString);
+
+    const optionsForDate = { year: 'numeric', month: 'numeric', day: 'numeric' };
+    const optionsForTime = { hour: '2-digit', minute: '2-digit', hour12: true };
+
+    const datePart = date.toLocaleDateString(undefined, optionsForDate);
+    const timePart = date.toLocaleTimeString(undefined, optionsForTime);
+
+    return {
+      date: datePart,
+      hhmm: timePart,
+    };
+  };
+
+  findConvo(convoid) {
+    const index = this.state.conversationList.findIndex((convo) => convo.convoid === convoid)
+    return this.state.conversationList[index]
+  }
+
 	selectConvo = (convo) => {
 		const offset = convo.messages?.length ?? 0;
-		this.props.socket.emit('pmRequest', {convoid: convo.convoid, offset: offset})
+		console.log(offset)
+		offset <= 0 ? this.props.socket.emit('pmRequest', { convoid: convo.convoid, offset: offset }) : null
+		console.log('offset', offset)
 		this.setState({ selectedConvo: convo.convoid });
 	}
 
 	render() {
-		const currentConvo = this.props.findConvo(this.state.selectedConvo);
+		const currentConvo = this.findConvo(this.state.selectedConvo);
 		const participants = (convo) => {
 			const nick = this.props.getMyNick();
 			const convoWith = convo.participant1 === nick ? convo.participant2 : convo.participant1;
@@ -48,7 +113,7 @@ class PrivateConvo extends React.Component {
 				<div className='convoHeader'>
 
 					{this.state.selectedConvo
-						? <button className='goBack material-symbols-outlined' onClick={() => this.setState({ selectedConvo: null })}>chevron_left</button>
+						? <button className='hoverMask convoHeaderButtons material-symbols-outlined' style={{ left: '5px' }} onClick={() => this.setState({ selectedConvo: null })}>chevron_left</button>
 						: null}
 
 					{this.state.selectedConvo
@@ -57,7 +122,7 @@ class PrivateConvo extends React.Component {
 
 					{this.state.selectedConvo
 						? null
-						: <button className='newConvo material-symbols-outlined' onClick={() => console.log('Use /pm user msg bruh')}>chat_add_on</button>}
+						: <button style={{ right: '5px' }} className='convoHeaderButtons hoverMask material-symbols-outlined' onClick={() => console.log('/pm user message for now')}>chat_add_on</button>}
 
 				</div>
 
@@ -68,7 +133,7 @@ class PrivateConvo extends React.Component {
 							{currentConvo.messages?.map((message, index) => (
 								<div
 									key={index}
-									className={`convoMessage ${message.sender === participants(currentConvo).me ? 'alignLeft' : 'alignRight'}`}
+									className={`convoMessage ${message.sender === participants(currentConvo).me ? 'receiever' : 'sender'}`}
 								>
 									{message.time_sent.hhmm} / {message.receiver}: {message.msg}
 								</div>
@@ -81,20 +146,28 @@ class PrivateConvo extends React.Component {
 						/>
 					</div>
 				) : (
-					this.props.conversationList.map((convo, index) => {
-						return (
-							<div
-								key={index}
-								className='convoBanner'
-								onClick={() => this.selectConvo(convo)}>
-								<span>{participants(convo).with}</span>
+					<div className='convoContainer'>
+						{this.state.newConvo && (
+							<div className='newConvoContainer'>
+								<input type='text' placeholder='Search for users...' />
 							</div>
-						);
-					})
+						)}
+						{this.state.conversationList.map((convo, index) => (
+							<div key={index} className='convoBanner'>
+								<div
+									className='hoverMask convoBanner'
+									onClick={() => this.selectConvo(convo)}
+								>
+									<span>{participants(convo).with}</span>
+									<span className='messagePreview'> {convo.last_message} </span> 
+								</div>
+							</div>
+						))}
+					</div>
 				)}
 
 			</div>
-		);
+		)
 	}
 }
 
