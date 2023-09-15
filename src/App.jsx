@@ -74,8 +74,7 @@ class App extends React.Component {
             return convo;
           });
 
-          this.setState({ conversationList: updatedConvos }, () => {
-          });
+          this.setState({ conversationList: updatedConvos });
         });
 
         socket.on('setID', (ID) => {
@@ -94,7 +93,7 @@ class App extends React.Component {
           const index = userlist.findIndex(a => a.id == user.id);
 
           if (index !== -1) {
-            userlist.splice(index, 1); base
+            userlist.splice(index, 1);
             this.setState({ userlist })
           }
         });

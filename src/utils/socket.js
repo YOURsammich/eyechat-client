@@ -1,8 +1,24 @@
 const socket = {
 
-  init ({ getActiveChannel } = {}) {
+  init ({ getActiveChannel } = {}) {    
     this.getActiveChannel = getActiveChannel;
 
+    return new Promise ((resolve, reject) => {
+      fetch('/preconnect', { method: 'POST' })
+        .then(res => res.json())
+        .then((message) => {
+          if (message.success) {
+            this.initSocket()
+              .then(resolve);
+          } else {
+            console.log('preconnect', message);
+          }
+        });
+    });
+
+  },
+
+  initSocket () {
     return new Promise((resolve, reject) => {
 
       const prefix = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -10,13 +26,22 @@ const socket = {
       this._socket = new WebSocket(prefix + '://' + location.host);
   
       this._serverEvents = {};
-  
+      
+      this._socket.addEventListener('error', (err,r) => {
+        console.log('error', err,r);
+      });
+
       this._socket.addEventListener('open', resolve);
     
       this._socket.addEventListener('message', (e) => {
         const data = JSON.parse(e.data);
         this._triggerEvent(data.event, data.data);
       });
+
+      this._socket.addEventListener('close', (e,r) => {
+        console.log('socket closed', e,r);
+      });
+
     })
   },
 

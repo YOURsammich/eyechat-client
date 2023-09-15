@@ -59,7 +59,13 @@ const COMMANDS = {
   pm: {
     params: ['recipient', 'message'],
     parseMethod: 'leaveSpace'
-  }
+  },
+  ban: {
+    params: ['nick']
+  },
+  banip: {
+    params: ['ip']
+  },
 }
 
 const handleCommand = {

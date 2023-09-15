@@ -75,6 +75,12 @@ display: none
   align-items: baseline;
 }
 
+.message img {
+  max-height: 256px;
+  max-width: 256px;
+  cursor: default;
+}
+
 .message div {
   display: inline;
 }
@@ -725,4 +731,8 @@ display: none
 .private {
   color: rgb(124, 89, 207);
   font-weight: bold;
+}
+
+.ballBtn {
+  font-size: 25px;
 }

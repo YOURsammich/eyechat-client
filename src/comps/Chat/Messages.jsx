@@ -283,13 +283,32 @@ function QuoteMsg (props) {
 
 }
 
+function LinkMsg (props) {
+  const message = props.message;
+  const href = message.data.strdata;
+
+  //check if href is an image
+  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+  const imageType = imageTypes.find(type => href.endsWith(type));
+
+  return <a href={href} target='_blank'>{
+    imageType ? <div style={{
+      display: 'inline-flex',
+      alignItems: 'flex-end',
+    }}>
+      <img src={href} loading='lazy' onLoad={(e) => props._imageLoaded(e.target)} />
+    </div> : href
+  }</a>;
+
+}
+
 function getCompRender (message, props) {
 
   switch (true) {
     case typeof message.data == 'string':
       return message.data;
     case message.data.type == 'link':
-      return <a href={message.data.strdata} target='_blank'>{message.data.strdata}</a>;
+      return <LinkMsg message={message} _imageLoaded={image => props._imageLoaded(image)} />;
     case message.data.type == 'emoji':
       return <Emoji emojiId={message.data.strdata} emojis={props.emojis} _imageLoaded={(image) => props._imageLoaded(image)} />;
     case message.data.type == 'quote':
@@ -366,19 +385,14 @@ class Messages extends React.Component {
   }
 
   _imageLoaded (image) {
-    // const messageCon = this.messageCon.current;
-    // if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - 100) {
+    const messageCon = this.messageCon.current;
+    if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - image.height - 50) {
 
-    //   messageCon.scrollTo({
-    //     top: messageCon.scrollHeight,
-    //     behavior: 'instant'
-    //   });
-    // } else {
-    //   messageCon.scrollTo({
-    //     top: messageCon.scrollTop,
-    //     behavior: 'instant'
-    //   });
-    // }
+      messageCon.scrollTo({
+        top: messageCon.scrollHeight,
+        behavior: 'instant'
+      });
+    } 
   }
 
   renderTimeStamp (msgData) {
