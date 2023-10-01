@@ -1,6 +1,6 @@
 import * as React from 'react';
 import handleInput from '../../utils/handleInput';
-import PrivateConvo from './PrivateConvos';
+import { PM } from './PM_Client.jsx';
 import EmojiMini from './Emojis';
 
 class InputBar extends React.Component {
@@ -11,7 +11,7 @@ class InputBar extends React.Component {
       value: '',
       inputIndex: -1,
       unreadConvo: false,
-      showConvos: true
+      showConvos: false
     }
 
   }
@@ -177,7 +177,7 @@ class InputBar extends React.Component {
         }</div> : null
       }
 
-      {this.state.showConvos ? <PrivateConvo
+      {this.state.showConvos ? <PM
         socket={this.props.socket}
         getMyNick={this.props.getMyNick}
       /> : null}
