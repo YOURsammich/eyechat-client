@@ -20,7 +20,8 @@ class ChatWindow extends React.Component {
 
   componentDidMount() {
 
-    this.props.socket.onDisconnect(() => {
+    this.props.socket.onDisconnect((reason) => {
+      console.log('disconnected', reason);
       const oldMessages = [...this.state.messages];
       oldMessages.push({
         message: 'You have been disconnected from the server.',
@@ -38,6 +39,7 @@ class ChatWindow extends React.Component {
     })
 
     this.props.socket.on('channelInfo', (channelInfo) => {
+      console.log(channelInfo);
       const oldMessages = [...this.state.messages];
 
       const messageLog = channelInfo.message_log.reverse().map(a => {
@@ -46,7 +48,8 @@ class ChatWindow extends React.Component {
           type: a.type,
           count: a.count,
           nick: a.nick,
-          flair: a.flair
+          flair: a.flair,
+          hat: a.hat,
         }
       });
 
@@ -129,9 +132,19 @@ class ChatWindow extends React.Component {
             <div className='channelNameHeader'>
               {'/' + this.props.channelName}
             </div>
-            <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ showUsers: !this.state.showUsers })}>
-              {this.state.showUsers ? 'group' : 'group'}
-            </span>
+
+            <div className='topBarBtns'>
+
+              <span className="material-symbols-outlined" onClick={this.toggleOverlay.bind(this, 'settings')}>settings</span>
+
+              <span className="material-symbols-outlined">person</span>
+
+              <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ showUsers: !this.state.showUsers })}>
+                {this.state.showUsers ? 'group' : 'group'}
+              </span>
+
+            </div>
+
           </div>
 
           <Messages

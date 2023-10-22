@@ -19,13 +19,13 @@ class Menu extends React.Component {
           userlist={this.props.userlist}
         />
 
-        <div className='menuActions'>
+        {/* <div className='menuActions'>
           <button id='account' className={'menuActionButtons material-symbols-outlined'} onClick={(el) => this.props.toggleOverlay(el.target.id)}>account_circle</button>
 
           <button id='settings' className={'menuActionButtons material-symbols-outlined'} onClick={(el) => this.props.toggleOverlay(el.target.id)}>settings</button>
 
           <button id='style' className={'menuActionButtons material-symbols-outlined'} onClick={(el) => this.props.toggleOverlay(el.target.id)}>palette</button>
-        </div>
+        </div> */}
 
       </div>
     )

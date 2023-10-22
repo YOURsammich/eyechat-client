@@ -406,15 +406,12 @@ class Messages extends React.Component {
   renderNick (msgData) {
     const flair = messageParser.parse(msgData.flair || msgData.nick, msgStyles);
     const textContent = messageParser.getTextContent(flair);
-    
-    if (textContent != msgData.nick) {
-      return <div className='nick'>
-        <span>{msgData.nick}{': '}</span>
-      </div>
-    }
 
     const nickEl = <div className='nick'>
-      { <NestMessage message={flair} getMsgCss={this.getMsgCss.bind(this)} /> }{': '}
+      {msgData.hat ? <div className='hat' style={{
+        backgroundImage: `url('/images/hats/${msgData.hat}')`,
+      }}></div> : null}
+      { textContent != msgData.nick ? msgData.nick : <NestMessage message={flair} getMsgCss={this.getMsgCss.bind(this)} /> }{': '}
     </div>
 
     return nickEl;

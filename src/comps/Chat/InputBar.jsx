@@ -3,6 +3,47 @@ import handleInput from '../../utils/handleInput';
 import { PM } from './PM_Client.jsx';
 import EmojiMini from './Emojis';
 
+class StylePanel extends React.Component {
+  constructor() {
+    super();
+
+    this.state = {};
+
+  }
+
+  componentDidMount() {
+
+    fetch('/a/getHats')
+      .then(res => res.json())
+      .then(data => {
+        console.log(data);
+
+        this.setState({ hats: data.hats });
+
+      })
+  }
+
+  render() {
+    return <div className='stylePanel'>
+      
+      <div className='hatHeader'>
+        <button style={{backgroundColor:'#39f'}}>My Hats</button>
+        <button>All</button>
+      </div>
+
+      <div className='hatList'>
+        {this.state.hats?.map(a => {
+          return <div key={a.id} className='hat'>
+            <img style={{maxHeight: '64px'}} src={'/images/hats/' + a.file} />
+            <div>{a.name}</div>
+          </div>
+        })}
+      </div>
+
+    </div>
+  }
+}
+
 class InputBar extends React.Component {
   constructor() {
     super();
@@ -24,8 +65,6 @@ class InputBar extends React.Component {
     if (wordEnd == -1) {
       wordEnd = input.length;
     }
-
-    console.log(word);
 
     target.value = input.slice(0, wordStart) + word + input.slice(wordEnd);
     target.focus();
@@ -61,7 +100,7 @@ class InputBar extends React.Component {
     if (this.state.inputAuto) {
       //replace text
       this.replaceSelectedWord(':' + this.state.inputAuto[this.state.inputIndex].id + ':', target.selectionStart);
-
+      this.setState({ inputAuto: false, showEmojis: false });
     } else {
       try {
         const inputData = handleInput.handle(target.value, this.props.channelName);
@@ -85,22 +124,6 @@ class InputBar extends React.Component {
       }
 
       target.value = '';
-    }
-  }
-
-  handleInput(event) {
-    const target = event.target;
-
-    if (event.which == 13) {
-      if (!event.shiftKey) {
-        event.preventDefault();
-
-        if (target.value) {
-          this._handleEnter(event);
-        }
-      }
-    } else if (event.which == 9) {
-      this._handleTab(event);
     }
   }
 
@@ -130,6 +153,20 @@ class InputBar extends React.Component {
     }
   }
 
+  handleChange(event) {
+    const target = event.target;
+    const selectionStart = target.selectionStart || this.state.selectionStart;
+    const emojis = this.getEmojis(target.value, selectionStart);
+    
+    if (!this.state.showEmojis) return;
+
+    if (emojis) {
+      this.setState({ inputAuto: emojis, emojis, selectionStart, inputIndex: 0 });
+    } else if (!emojis) {
+      this.setState({ showEmojis: null, inputAuto: null});
+    }
+  }
+
   handleKeyUp(event) {
     const target = event.target;
 
@@ -137,35 +174,48 @@ class InputBar extends React.Component {
     const emojis = this.getEmojis(target.value, selectionStart);
 
     if (!this.state.inputAuto && emojis) {
-      this.setState({ inputIndex: 0 });
-    }
-
-    if (emojis && (!this.state.inputAuto || this.state.inputAuto.length != emojis.length)) {
-      this.setState({ inputAuto: emojis, emojis, selectionStart, inputIndex: 0 });
-    } else if (this.state.inputAuto && !emojis) {
-      this.setState({ emojis, inputAuto: emojis, inputIndex: 0 });
-    }
-
-    if (event.which == 13) {
-      if (this.state.inputAuto) {
-        this.setState({ inputAuto: false, emojis: false });
-      } else if (!event.shiftKey) {
-        target.value = '';
-      }
+      this.setState({ inputIndex: 0, showEmojis: true, emojis, inputAuto: emojis });
     }
   }
 
- toggleDisplay(prop) {
-  this.setState( prevState => ({ [prop]: !prevState[prop] }))
+  handleKeyDown(event) {
+    const target = event.target;
+
+    if (event.which == 13) {
+      if (!event.shiftKey) {
+        event.preventDefault();
+
+        if (target.value) {
+          this._handleEnter(event);
+        }
+      }
+    } else if (event.which == 9) {
+      this._handleTab(event);
+    }
+  }
+
+  toggleDisplay(prop) {
+    this.setState( prevState => ({ [prop]: !prevState[prop] }))
+  }
+
+  _handleEmojiClick() {
+
+    if (this.state.showEmojis) {
+      this.setState({ showEmojis: false, inputAuto: false });
+    } else {
+      const emojis = this.getEmojis(':', 1);
+      this.setState({ emojis, inputAuto: emojis, inputIndex: 0, showEmojis: true });
+    }
   }
 
   render() {
     return <div className="input-container" >
-
+      
       {this.state.showEmojis ? <EmojiMini
+        addMessage={this.props.addMessage}
         emojis={this.state.emojis}
         inputIndex={this.state.inputIndex}
-        close={() => this.setState({ emojis: false })}
+        close={() => this.setState({ emojis: false, inputAuto: false, showEmojis: false })}
         selectEmoji={(emoji) => this.replaceSelectedWord(':' + emoji + ':', this.state.selectionStart)}
       /> : null}
 
@@ -182,29 +232,35 @@ class InputBar extends React.Component {
         getMyNick={this.props.getMyNick}
       /> : null}
 
+      {this.state.showStyle ? <StylePanel /> : null}
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '5px' }}>
-        <textarea
-          onClick={this.handleKeyUp.bind(this)}
-          onKeyDown={this.handleInput.bind(this)}
-          onKeyUp={this.handleKeyUp.bind(this)} rows="1" placeholder="Type anything then press enter."
-        ></textarea>
 
-        <div className='noSelect inputBarBtns'>
+        <div className='pretendInput'>
+          <textarea
+            onClick={this.handleKeyUp.bind(this)}
+            onChange={this.handleChange.bind(this)}
+            onKeyUp={this.handleKeyUp.bind(this)}
+            onKeyDown={this.handleKeyDown.bind(this)}
+            rows="1" placeholder="Type anything then press enter."
+          ></textarea>
 
-          <div className='inputBarBtn' onClick={() => {
-            const emojis = this.getEmojis(':', 1);
-            this.toggleDisplay('showEmojis')
-            this.setState({ emojis, inputAuto: emojis, inputIndex: 0 });
-            console.log(emojis);
-          }}>
-            <span className="material-symbols-outlined">mood</span>
+          <div className='insideInputBarBtns'>
+            <div className='inputBarBtn' onClick={this._handleEmojiClick.bind(this)}>
+              <span className="material-symbols-outlined" style={{fontSize:'20px'}}>mood</span>
+            </div>
+          </div>
+        </div>
+
+
+        <div className='inputBarBtns'>
+
+          <div className='inputBarBtn' onClick={() => this.toggleDisplay('showStyle')}>
+            <span style={{fontSize: '20px'}} className="material-symbols-outlined">palette</span>
           </div>
 
-          <div className='noSelect inputBarBtn' onClick={() => {
-            this.toggleDisplay('showConvos');
-          }}>
-            <span className="material-symbols-outlined">forum</span>
+          <div className='noSelect inputBarBtn' onClick={() => this.toggleDisplay('showConvos')}>
+            <span style={{fontSize: '20px'}} className="material-symbols-outlined">forum</span>
           </div>
 
         </div>

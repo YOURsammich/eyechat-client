@@ -58,14 +58,25 @@ display: none
   align-items: center;
 }
 
+.nick .hat {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  display: inline-block !important;
+  background-size: 30px 29px;
+  background-position: center;
+  background-repeat: no-repeat;
+  margin-right: -50px;
+  margin-top: -50px;
+  top: 4px;
+  left: -27px;
+  pointer-events: none;
+}
+
 .message {
   text-shadow: rgb(0, 0, 0) -1px -1px 0px, rgb(0, 0, 0) 1px -1px 0px, rgb(0, 0, 0) -1px 1px 0px, rgb(0, 0, 0) 1px 1px 0px;
-  display: flex;
-  flex-direction: row;
   white-space: pre-wrap;
   word-wrap: break-word;
-  margin: 5px 0;
-  align-items: baseline;
 }
 
 .message img {
@@ -88,23 +99,47 @@ display: none
   flex-shrink: 0;
 }
 
+.pretendInput {
+  display: flex;
+  flex: 1;
+  background: rgba(36, 36, 36, 0.75);
+  border-radius: 5px;
+  color: white;
+  outline: white;
+}
+
 .input-container {
-  background-color: #444;
+  background-color: #111;
   display: flex;
   position: relative;
   flex-direction: column;
 }
 
 .input-container textarea {
-  padding: 5px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  padding-left: 5px;
   flex: 1;
   resize: none;
   font-size: 14px;
-  background: rgba(20, 20, 20, 0.75);
   color: white;
-  border: 1px solid #0C0D0E;
-  border-radius: 5px;
+  background-color: transparent;
+  border: none;
   line-height: 1.3;
+  outline: none;
+}
+
+.insideInputBarBtns {
+  display: flex;
+  align-items: center;
+}
+
+.insideInputBarBtns .inputBarBtn {
+  color: #555;
+}
+
+.insideInputBarBtns .inputBarBtn:hover {
+  color: white;
 }
 
 .inputBarBtns {
@@ -113,16 +148,13 @@ display: none
   gap: 5px;
   color: white;
   padding: 0 10px;
+  align-items: center;
 }
 
 .inputBarBtn {
   cursor: pointer;
-  padding: 3px 10px;
+  padding: 5px 5px;
   border-radius: 3px;
-}
-
-.inputBarBtn:hover {
-  background-color: #39f;
 }
 
 .noSelect {
@@ -667,6 +699,69 @@ display: none
   opacity: 100%;
   overflow: hidden;
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/**/
+.stylePanel {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  bottom: 78px;
+  right: 26px;
+  width: 270px;
+  height: 300px;
+  border-radius: 3px;
+  background: #181818;
+  box-shadow: rgb(0, 0, 0) 0px 0px 3px 1px;
+  overflow: hidden;
+}
+
+.hatHeader {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 8px;
+}
+
+.hatHeader button {
+  width: 90px;
+  border: none;
+  background-color: #444;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;  
+  border-radius: 3px;
+  padding: 5px;
+}
+
+.hatList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  margin-top: 5px;
+}
+
+.hatList .hat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 5px;
+  padding: 5px;
+  border-radius: 3px;
+  background-color: #333;
+  cursor: pointer;
+  width: 64px;
+  height: 64px;
+  color: white;
+}
+
+.hatList .hat img {
+  max-width: 50px;
+  max-height: 50px;
 }
 
 /**/

@@ -66,6 +66,9 @@ const COMMANDS = {
   banip: {
     params: ['ip']
   },
+  hat: {
+    params: ['hat']
+  },
 }
 
 const handleCommand = {
