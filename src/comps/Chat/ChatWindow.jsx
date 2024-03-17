@@ -1,7 +1,6 @@
 import Messages from './Messages';
 import InputBar from './InputBar';
-import { Overlay } from './../Menu';
-import Menu from './../Menu'
+import Menu, { Overlay } from './../Menu';
 import Store from '../../utils/store';
 const storeTtest = new Store();
 
@@ -19,6 +18,7 @@ class ChatWindow extends React.Component {
   }
 
   componentDidMount() {
+    console.log('ass')
 
     this.props.socket.onDisconnect((reason) => {
       console.log('disconnected', reason);
@@ -122,6 +122,8 @@ class ChatWindow extends React.Component {
   }
 
   render() {
+    if (!this.props.focusOnChat) return;
+
     return (
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 

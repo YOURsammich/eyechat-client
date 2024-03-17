@@ -355,6 +355,14 @@ class Messages extends React.Component {
     this.fonts = {};
   }
 
+  componentDidMount () {
+    const messageCon = this.messageCon.current;
+    messageCon.scrollTo({
+      top: messageCon.scrollHeight,
+      behavior: 'instant'
+    });
+  }
+
   componentDidUpdate (prevProps, prevState) {
     //check if the messages have changed by comparing message from this.state and prevState
     const oldMessage = this.props.messages[this.props.messages.length - 1];
@@ -362,9 +370,8 @@ class Messages extends React.Component {
 
     const messageCon = this.messageCon.current;
     if (oldMessage && newMessage) {
-
+      //console.log('scroll', messageCon.scrollHeight, this.props.messages[this.props.messages.length-1]);
       const newMessageHeight = messageCon.children[messageCon.children.length - 1].offsetHeight;
-      // console.log(newMessageHeight, newMessage);
 
       //don't scroll if the user has scrolled 50 pixels up
       if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - newMessageHeight - 50) {

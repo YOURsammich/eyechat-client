@@ -558,6 +558,15 @@ display: none
   display: flex;
   align-items: center;
   position: relative;
+  top: 50%;
+}
+
+.chatAppNav {
+  display: flex;
+  align-items: center;
+  height: 45px;
+  background-color: #282828;
+  padding: 0 10px;
 }
 
 .resizeHandle {
@@ -856,10 +865,10 @@ display: none
 .codeRunnerPanel {
   display: flex;
   flex-direction: column;
-  width: 500px;
   overflow-y: hidden;
   z-index: 1;
   box-shadow: #111 0px 0px 4px;
+  height: 100%;
 }
 
 .appViewToggle {

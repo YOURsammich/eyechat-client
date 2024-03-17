@@ -9,18 +9,19 @@ class CodeRunWindow extends React.Component {
     this.iframe = React.createRef();
   }
 
+  componentDidMount () {
+    this.props.giveRefresh(this.refreshIframe.bind(this));
+  }
+
   refreshIframe () {
     this.iframe.current.src = this.iframe.current.src;
   }
 
   render () {
-    return <div className='codeRunnerPanel'>
-      <div className="codeEditorTopBar" onClick={() => {
-        this.refreshIframe();
-      }}>
-        <button><span className="material-symbols-outlined">refresh</span> Refresh Client</button>
-      </div>
-      <iframe ref={this.iframe} src="./code" style={{flex:1}}></iframe>
+    if (!this.props.focusOnCode) return null;
+
+    return <div className='codeRunnerPanel' style={{pointerEvents: this.props.draggingWindow ? 'none' : ''}}>
+      <iframe ref={this.iframe} src={"./code/" + this.props.pluginName} style={{flex:1}}></iframe>
     </div>
   }
 

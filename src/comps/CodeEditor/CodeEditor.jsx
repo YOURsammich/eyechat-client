@@ -15,9 +15,6 @@ class EditorHomePage extends React.Component {
         name: 'My Plugins',
         id: 'myPlugins'
 
-      }, {
-        name: 'Collabs',
-        id: 'collabs'
       }]
     }
 
@@ -31,7 +28,10 @@ class EditorHomePage extends React.Component {
   renderNewPlugin (props) {
     return <form className='newPluginForm' onSubmit={(e) => {
       e.preventDefault();
-      props.newPlugin();
+
+      const name = e.target.pluginname.value;
+
+      props.newPlugin(name);
     }}>
       <label>
         <h3>Plugin Name</h3>
@@ -50,7 +50,7 @@ class EditorHomePage extends React.Component {
   renderList (props) {
     return <div className='pluginList'>
       {props.plugins && props.plugins.map((plugin, i) => {
-        return <div className='plugin' key={i} onClick={() => {
+        return <div className='plugin' key={i} onMouseDown={() => {
           props.selectPlugin(plugin.name)
         }}>
           <div className='pluginName'>{plugin.name}</div>
@@ -66,7 +66,7 @@ class EditorHomePage extends React.Component {
           this.navData.categories.map((category, i) => {
             return <div className="editorHomeNavCategoryHeader" key={i} style={{
               color: this.state.nav === category.id ? 'white' : '',
-            }} onClick={() => this.setState({nav: category.id})}>{category.name}</div>
+            }} onMouseDown={() => this.setState({nav: category.id})}>{category.name}</div>
           })
         }
 
@@ -74,11 +74,10 @@ class EditorHomePage extends React.Component {
 
           <div className="editorHomeNavCategoryHeader" style={{
             gap: '5px', color: this.state.nav === 'newPlugin' ? 'white' : '',
-          }} onClick={() => {
+          }} onMouseDown={() => {
             this.setState({nav: 'newPlugin'})
           }}>
-            <span className="material-symbols-outlined">add</span>
-            New Plugin
+            <span className="material-symbols-outlined">add</span> New Plugin
           </div>
         </div>
 
@@ -110,7 +109,7 @@ function EditorContainer (props) {
       })
         .then(data => {
           setSaving(false);
-          setSaveTime(Date.now());
+          props.refreshIframe();
         });
     }
 
@@ -145,7 +144,7 @@ function EditorContainer (props) {
           setSaving(true);
         }}>
           <span className="material-symbols-outlined">play_arrow</span>
-          Start Server
+          Save/Reload
         </button>
 
       </div>
@@ -187,12 +186,15 @@ class CodeEditor extends React.Component {
 
   componentDidMount() {
 
-    fetch('./plugins')
+    fetch('./a/plugins')
       .then(res => res.json())
       .then(data => {
-        this.setState({
-          plugins: data
-        })
+        
+        if (!data.message) {
+          this.setState({
+            plugins: data
+          })
+        }
 
       });
 
@@ -203,17 +205,41 @@ class CodeEditor extends React.Component {
       plugin: { name: pluginName },
       view: 'editor'
     });
-
+    console.log(this);
+    this.props.setPlugin(pluginName);
   }
   
-  newPlugin () {
-    this.setState({
-      plugin: {
-        name: 'newPlugin',
-        code: 'console.log("new plugin")'
+  newPlugin (name, description = '') {
+
+    //tell the server to create a new plugin
+    fetch('./a/newplugin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
       },
-      view: 'editor'
+      body: JSON.stringify({
+        name, description
+      })
     })
+      .then(data => {       
+        this.setState({
+          plugin: {
+            name: name,
+            code:  `function App () {
+  return <div>test</div>
+}
+
+const domNode = document.getElementById('root');
+const root = createRoot(domNode);
+root.render(<App />)
+            `
+          },
+          view: 'editor'
+        });
+
+        this.props.setPlugin(name);
+      });
+
   }
 
   render() {
@@ -226,6 +252,7 @@ class CodeEditor extends React.Component {
       selectPlugin={this.selectPlugin.bind(this)}
       newPlugin={this.newPlugin.bind(this)}
       setView={(view) => this.setState({view: view})}
+      refreshIframe={this.props.refreshIframe}
     />
   }
 }

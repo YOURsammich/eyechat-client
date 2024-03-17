@@ -19,11 +19,21 @@ class App extends React.Component {
       showApp: false,
       userlist: [],
       activeChannel: 'main',
-      chatWidth: 300,
-      userID: null
+      chatWidth: 800,
+      userID: null,
+      focusOn: 'chat',
+
+      //chat states
+      messages: [],
     }
 
     this.getMyNick = this.getMyNick.bind(this)
+  }
+
+  _initChatEvents (socket) {
+
+    
+
   }
 
   componentDidMount() {
@@ -75,6 +85,8 @@ class App extends React.Component {
 
         socket.emit('joinChannel');
 
+        this._initChatEvents(socket);
+
         this.resizeBarRef = React.createRef();
 
         this.setState({ connected: true }, this.scrollListenerInit.bind(this));
@@ -82,25 +94,21 @@ class App extends React.Component {
   }
 
   scrollListenerInit() {
-    this.draggingWindow = false;
-
     this.resizeBarRef.current.addEventListener('mousedown', (e) => {
       e.preventDefault();
 
-      this.draggingWindow = true;
-
-      // document.addEventListener('mousemove', this.resizePanel);
-      // document.addEventListener('mouseup', this.stopResize);
+      this.setState({draggingWindow: true});
     });
 
     document.addEventListener('mousemove', (e) => {
-      if (this.draggingWindow) {
+      if (this.state.draggingWindow) {
         this.setState({ chatWidth: (window.innerWidth - e.clientX) });
       }
     });
 
     document.addEventListener('mouseup', (e) => {
-      this.draggingWindow = false;
+
+      this.setState({draggingWindow: false});
     });
 
   }
@@ -126,34 +134,50 @@ class App extends React.Component {
           {
             this.state.showApp ? <CodeEditor
               socket={socket}
+              refreshIframe={this.refreshIframe}
+              setPlugin={(pluginName) => this.setState({pluginName})}
             /> : null
           }
 
           <div style={{
-            display: 'flex', flexDirection: 'row',
+            display: 'flex', flexDirection: 'column',
             flex: this.state.showApp ? 'unset' : 1,
             width: this.state.showApp ? (this.state.chatWidth + 'px') : 'unset',
             overflowX: 'hidden'
           }}>
 
-            {/* <CodeRunWindow 
-              socket={socket}
-              userlist={this.state.userlist}
-            /> */}
+            {
+              this.state.showApp ? <div className='chatAppNav'>
+                <button onClick={() => this.setState({focusOn:'code'})}>Code runner</button>
+                <button onClick={() => this.setState({focusOn:'chat'})}>chat</button>
+              </div> : null
+            }
 
             <div className='resizeBar'>
               <div className='resizeHandle' ref={this.resizeBarRef}></div>
             </div>
 
-            <ChatWindow
-              socket={socket}
-              userlist={this.state.userlist}
-              conversationList={this.state.conversationList}
-              channelName={this.state.activeChannel}
-              toggleEditor={() => this.setState({ showApp: !this.state.showApp })}
-              editorShown={this.state.showApp}
-              getMyNick={this.getMyNick}
-            />
+            
+              <ChatWindow
+                socket={socket}
+                userlist={this.state.userlist}
+                conversationList={this.state.conversationList}
+                channelName={this.state.activeChannel}
+                toggleEditor={() => this.setState({ showApp: !this.state.showApp })}
+                editorShown={this.state.showApp}
+                getMyNick={this.getMyNick}
+                focusOnChat={this.state.focusOn == 'chat'}
+              /> 
+              
+              <CodeRunWindow 
+                socket={socket}
+                userlist={this.state.userlist}
+                giveRefresh={(refresh) => this.refreshIframe = refresh}
+                focusOnCode={this.state.focusOn == 'code'}
+                draggingWindow={this.state.draggingWindow}
+                pluginName={this.state.pluginName}
+              />
+            
           </div>
         </div>
 
