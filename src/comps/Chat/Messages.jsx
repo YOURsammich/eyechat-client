@@ -403,11 +403,17 @@ class Messages extends React.Component {
   }
 
   renderTimeStamp (msgData) {
+    const now = Date.now();
+    const msgTime = new Date(msgData.time);
+    //check if same day
+    const sameDay = now - msgTime < 86400000;
+
     const shortTime = new Intl.DateTimeFormat("en", {
-      timeStyle: "short",
+      dateStyle: (sameDay||!msgData.time) ? undefined : "short",
+      timeStyle: "short"
     });
 
-    return <div className='time' title={msgData.count}>{shortTime.format(Date.now())} </div>
+    return <div className='time' title={msgData.count}>{shortTime.format(msgData.time || Date.now())} </div>
   }
 
   renderNick (msgData) {

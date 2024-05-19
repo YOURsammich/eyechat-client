@@ -126,7 +126,7 @@ class App extends React.Component {
 
         <div id='main-container'>
 
-          <div className="sideBar">
+          <div className="sideBar" style={{display:'none'}}>
             <div className="appViewToggle" onClick={() => this.setState({ showApp: !this.state.showApp })}>
               <span className="material-symbols-outlined">code</span>
             </div>

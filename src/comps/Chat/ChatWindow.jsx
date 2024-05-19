@@ -11,15 +11,14 @@ class ChatWindow extends React.Component {
     this.state = {
       messages: [],
       showUsers: true,
-      showOverlay: false
+      showOverlay: false,
+      previewMessage: '',
     }
 
     this.toggleOverlay = this.toggleOverlay.bind(this)
   }
 
   componentDidMount() {
-    console.log('ass')
-
     this.props.socket.onDisconnect((reason) => {
       console.log('disconnected', reason);
       const oldMessages = [...this.state.messages];
@@ -50,6 +49,7 @@ class ChatWindow extends React.Component {
           nick: a.nick,
           flair: a.flair,
           hat: a.hat,
+          time: a.time?Number(a.time) : undefined
         }
       });
 
