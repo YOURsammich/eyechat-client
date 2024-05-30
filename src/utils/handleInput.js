@@ -127,6 +127,9 @@ const handleInput = {
     } else {
       return { message: input }
     }
+  },
+  getCommands() {
+    return Object.keys(COMMANDS);
   }
 }
 

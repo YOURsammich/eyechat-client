@@ -99,7 +99,7 @@ class InputBar extends React.Component {
     const target = event.target;
     if (this.state.inputAuto) {
       //replace text
-      this.replaceSelectedWord(':' + this.state.inputAuto[this.state.inputIndex].id + ':', target.selectionStart);
+      this.replaceSelectedWord(this.state.inputAuto[this.state.inputIndex].replaceWith, target.selectionStart);
       this.setState({ inputAuto: false, showEmojis: false });
     } else {
       try {
@@ -147,20 +147,43 @@ class InputBar extends React.Component {
     }
 
     if (word.startsWith(':') && (!word.endsWith(':') || word.length == 1)) {
-      return this.props.emoji.filter(a => a.id.toLowerCase().match(word.slice(1)));
+      const matchedEmojis = this.props.emoji.filter(a => a.id.toLowerCase().match(word.slice(1)));
+      return matchedEmojis.map(a => {
+        return {
+          id: a.id,
+          replaceWith: ':' + a.id + ':'
+        }
+      });
     } else {
       return null;
     }
+  }
+
+  getCommands (input = '') {
+
+    if (input[0] != '/') return null;
+
+    const command = input.split(' ')[0].slice(1);
+
+    return handleInput.getCommands().filter(b=> b.startsWith(command)).map(a => {
+      return {
+        id: a,
+        replaceWith: '/' + a
+      }
+    });
   }
 
   handleChange(event) {
     const target = event.target;
     const selectionStart = target.selectionStart || this.state.selectionStart;
     const emojis = this.getEmojis(target.value, selectionStart);
+    const commands = this.getCommands(target.value);
     
-    if (!this.state.showEmojis) return;
+    //if (!this.state.showEmojis) return;
 
-    if (emojis) {
+    if (commands) {
+      this.setState({ inputAuto: commands, selectionStart, emojis: null, showEmojis: true, inputIndex: 0}); 
+    } else if (emojis) {
       this.setState({ inputAuto: emojis, emojis, selectionStart, inputIndex: 0 });
     } else if (!emojis) {
       this.setState({ showEmojis: null, inputAuto: null});

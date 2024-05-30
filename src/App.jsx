@@ -6,8 +6,8 @@ import socket from './utils/socket'
 
 import ChatWindow from './comps/Chat/ChatWindow';
 import Menu from './comps/Menu'
-import CodeEditor from './comps/CodeEditor/CodeEditor';
-import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
+// import CodeEditor from './comps/CodeEditor/CodeEditor';
+// import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 
 
 class App extends React.Component {
@@ -42,6 +42,12 @@ class App extends React.Component {
     })
       .then(() => {
         this.store = new Store();
+
+        socket.on('pong', () => {
+
+          socket.emit('ping');
+
+        });
 
         socket.on('userlist', (userlist) => {
           this.setState({ userlist: userlist })
@@ -131,13 +137,13 @@ class App extends React.Component {
               <span className="material-symbols-outlined">code</span>
             </div>
           </div>
-          {
+          {/* {
             this.state.showApp ? <CodeEditor
               socket={socket}
               refreshIframe={this.refreshIframe}
               setPlugin={(pluginName) => this.setState({pluginName})}
             /> : null
-          }
+          } */}
 
           <div style={{
             display: 'flex', flexDirection: 'column',
@@ -169,14 +175,14 @@ class App extends React.Component {
                 focusOnChat={this.state.focusOn == 'chat'}
               /> 
               
-              <CodeRunWindow 
+              {/* <CodeRunWindow 
                 socket={socket}
                 userlist={this.state.userlist}
                 giveRefresh={(refresh) => this.refreshIframe = refresh}
                 focusOnCode={this.state.focusOn == 'code'}
                 draggingWindow={this.state.draggingWindow}
                 pluginName={this.state.pluginName}
-              />
+              /> */}
             
           </div>
         </div>

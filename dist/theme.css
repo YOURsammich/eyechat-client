@@ -129,6 +129,10 @@ display: none
   outline: none;
 }
 
+.pretendInput:focus-within {
+  outline: 1px solid #fff; /* Change as needed */
+}
+
 .insideInputBarBtns {
   display: flex;
   align-items: center;
@@ -170,6 +174,7 @@ display: none
   gap: 10px;
   padding: 5px;
   overflow: hidden;
+  color: #777
 }
 
 .menuPane {
@@ -912,4 +917,22 @@ display: none
 
 .ballBtn {
   font-size: 25px;
+}
+
+/* Style this button to look like a link */
+.quote {
+  background: none;
+  color: lightblue;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.quote-container {
+  display: block !important;
+  background: #111;
+  padding: 4px;
+  pointer-events: none;
 }

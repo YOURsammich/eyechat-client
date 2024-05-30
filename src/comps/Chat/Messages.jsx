@@ -250,36 +250,53 @@ function Emoji (props) {
 function QuoteMsg (props) {
 
   const [quote, setQuote] = React.useState(null);
-  const [noQuote, setNoQuote] = React.useState(null);
+  const [quoteVisible, setQuoteVisible] = React.useState(false);
 
   React.useEffect(() => {
     fetch('/getMessage/' + props.message.data.strdata.slice(2))
     .then(res => res.json())
     .then(res => {
       if (res.error || !res) {
-        setNoQuote(true);
+        setQuote(false);
+
       } else {
-        //setQuote(res);
-        setNoQuote(false);
+        setQuote({
+          nick: res.nick,
+          message: res.message,
+          messageParsed: messageParser.parse(res.message, msgStyles),
+          time: res.time,
+        });
       }
     });
 
   }, []);
 
-  const color = noQuote === null ? '#c7c4bf' : noQuote === false ? '' : '#ad0000'
-  return <a className='quote' style={{color:color, position: 'relative'}} onMouseOver={() => {
-    console.log(quote);
-  }}>
-    {props.message.data.strdata}
+  const color = quote ? '' : '#ad0000'
+  return <>
+    <button className='quote' style={{color:color, position: 'relative'}} onFocus={() => 0} 
+      onMouseMove={(e) => {
+        //set position of quote
+        const quoteContainer = document.querySelector('.quote-container');
+        if (quoteContainer) {
+          quoteContainer.style.top = (e.clientY - quoteContainer.offsetHeight) + 'px';
+          quoteContainer.style.left = e.clientX + 'px';
+        }
+      }}
+      onMouseEnter={() => quote && setQuoteVisible(true)}
+      onMouseLeave={() => setQuoteVisible(false)}
+    
+    >
+      {props.message.data.strdata}
 
+    </button>
     {
-      quote ? <div className='quote-container' style={{position: 'absolute'}}>
-        <div className='quote-nick'>{quote.nick}</div>
-        <div className='quote-message'>{quote.message}</div>
-      </div> : null
-    }
+        quoteVisible ? <div className='quote-container' style={{position: 'absolute'}}>
+          
+          {props.renderMessage(quote)}
 
-  </a>
+        </div> : null
+      }
+  </>
 
 }
 
@@ -312,7 +329,7 @@ function getCompRender (message, props) {
     case message.data.type == 'emoji':
       return <Emoji emojiId={message.data.strdata} emojis={props.emojis} _imageLoaded={(image) => props._imageLoaded(image)} />;
     case message.data.type == 'quote':
-      return <QuoteMsg message={message} />;
+      return <QuoteMsg message={message} renderMessage={props.renderMessage} />;
     default:
       return null;
   }
@@ -335,6 +352,7 @@ function NestMessage (props) {
         message={message} 
         emojis={props.emojis}
         _imageLoaded={(image) => props._imageLoaded(image)}
+        renderMessage={props.renderMessage}
       /> : null}
     </span>
 
@@ -469,7 +487,8 @@ class Messages extends React.Component {
         message={message} 
         emojis={this.props.emojis}
         getMsgCss={this.getMsgCss.bind(this)} 
-        _imageLoaded={(image) => this._imageLoaded(image)} 
+        _imageLoaded={(image) => this._imageLoaded(image)}
+        renderMessage={this.renderMessage.bind(this)}
       />
     </div>
   }
