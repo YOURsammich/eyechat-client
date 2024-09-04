@@ -113,6 +113,7 @@ class EmojiMini extends React.Component {
   
     renderEmojiList() {
       const startIndex = Math.floor(this.props.inputIndex / 12) * 12;
+
       return <div className='emojiList'>
         {this.props.emojis ? this.props.emojis.slice(startIndex, startIndex + 12).map((a, i) => {
           return <li

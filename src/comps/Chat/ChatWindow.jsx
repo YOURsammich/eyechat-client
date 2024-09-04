@@ -13,12 +13,27 @@ class ChatWindow extends React.Component {
       showUsers: true,
       showOverlay: false,
       previewMessage: '',
+      selectedList: 'users',
     }
 
-    this.toggleOverlay = this.toggleOverlay.bind(this)
+    this.toggleOverlay = this.toggleOverlay.bind(this);
+
+    this.blurred = false;
+    this.unreadMessages = 0;
   }
 
   componentDidMount() {
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.blurred = true;
+      } else {
+        this.blurred = false;
+        this.unreadMessages = 0;
+        document.title = 'Cope.chat - The chat that always copes';
+      }
+    });
+
     this.props.socket.onDisconnect((reason) => {
       console.log('disconnected', reason);
       const oldMessages = [...this.state.messages];
@@ -33,6 +48,11 @@ class ChatWindow extends React.Component {
     this.props.socket.on('message', (data) => {
       const oldMessages = [...this.state.messages];
       oldMessages.push(data)
+
+      if (this.blurred) {
+        this.unreadMessages++;
+        document.title = (this.unreadMessages ? `(${this.unreadMessages}) ` : '') + 'Cope.chat - The chat that always copes';
+      }
 
       this.setState({ messages: oldMessages });
     })
@@ -130,18 +150,18 @@ class ChatWindow extends React.Component {
         <div className='chatContainer'>
 
           <div className="chatHeader">
-            <div className='topic'>{this.state.topic}</div>
+            
             <div className='channelNameHeader'>
               {'/' + this.props.channelName}
             </div>
 
+            <div className='topic'>{this.state.topic}</div>
+
             <div className='topBarBtns'>
 
-              <span className="material-symbols-outlined" onClick={this.toggleOverlay.bind(this, 'settings')}>settings</span>
+              <span className="material-symbols-outlined" onClick={() => this.setState({ selectedList: 'settings' })}>settings</span>
 
-              <span className="material-symbols-outlined">person</span>
-
-              <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ showUsers: !this.state.showUsers })}>
+              <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ selectedList: 'users' })}>
                 {this.state.showUsers ? 'group' : 'group'}
               </span>
 
@@ -155,7 +175,16 @@ class ChatWindow extends React.Component {
             getUserFlair={this.getUserFlair.bind(this)}
             messages={this.state.messages}
             background={this.state.background}
-          />
+          >
+            {
+              this.state.showOverlay ?
+                <Overlay
+                  type={this.state.showOverlay}
+                /> : null
+            }
+          </Messages>
+
+
           <InputBar
             emoji={this.state.emojis}
             socket={this.props.socket}
@@ -164,13 +193,6 @@ class ChatWindow extends React.Component {
             getMyNick={this.props.getMyNick}
           />
 
-          {
-            this.state.showOverlay ?
-              <Overlay
-                type={this.state.showOverlay}
-              /> : null
-          }
-
         </div>
 
         {
@@ -178,6 +200,7 @@ class ChatWindow extends React.Component {
             <Menu
               userlist={this.props.userlist}
               toggleOverlay={this.toggleOverlay}
+              activeList={this.state.selectedList}
             /> : null
         }
 

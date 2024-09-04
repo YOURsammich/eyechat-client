@@ -1,8 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500&family=Inter:wght@100..900&display=swap');
+
+:read-write {
+  font-family: Inter;
+}
 
 body {
   margin:0;
-  font-family: 'Archivo', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 a {
@@ -47,7 +51,6 @@ display: none
   color: white;
   flex: 1;
   padding: 10px 10px;
-  font-size: 18px;
   overflow-y: scroll;
   scroll-behavior: smooth;
 }
@@ -101,6 +104,7 @@ display: none
 
 .pretendInput {
   display: flex;
+  align-items: center;
   flex: 1;
   background: rgba(36, 36, 36, 0.75);
   border-radius: 5px;
@@ -159,6 +163,27 @@ display: none
   cursor: pointer;
   padding: 5px 5px;
   border-radius: 3px;
+  display: flex;
+  align-items: center;
+}
+
+.pluginSelectionContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  margin-top: 10px;
+}
+
+.pluginSelect {
+  background-color: #333;
+  height: 50px;
+  width: 50px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .noSelect {
@@ -178,7 +203,7 @@ display: none
 }
 
 .menuPane {
-  background-color: #111111;
+  background-color: #181818;
   color: white;
   width: 200px;
   display: flex;
@@ -188,8 +213,9 @@ display: none
 .menuHeader {
   display: flex;
   justify-content: center;
-  height: 50px;
+  height: 45px;
   align-items: center;
+  box-shadow: 0 1px 2px black;
 }
 
 .userLi{
@@ -230,7 +256,7 @@ display: none
 
 .userLiName {
   font-size: 16px;
-  font-weight: 100;
+  font-weight: 300;
 }
 
 .userLiCurrency {
@@ -274,10 +300,7 @@ display: none
   color: white;
   display: flex;
   justify-content: center;;
-  top: 10%;
-  right: 25%;
-  height: 80% ;
-  width: 60%;
+  top: 0px;
   z-index: 1000; 
   background-color: rgba(0, 0, 0, 0.753); 
 }
@@ -402,13 +425,14 @@ display: none
 .stdBtn {
   background-color: #39f;
   color: white;
-  padding: 3px 15px 3px 6px;
+  padding: 5px 13px 5px 13px;
   border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   font-weight: bold;
   gap: 10px;
+  border: none;
 }
 
 .emojiIdField {
@@ -517,23 +541,30 @@ display: none
   z-index: 4;
   padding: 0 0 0 10px;
   overflow: hidden;
+  box-shadow: 0 1px 2px black;
 }
 
 .channelNameHeader {
-  background-color: #1b274f;
-  /* border-radius: 3px; */
   font-size: 20px;
   display: flex;
   height: 45px;
-  /* align-items: center; */
   font-size: 16px;
   cursor: pointer;
-  /* flex-direction: column; */
   gap: 50px;
   padding: 0px 18px 0px 18px;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 0 6px 4px #1b274f;
+}
+
+.topBarBtns {
+  gap: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.topBarBtns span {
+  cursor: pointer;
 }
 
 .topic {
@@ -549,12 +580,12 @@ display: none
 .sideBar {
   background-color: #111;
   color: #fff;
-  height: 45px;
   display: flex;
   align-items: center;
   flex-direction: column;
   height: 100%;
   z-index: 4;
+  width: 65px;
 }
 
 .resizeBar {
@@ -579,7 +610,7 @@ display: none
   width: 10px;
   position: absolute;
   height: 38px;
-  background-image: repeating-linear-gradient(0deg,#205b96 -7px,rgb(0 0 0) 0px);
+  /* background-image: repeating-linear-gradient(0deg,#205b96 -7px,rgb(0 0 0) 0px); */
   cursor: col-resize;
   z-index: 100;
 }
@@ -874,16 +905,27 @@ display: none
   z-index: 1;
   box-shadow: #111 0px 0px 4px;
   height: 100%;
+  flex: 1;
 }
 
 .appViewToggle {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 20px;
-  background-color: #283669;
   cursor: pointer;
   height: 45px;
+  width: 50px;
+  border-bottom: 1px solid #333;
+}
+
+.appViewToggle span {
+  padding: 0px;
+  height: 30px;
+  width: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
 }
 
 /* messages */
@@ -935,4 +977,14 @@ display: none
   background: #111;
   padding: 4px;
   pointer-events: none;
+}
+
+.settingsContainer {
+  padding: 10px;
+}
+
+.settingsLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }

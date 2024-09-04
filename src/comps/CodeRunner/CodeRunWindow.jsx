@@ -18,10 +18,9 @@ class CodeRunWindow extends React.Component {
   }
 
   render () {
-    if (!this.props.focusOnCode) return null;
 
     return <div className='codeRunnerPanel' style={{pointerEvents: this.props.draggingWindow ? 'none' : ''}}>
-      <iframe ref={this.iframe} src={"./code/" + this.props.pluginName} style={{flex:1}}></iframe>
+      <iframe ref={this.iframe} src={"http://mentalmeat.cloud:8080/v/sammich/" + this.props.pluginName} style={{flex:1, border: 'none'}}></iframe>
     </div>
   }
 

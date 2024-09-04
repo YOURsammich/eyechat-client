@@ -60,7 +60,8 @@ class InputBar extends React.Component {
   replaceSelectedWord(word, selectionStart) {
     const target = document.querySelector('.input-container textarea');
     const input = target.value;
-    const wordStart = input.lastIndexOf(':', selectionStart);
+    const lastSpace = input.lastIndexOf(' ', selectionStart);
+    const wordStart = lastSpace != -1 ? lastSpace : 0;
     let wordEnd = input.indexOf(' ', selectionStart);
     if (wordEnd == -1) {
       wordEnd = input.length;
@@ -151,7 +152,8 @@ class InputBar extends React.Component {
       return matchedEmojis.map(a => {
         return {
           id: a.id,
-          replaceWith: ':' + a.id + ':'
+          replaceWith: ':' + a.id + ':',
+          imageName: a.imageName
         }
       });
     } else {
@@ -159,9 +161,13 @@ class InputBar extends React.Component {
     }
   }
 
-  getCommands (input = '') {
+  getCommands (input = '', selectionStart) {
 
     if (input[0] != '/') return null;
+
+    const commandName = input.split(' ')[0].slice(1);
+
+    if (selectionStart > commandName.length + 1) return null;
 
     const command = input.split(' ')[0].slice(1);
 
@@ -177,14 +183,14 @@ class InputBar extends React.Component {
     const target = event.target;
     const selectionStart = target.selectionStart || this.state.selectionStart;
     const emojis = this.getEmojis(target.value, selectionStart);
-    const commands = this.getCommands(target.value);
+    const commands = this.getCommands(target.value, selectionStart);
     
     //if (!this.state.showEmojis) return;
 
     if (commands) {
-      this.setState({ inputAuto: commands, selectionStart, emojis: null, showEmojis: true, inputIndex: 0}); 
+      this.setState({ inputAuto: commands, selectionStart, emojis: null, showEmojis: false, inputIndex: 0}); 
     } else if (emojis) {
-      this.setState({ inputAuto: emojis, emojis, selectionStart, inputIndex: 0 });
+      this.setState({ inputAuto: emojis, emojis, selectionStart, showEmojis:true, inputIndex: 0 });
     } else if (!emojis) {
       this.setState({ showEmojis: null, inputAuto: null});
     }

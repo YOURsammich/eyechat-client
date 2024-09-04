@@ -6,8 +6,8 @@ import socket from './utils/socket'
 
 import ChatWindow from './comps/Chat/ChatWindow';
 import Menu from './comps/Menu'
-// import CodeEditor from './comps/CodeEditor/CodeEditor';
-// import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
+import CodeEditor from './comps/CodeEditor/CodeEditor';
+import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 
 
 class App extends React.Component {
@@ -22,6 +22,7 @@ class App extends React.Component {
       chatWidth: 800,
       userID: null,
       focusOn: 'chat',
+      plugins: [],
 
       //chat states
       messages: [],
@@ -96,6 +97,18 @@ class App extends React.Component {
         this.resizeBarRef = React.createRef();
 
         this.setState({ connected: true }, this.scrollListenerInit.bind(this));
+
+        const copeCloud = 'http://mentalmeat.cloud:8080/'
+
+        fetch(copeCloud + 'getApps')
+          .then(res => res.json())
+          .then(res => {
+            console.log(res);
+
+            this.setState({ plugins: Object.keys(res) })
+
+          })
+
       })
   }
 
@@ -132,10 +145,23 @@ class App extends React.Component {
 
         <div id='main-container'>
 
-          <div className="sideBar" style={{display:'none'}}>
+          <div className="sideBar">
             <div className="appViewToggle" onClick={() => this.setState({ showApp: !this.state.showApp })}>
               <span className="material-symbols-outlined">code</span>
             </div>
+
+            <div className='pluginSelectionContainer'>
+              {
+                this.state.plugins.map((plugin) => (
+                  <div key={plugin} className="pluginSelect" onClick={() => {
+                    this.setState({ showApp: plugin })
+                  }}>
+                    {plugin.slice(0,2) + plugin.slice(-2)}
+                  </div>
+                ))
+              }
+            </div>
+
           </div>
           {/* {
             this.state.showApp ? <CodeEditor
@@ -145,19 +171,24 @@ class App extends React.Component {
             /> : null
           } */}
 
+
+          {
+            this.state.showApp ? <CodeRunWindow 
+              socket={socket}
+              userlist={this.state.userlist}
+              giveRefresh={(refresh) => this.refreshIframe = refresh}
+              focusOnCode={this.state.focusOn == 'code'}
+              draggingWindow={this.state.draggingWindow}
+              pluginName={this.state.showApp}
+            /> : null
+          }
+
           <div style={{
             display: 'flex', flexDirection: 'column',
             flex: this.state.showApp ? 'unset' : 1,
             width: this.state.showApp ? (this.state.chatWidth + 'px') : 'unset',
             overflowX: 'hidden'
           }}>
-
-            {
-              this.state.showApp ? <div className='chatAppNav'>
-                <button onClick={() => this.setState({focusOn:'code'})}>Code runner</button>
-                <button onClick={() => this.setState({focusOn:'chat'})}>chat</button>
-              </div> : null
-            }
 
             <div className='resizeBar'>
               <div className='resizeHandle' ref={this.resizeBarRef}></div>
@@ -174,16 +205,7 @@ class App extends React.Component {
                 getMyNick={this.getMyNick}
                 focusOnChat={this.state.focusOn == 'chat'}
               /> 
-              
-              {/* <CodeRunWindow 
-                socket={socket}
-                userlist={this.state.userlist}
-                giveRefresh={(refresh) => this.refreshIframe = refresh}
-                focusOnCode={this.state.focusOn == 'code'}
-                draggingWindow={this.state.draggingWindow}
-                pluginName={this.state.pluginName}
-              /> */}
-            
+                          
           </div>
         </div>
 

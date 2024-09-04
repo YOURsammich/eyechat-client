@@ -86,6 +86,8 @@ class PM_Window extends React.Component {
     const index = this.state.conversationList.findIndex((convo) => convo.convoid === this.state.selectedConvo);
     const convo = this.state.conversationList[index];
 
+    console.log(this.state.conversationList, index, convo, prop);
+
     if (prop === 'all') { return convo ?? null }
 
     return convo[prop] ?? null
@@ -179,9 +181,12 @@ class PM_Convo extends React.Component {
     const current = this.convoRef.current;
 
     if (current) {
+      console.log(this.props.getConvoProp('messages'));
       this.setState({ scrollPos: current.scrollHeight }, () => {
         current.scrollTop = this.state.scrollPos;
       })
+    } else {
+      console.log('no convoRef')
     }
   }
 
