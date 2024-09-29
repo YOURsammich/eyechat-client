@@ -6,7 +6,6 @@ import socket from './utils/socket'
 
 import ChatWindow from './comps/Chat/ChatWindow';
 import Menu from './comps/Menu'
-import CodeEditor from './comps/CodeEditor/CodeEditor';
 import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 
 
@@ -28,7 +27,7 @@ class App extends React.Component {
       messages: [],
     }
 
-    this.getMyNick = this.getMyNick.bind(this)
+    this.getMyUser = this.getMyUser.bind(this)
   }
 
   _initChatEvents (socket) {
@@ -55,7 +54,8 @@ class App extends React.Component {
         });
 
         socket.on('setID', (ID) => {
-          this.setState({ userID: ID })
+          console.log('setid',this.state.userlist[ID]);
+          this.setState({ userID: ID });
         })
 
         socket.on('userJoin', (user) => {
@@ -98,7 +98,7 @@ class App extends React.Component {
 
         this.setState({ connected: true }, this.scrollListenerInit.bind(this));
 
-        const copeCloud = 'http://mentalmeat.cloud:8080/'
+        const copeCloud = 'http://localhost:8080/'
 
         fetch(copeCloud + 'getApps')
           .then(res => res.json())
@@ -132,10 +132,10 @@ class App extends React.Component {
 
   }
 
-  getMyNick() {
+  getMyUser() {
     const user = this.state.userlist.find((user) => user.id === this.state.userID);
 
-    return user?.nick;
+    return user;
   }
 
   render() {
@@ -163,14 +163,6 @@ class App extends React.Component {
             </div>
 
           </div>
-          {/* {
-            this.state.showApp ? <CodeEditor
-              socket={socket}
-              refreshIframe={this.refreshIframe}
-              setPlugin={(pluginName) => this.setState({pluginName})}
-            /> : null
-          } */}
-
 
           {
             this.state.showApp ? <CodeRunWindow 
@@ -202,7 +194,7 @@ class App extends React.Component {
                 channelName={this.state.activeChannel}
                 toggleEditor={() => this.setState({ showApp: !this.state.showApp })}
                 editorShown={this.state.showApp}
-                getMyNick={this.getMyNick}
+                user={this.getMyUser()}
                 focusOnChat={this.state.focusOn == 'chat'}
               /> 
                           

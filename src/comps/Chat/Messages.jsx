@@ -100,6 +100,19 @@ const messageParser = {
 
     return {index: index, strdata: str.slice(index, pipeBreak + 1), type: 'font'};
   },
+
+  getSlideShowComp (str) {
+
+    const index = str.indexOf('$$');
+    if (index == -1) return null;
+
+    const nextIndex = str.indexOf('$$', index + 2);
+    if (nextIndex == -1) return null;
+
+    return {index, strdata: str.slice(index, nextIndex + 2), type: 'slideshow'};
+
+  },
+
   getStyleBreaker (str) {
     const index = str.indexOf('|');
     if (index == -1) return null;
@@ -115,8 +128,10 @@ const messageParser = {
     const nextColorComp = this.getColorComp(str, msgStyles);
     const nextFontComp = this.getFontComp(str, msgStyles);
     const nextQuoteComp = this.getNextQuoteComp(str, msgStyles);
+    const nextSlideShowComp = this.getSlideShowComp(str, msgStyles);
 
     const comps = [
+      nextSlideShowComp,
       nextStyleBreaker, 
       nextQuoteComp, 
       nextFontComp, 
@@ -217,6 +232,23 @@ const messageParser = {
 
 }
 
+function SlideShow (props) {
+  const trimString = props.message.substring(2, props.message.length - 2);
+  const slideSegments = trimString.split('$');
+  const [slideIndex, setSlideIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setSlideIndex(slideIndex => {
+        if (slideIndex == slideSegments.length - 1) return 0;
+        return slideIndex + 1;
+      });
+    }, 2000);
+  }, []);
+
+  return <div>{slideSegments[slideIndex]}</div>
+}
+
 function Emoji (props) {
   const [loaded, setLoaded] = React.useState(false);
   const emoji = props.emojis.find(emoji => emoji.id == props.emojiId.replaceAll(':', ''));
@@ -241,6 +273,9 @@ function Emoji (props) {
       if (!loaded) {
         setLoaded(true);
       }
+    }}
+    onError={(e) => {
+      setLoaded(true);
     }}
     src={'/images/emojis/' + emoji.imageName}
   />
@@ -324,6 +359,8 @@ function getCompRender (message, props) {
   switch (true) {
     case typeof message.data == 'string':
       return message.data;
+    case message.data.type == 'slideshow':
+      return <SlideShow message={message.data.strdata} />;
     case message.data.type == 'link':
       return <LinkMsg message={message} _imageLoaded={image => props._imageLoaded(image)} />;
     case message.data.type == 'emoji':
@@ -364,7 +401,9 @@ class Messages extends React.Component {
   constructor () {
     super();
 
-    this.state = {}
+    this.state = {
+      block: []
+    }
 
     this.cacheMessage = {};
 
@@ -431,7 +470,15 @@ class Messages extends React.Component {
       timeStyle: "short"
     });
 
-    return <div className='time' title={msgData.count}>{shortTime.format(msgData.time || Date.now())} </div>
+    const nameMentioned = this.props.user?.nick ? 
+      (msgData.type == 'chat' && msgData.message.includes(this.props.user.nick))
+    : false;
+
+    return <div className='time' title={msgData.count} style={{
+      color: nameMentioned ? 'yellow' : ''
+    }}>
+      {shortTime.format(msgData.time || Date.now()) + ' '}
+    </div>
   }
 
   renderNick (msgData) {
@@ -496,7 +543,7 @@ class Messages extends React.Component {
   renderMessage (message) {
     return <div className={'message' + (message.type ? ' ' + message.type : '')} key={message.count}>
       { this.renderTimeStamp(message) }
-      { !message.type ? this.renderNick(message) : null }
+      { message.type == 'chat' ? this.renderNick(message) : null }
       { this.renderMessageContent(message) }
     </div>
   }

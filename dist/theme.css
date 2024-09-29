@@ -218,13 +218,13 @@ display: none
   box-shadow: 0 1px 2px black;
 }
 
-.userLi{
-  flex: 1
+.userLi {
+  flex: 1;
+  padding: 10px 0;
 }
 
 .userLiSpan {
-  height: 40px;
-  padding: 10px;
+  padding: 5px;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -243,15 +243,30 @@ display: none
   font-size: 12px;
   font-style: italic;
   color: #6eaef3;
-  display: flex;
-  justify-content: space-around;
-  margin-top: 8px;
-  text-decoration: none;
   text-decoration: none;
 }
 
 .userLiActions a {
   text-decoration: none;
+}
+
+.userLiActions .userActionBtn {
+  background-color: unset;
+  border:none;
+  font-size: 14px;
+  font-style: italic;
+  color: #39f;
+  cursor: pointer;
+  padding: 0;
+  margin: 0 10px 0 0;
+}
+
+.userLiActions .userActionBtn:hover {
+  text-decoration: underline;
+}
+
+.userLiActions .userActionBtn:last-child {
+  float: right;
 }
 
 .userLiName {
@@ -305,14 +320,6 @@ display: none
   background-color: rgba(0, 0, 0, 0.753); 
 }
 
-.codeEditorContainer {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow-x: hidden;
-  background-color: #181818;
-  color: white;
-}
 
 .editorHome {
   padding: 25px;
@@ -368,16 +375,6 @@ display: none
 }
 
 /* balls */
-
-.codemirror-editor {
-  flex: 1;
-  overflow-x: auto;
-}
-
-.codemirror-editor > .cm-editor {
-  height: 100%;
-  width: 100%;
-}
 
 .pluginControlPanel {
   display: flex;
@@ -458,15 +455,6 @@ display: none
   margin-top: 10px;
 }
 
-.codeEditorTopBar {
-  color: white;
-  display: flex;
-  height: 45px;
-  background-color: #282828;
-  align-items: center;
-  gap: 15px;
-  padding-left: 15px;
-}
 
 .pluginList {
   width: 140px;
@@ -937,6 +925,14 @@ display: none
 .general .messageContent:before,
 .general .messageContent:after{
     content: ' ** '
+}
+
+.info {
+  color: red;
+}
+
+.note {
+  color: #B30000;
 }
 
 .general {

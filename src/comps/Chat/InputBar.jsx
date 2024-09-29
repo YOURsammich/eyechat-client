@@ -55,23 +55,47 @@ class InputBar extends React.Component {
       showConvos: false
     }
 
+    this.history = [];
+    this.historyIndex = -1;
+
+    this.inputBarRef = React.createRef();
+
+  }
+
+  componentDidMount() {
+
+    this.inputBarRef.current.focus();
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        this.inputBarRef.current.focus();
+      }
+    });
+
   }
 
   replaceSelectedWord(word, selectionStart) {
     const target = document.querySelector('.input-container textarea');
     const input = target.value;
-    const lastSpace = input.lastIndexOf(' ', selectionStart);
-    const wordStart = lastSpace != -1 ? lastSpace : 0;
+    const lastSpace = input.lastIndexOf(' ', selectionStart-1);
+    const wordStart = lastSpace != -1 ? lastSpace+1 : 0;
     let wordEnd = input.indexOf(' ', selectionStart);
     if (wordEnd == -1) {
       wordEnd = input.length;
     }
+
+    console.log(input, selectionStart, lastSpace, word);
 
     target.value = input.slice(0, wordStart) + word + input.slice(wordEnd);
     target.focus();
 
     target.selectionStart = wordStart + word.length + 1;
     target.selectionEnd = wordStart + word.length + 1;
+  }
+
+  addHistory (message) {
+    this.historyIndex = -1;
+    this.history.unshift(message);
   }
 
   _handleTab(event) {
@@ -98,12 +122,14 @@ class InputBar extends React.Component {
 
   _handleEnter(event) {
     const target = event.target;
-    if (this.state.inputAuto) {
+    if (this.state.inputAuto && this.state.inputAuto.length) {
       //replace text
       this.replaceSelectedWord(this.state.inputAuto[this.state.inputIndex].replaceWith, target.selectionStart);
-      this.setState({ inputAuto: false, showEmojis: false });
+      this.setState({ inputAuto: false, emojis: false });
     } else {
       try {
+        this.addHistory(target.value);
+
         const inputData = handleInput.handle(target.value, this.props.channelName);
 
         if (inputData.commandName) {
@@ -130,7 +156,7 @@ class InputBar extends React.Component {
 
   getEmojis(input = '', selectionStart) {
     let wordStart = input.lastIndexOf(':', selectionStart);
-    if (!wordStart) wordStart = 0;
+    if (wordStart == -1) return null;
 
     let wordEnd = input.indexOf(' ', wordStart + 1);
     if (wordEnd == -1) {
@@ -179,32 +205,62 @@ class InputBar extends React.Component {
     });
   }
 
+  getNicks (input = '', selectionStart) {
+    const wordStart = input.lastIndexOf('@', selectionStart);
+    if (wordStart == -1) return null;
+    
+    let wordEnd = input.indexOf(' ', wordStart + 1);
+    if (wordEnd != -1) {
+      return null;
+    }
+
+    const word = input.substring(wordStart).toLowerCase();
+    console.log(word);
+    if ((input[wordStart - 1] != ' ' && input[wordStart - 1] != '@') && wordStart != 0) return null;
+
+    if (word.startsWith('@') && (!word.endsWith('@') || word.length == 1)) {
+      const matchedNicks = this.props.userlist.filter(a => a.nick.toLowerCase().match(word.slice(1)));
+      return matchedNicks.map(a => {
+        return {
+          id: a.nick,
+          replaceWith: '@' + a.nick
+        }
+      });
+    } else {
+      return null;
+    }
+  }
+
   handleChange(event) {
     const target = event.target;
     const selectionStart = target.selectionStart || this.state.selectionStart;
     const emojis = this.getEmojis(target.value, selectionStart);
     const commands = this.getCommands(target.value, selectionStart);
+    const nicks = this.getNicks(target.value, selectionStart);
     
-    //if (!this.state.showEmojis) return;
-
-    if (commands) {
-      this.setState({ inputAuto: commands, selectionStart, emojis: null, showEmojis: false, inputIndex: 0}); 
+    if (nicks) {
+      this.setState({ inputAuto: nicks, selectionStart, inputIndex: 0 });
+    } else if (commands) {
+      this.setState({ inputAuto: commands, selectionStart, inputIndex: 0}); 
     } else if (emojis) {
-      this.setState({ inputAuto: emojis, emojis, selectionStart, showEmojis:true, inputIndex: 0 });
+      this.setState({ inputAuto: emojis, emojis, selectionStart, inputIndex: 0 });
     } else if (!emojis) {
-      this.setState({ showEmojis: null, inputAuto: null});
+      this.setState({ inputAuto: null, emojis: null });
     }
   }
 
   handleKeyUp(event) {
+
     const target = event.target;
 
-    const selectionStart = target.selectionStart || this.state.selectionStart;
-    const emojis = this.getEmojis(target.value, selectionStart);
+    const countLines = target.value.split('\n').length;
 
-    if (!this.state.inputAuto && emojis) {
-      this.setState({ inputIndex: 0, showEmojis: true, emojis, inputAuto: emojis });
-    }
+    target.rows = countLines;
+
+
+    if (!this.state.inputAuto) {
+      this.handleChange(event);
+    } 
   }
 
   handleKeyDown(event) {
@@ -220,6 +276,17 @@ class InputBar extends React.Component {
       }
     } else if (event.which == 9) {
       this._handleTab(event);
+    } else if (event.shiftKey) {
+      if (event.which == 40) {
+        if (this.historyIndex > 0) {
+          target.value = this.history[--this.historyIndex];
+        }
+
+      } else if (event.which == 38) {
+        if (this.historyIndex < this.history.length - 1) {
+          target.value = this.history[++this.historyIndex];
+        }      
+      }
     }
   }
 
@@ -229,22 +296,22 @@ class InputBar extends React.Component {
 
   _handleEmojiClick() {
 
-    if (this.state.showEmojis) {
-      this.setState({ showEmojis: false, inputAuto: false });
+    if (this.state.emojis) {
+      this.setState({ emojis: false, inputAuto: false });
     } else {
       const emojis = this.getEmojis(':', 1);
-      this.setState({ emojis, inputAuto: emojis, inputIndex: 0, showEmojis: true });
+      this.setState({ emojis, inputAuto: emojis, inputIndex: 0 });
     }
   }
 
   render() {
     return <div className="input-container" >
       
-      {this.state.showEmojis ? <EmojiMini
+      {this.state.emojis ? <EmojiMini
         addMessage={this.props.addMessage}
         emojis={this.state.emojis}
         inputIndex={this.state.inputIndex}
-        close={() => this.setState({ emojis: false, inputAuto: false, showEmojis: false })}
+        close={() => this.setState({ emojis: false, inputAuto: false })}
         selectEmoji={(emoji) => this.replaceSelectedWord(':' + emoji + ':', this.state.selectionStart)}
       /> : null}
 
@@ -258,7 +325,7 @@ class InputBar extends React.Component {
 
       {this.state.showConvos ? <PM
         socket={this.props.socket}
-        getMyNick={this.props.getMyNick}
+        user={this.props.user}
       /> : null}
 
       {this.state.showStyle ? <StylePanel /> : null}
@@ -272,6 +339,7 @@ class InputBar extends React.Component {
             onKeyUp={this.handleKeyUp.bind(this)}
             onKeyDown={this.handleKeyDown.bind(this)}
             rows="1" placeholder="Type anything then press enter."
+            ref={this.inputBarRef}
           ></textarea>
 
           <div className='insideInputBarBtns'>
@@ -288,7 +356,9 @@ class InputBar extends React.Component {
             <span style={{fontSize: '20px'}} className="material-symbols-outlined">palette</span>
           </div>
 
-          <div className='noSelect inputBarBtn' onClick={() => this.toggleDisplay('showConvos')}>
+          <div className='noSelect inputBarBtn' onClick={() => {
+            //this.toggleDisplay('showConvos')
+          }}>
             <span style={{fontSize: '20px'}} className="material-symbols-outlined">forum</span>
           </div>
 

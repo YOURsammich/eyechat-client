@@ -1,4 +1,5 @@
 import * as React from 'react';
+import handleInput from '../utils/handleInput';
 
 
 class Menu extends React.Component {
@@ -21,9 +22,15 @@ class Menu extends React.Component {
 
         {
           this.props.activeList === 'users' ? 
-            <UserList userlist={this.props.userlist} /> : 
+            <UserList 
+              socket={this.props.socket}
+              userlist={this.props.userlist} 
+            /> : 
             this.props.activeList === 'settings' ?
-              <Settings /> : null
+              <Settings 
+                toggles={this.props.toggles} 
+                toggleStateChange={this.props.toggleStateChange}
+              /> : null
         }
 
       </div>
@@ -37,10 +44,34 @@ class UserList extends React.Component {
   constructor() {
     super();
 
+
+
   }
 
-  handleUserAction(id) {
-    console.log(id)
+  getUserActions(name) {
+
+    return [
+      {
+        name: 'PM',
+        callback: () => {}
+      },
+      {
+        name: 'whois',
+        callback: () => {
+          const inputData = handleInput.handle('/whois ' + name);
+          this.props.socket.emit('command', inputData);
+        }
+      },
+      {
+        name: 'block',
+        callback: () => {}
+      },
+      {
+        name: 'MOD',
+        callback: () => {}
+      }
+    ]
+
   }
 
   render() {
@@ -60,11 +91,17 @@ class UserList extends React.Component {
               </span>
 
               <div className='userLiActions'>
-                <a id='Function1' onClick={(el) => this.handleUserAction(el.target.id)}>Func1</a>
-
-                <a id='Function2' onClick={(el) => this.handleUserAction(el.target.id)}>Func2</a>
-
-                <a id='Function3' onClick={(el) => this.handleUserAction(el.target.id)}>Func3</a>
+                {this.getUserActions(a.nick).map(a => {
+                  return (
+                    <button 
+                      key={a.name} 
+                      className='userActionBtn'
+                      onClick={a.callback}
+                    >
+                      {a.name}
+                    </button>
+                  )
+                })}
               </div>
 
               <div className='userLiAfk'>{a.afk} </div>
@@ -83,22 +120,27 @@ class Settings extends React.Component {
   constructor() {
     super()
 
-    this.state = {
-      settings: {
-        theme: 'light',
-        notifications: 'on',
-        sound: 'on',
-      }
-    }
   }
 
   render() {
+
+    console.log(this.props);
     return <div className="settingsContainer">
 
-      <label className='settingsLabel'>
-        Background
-        <button className='stdBtn'>Enable</button>
-      </label>
+      {
+        Object.entries(this.props.toggles).map(([key,value]) => {
+          return (
+            <label className='settingsLabel' key={key} onClick={() => {
+              this.props.toggleStateChange(key, !value);
+            }}>
+              {key}
+              <button className='stdBtn'>{
+                value ? 'On' : 'Off'
+              }</button>
+            </label>
+          )
+        })
+      }
 
     </div>
         

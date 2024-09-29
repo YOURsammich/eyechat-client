@@ -22,7 +22,7 @@ class PM_Window extends React.Component {
       let oldConvos = [...this.state.conversationList];
 
       const newConvos = convos.map(convo => {
-        const me = this.props.getMyNick();
+        const me = this.props.user.nick;
         const convoWith = convo.participant1 === me ? convo.participant2 : convo.participant1;
 
         return { ...convo, with: convoWith }

@@ -2,7 +2,7 @@ import Messages from './Messages';
 import InputBar from './InputBar';
 import Menu, { Overlay } from './../Menu';
 import Store from '../../utils/store';
-const storeTtest = new Store();
+const store = window.store = new Store();
 
 class ChatWindow extends React.Component {
 
@@ -14,6 +14,11 @@ class ChatWindow extends React.Component {
       showOverlay: false,
       previewMessage: '',
       selectedList: 'users',
+
+      //toggles
+      toggles: {
+        background: true
+      }
     }
 
     this.toggleOverlay = this.toggleOverlay.bind(this);
@@ -47,6 +52,10 @@ class ChatWindow extends React.Component {
 
     this.props.socket.on('message', (data) => {
       const oldMessages = [...this.state.messages];
+      data.type = data.messageType;
+
+      console.log(data);
+
       oldMessages.push(data)
 
       if (this.blurred) {
@@ -64,7 +73,7 @@ class ChatWindow extends React.Component {
       const messageLog = channelInfo.message_log.reverse().map(a => {
         return {
           message: a.message,
-          type: a.type,
+          type: a.messageType,
           count: a.count,
           nick: a.nick,
           flair: a.flair,
@@ -78,7 +87,7 @@ class ChatWindow extends React.Component {
       if (channelInfo.note) {
         oldMessages.push({
           message: channelInfo.note,
-          type: 'general',
+          type: 'note',
           count: 'note'
         });
       }
@@ -92,7 +101,7 @@ class ChatWindow extends React.Component {
         });
       }
 
-      const parsedChannelData = storeTtest.handleStates(channelInfo);
+      const parsedChannelData = store.handleStates(channelInfo);
       parsedChannelData.messages = oldMessages
 
       this.state.messages = oldMessages;
@@ -115,6 +124,15 @@ class ChatWindow extends React.Component {
       const value = data[1];
 
       if (this.state.hasOwnProperty(key)) {
+
+        if (key == 'topic') {
+          this.addMessage({
+            message: 'Topic: ' + value,
+            type: 'general',
+            count: Math.random()
+          });
+        }
+
         this.setState({ [key]: value });
       }
     })
@@ -139,6 +157,14 @@ class ChatWindow extends React.Component {
     } else {
       this.setState({ showOverlay: id })
     }
+  }
+
+  toggleStateChange (attr, state) {
+    console.log(this)
+    const toggles = {...this.state.toggles};
+    toggles[attr] = state;
+
+    this.setState({ toggles });
   }
 
   render() {
@@ -174,7 +200,8 @@ class ChatWindow extends React.Component {
             socket={this.props.socket}
             getUserFlair={this.getUserFlair.bind(this)}
             messages={this.state.messages}
-            background={this.state.background}
+            background={this.state.toggles.background ? this.state.background : '#000'}
+            user={this.props.user}
           >
             {
               this.state.showOverlay ?
@@ -190,7 +217,8 @@ class ChatWindow extends React.Component {
             socket={this.props.socket}
             channelName={this.props.channelName}
             addMessage={this.addMessage.bind(this)}
-            getMyNick={this.props.getMyNick}
+            user={this.props.user}
+            userlist={this.props.userlist}
           />
 
         </div>
@@ -198,9 +226,12 @@ class ChatWindow extends React.Component {
         {
           this.state.showUsers ?
             <Menu
+              socket={this.props.socket}
               userlist={this.props.userlist}
               toggleOverlay={this.toggleOverlay}
               activeList={this.state.selectedList}
+              toggleStateChange={this.toggleStateChange.bind(this)}
+              toggles={this.state.toggles}
             /> : null
         }
 

@@ -60,6 +60,9 @@ const COMMANDS = {
     params: ['recipient', 'message'],
     parseMethod: 'leaveSpace'
   },
+  kick: {
+    params: ['nick']
+  },
   ban: {
     params: ['nick']
   },
@@ -69,6 +72,9 @@ const COMMANDS = {
   hat: {
     params: ['hat']
   },
+  whois: {
+    params: ['nick']
+  }
 }
 
 const handleCommand = {
