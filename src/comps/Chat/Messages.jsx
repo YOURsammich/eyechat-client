@@ -266,7 +266,6 @@ function Emoji (props) {
     target.selectionEnd = start + emoji.id.length + 2;
 
   }}>
-    {loaded ? null : <div style={{height: '64px', width: '64px', display: 'inline-block'}}></div>}
     <img
     className='emoji'
     onLoad={(e) => {

@@ -163,6 +163,10 @@ class InputBar extends React.Component {
       wordEnd = input.length;
     }
 
+    if (selectionStart < wordStart || selectionStart > wordEnd) {
+      return null;
+    }
+
     const afterColon = input.substring(wordStart + 2, selectionStart).indexOf(':');
     if (afterColon != -1) {
       return null;
@@ -174,7 +178,7 @@ class InputBar extends React.Component {
     }
 
     if (word.startsWith(':') && (!word.endsWith(':') || word.length == 1)) {
-      const matchedEmojis = this.props.emoji.filter(a => a.id.toLowerCase().match(word.slice(1)));
+      const matchedEmojis = this.props.emoji.filter(a => a.id.toLowerCase().includes(word.slice(1)));
       return matchedEmojis.map(a => {
         return {
           id: a.id,
@@ -287,6 +291,8 @@ class InputBar extends React.Component {
           target.value = this.history[++this.historyIndex];
         }      
       }
+    } else {
+      this.handleChange(event);
     }
   }
 

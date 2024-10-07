@@ -94,9 +94,7 @@ class App extends React.Component {
 
         this._initChatEvents(socket);
 
-        this.resizeBarRef = React.createRef();
-
-        this.setState({ connected: true }, this.scrollListenerInit.bind(this));
+        this.setState({ connected: true });
 
         const copeCloud = 'http://localhost:8080/'
 
@@ -110,26 +108,6 @@ class App extends React.Component {
           })
 
       })
-  }
-
-  scrollListenerInit() {
-    this.resizeBarRef.current.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-
-      this.setState({draggingWindow: true});
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      if (this.state.draggingWindow) {
-        this.setState({ chatWidth: (window.innerWidth - e.clientX) });
-      }
-    });
-
-    document.addEventListener('mouseup', (e) => {
-
-      this.setState({draggingWindow: false});
-    });
-
   }
 
   getMyUser() {
@@ -163,6 +141,7 @@ class App extends React.Component {
             </div>
 
           </div>
+            
 
           {
             this.state.showApp ? <CodeRunWindow 
@@ -175,17 +154,13 @@ class App extends React.Component {
             /> : null
           }
 
+       
+
           <div style={{
             display: 'flex', flexDirection: 'column',
-            flex: this.state.showApp ? 'unset' : 1,
-            width: this.state.showApp ? (this.state.chatWidth + 'px') : 'unset',
+            flex: 1,
             overflowX: 'hidden'
           }}>
-
-            <div className='resizeBar'>
-              <div className='resizeHandle' ref={this.resizeBarRef}></div>
-            </div>
-
             
               <ChatWindow
                 socket={socket}
