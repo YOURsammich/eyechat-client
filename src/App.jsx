@@ -96,7 +96,7 @@ class App extends React.Component {
 
         this.setState({ connected: true });
 
-        const copeCloud = 'https://mentalmeat.cloud:8080/'
+        const copeCloud = 'https://mentalmeat.cloud/'
 
         fetch(copeCloud + 'getPublicApps')
           .then(res => res.json())
