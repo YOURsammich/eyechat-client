@@ -58,8 +58,7 @@ class UserList extends React.Component {
       {
         name: 'whois',
         callback: () => {
-          const inputData = handleInput.handle('/whois ' + name);
-          this.props.socket.emit('command', inputData);
+          handleInput.handle('/whois ' + name, this.props.socket);
         }
       },
       {

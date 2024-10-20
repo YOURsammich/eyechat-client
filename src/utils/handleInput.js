@@ -1,7 +1,10 @@
 const COMMANDS = {
   nick: {
     params: ['nick'],
-    handler (params) {
+    handler (params, {channelName}) {
+
+      params.channelName = channelName;
+
       fetch('/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -11,7 +14,10 @@ const COMMANDS = {
   },
   register: {
     params: ['nick', 'password'],
-    handler (params) {
+    handler (params, {channelName}) {
+
+      params.channelName = channelName;
+
       fetch('/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -21,12 +27,48 @@ const COMMANDS = {
   },
   login: {
     params: ['nick', 'password'],
-    handler (params) {
+    handler (params, {channelName}) {
+
+      params.channelName = channelName;
+
       fetch('/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ params, type: 'login' })
       });
+    }
+  },
+  color: {
+    params: ['code'],
+    handler (params, {channelName, store}) {
+      store.setState('color', params.code);
+    }
+  },
+  get: {
+    params: ['attribute'],
+    handler (params, {store, addMessage}) {
+      const storeValue = store.get(params.attribute);
+      const message = (typeof storeValue == 'string' || typeof storeValue == 'number') ? storeValue : 'Attribute not found';
+      
+      addMessage({
+        message: params.attribute + ' is set to ' + message,
+        type: 'info',
+        count: Math.random(),
+      })
+    }
+  },
+  echo: {
+    params: ['message'],
+    parseMethod: 'leaveSpace',
+    handler (params, {addMessage, user}) {
+
+      addMessage({
+        message: params.message,
+        type: 'chat',
+        count: Math.random(),
+        nick: user.nick
+      })
+
     }
   },
   flair: {
@@ -123,15 +165,35 @@ const handleCommand = {
 }
 
 const handleInput = {
-  handle (input, channelName) {
+  getStylePrefix (store) {
+    return {
+      color: store.get('color') ? ( '#' + store.get('color') ) : ''
+    }
+  },
+  handle (input, socket, store, channelName, addMessage, user) {
     const command = /^\/(\w+) ?([\s\S]*)/.exec(input);
     if (command) {
       const cmdData = handleCommand.handle(command);
-      cmdData.params.channelName = channelName; // inject channelName for fetch requests
+      if (cmdData.handler) {
+        cmdData.handler(cmdData.params, {
+          channelName: channelName,
+          store: store,
+          user: user,
+          addMessage: addMessage
+        });
+      } else {
+        socket.emit('command', cmdData);
+      }
 
-      return cmdData;
     } else {
-      return { message: input }
+
+      const { color } = this.getStylePrefix(store);
+
+      console.log(color + input);
+
+      socket.emit('message', {
+        message: color + input
+      });
     }
   },
   getCommands() {

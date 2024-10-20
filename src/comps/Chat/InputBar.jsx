@@ -123,24 +123,23 @@ class InputBar extends React.Component {
   _handleEnter(event) {
     const target = event.target;
     if (this.state.inputAuto && this.state.inputAuto.length) {
-      //replace text
       this.replaceSelectedWord(this.state.inputAuto[this.state.inputIndex].replaceWith, target.selectionStart);
       this.setState({ inputAuto: false, emojis: false });
     } else {
+
+      this.addHistory(target.value);
+
       try {
         this.addHistory(target.value);
 
-        const inputData = handleInput.handle(target.value, this.props.channelName);
+        handleInput.handle(target.value, 
+          this.props.socket, 
+          this.props.store,
+          this.props.channelName,
+          this.props.addMessage,
+          this.props.user
+        );
 
-        if (inputData.commandName) {
-          if (inputData.handler) {
-            inputData.handler(inputData.params);
-          } else {
-            this.props.socket.emit('command', inputData);
-          }
-        } else {
-          this.props.socket.emit('message', inputData);
-        }
       } catch (e) {
 
         this.props.addMessage({

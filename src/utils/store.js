@@ -73,6 +73,8 @@ class Store {
       }
     };
 
+    this.altAtt = {colour: 'color', bg: 'background'};
+
     // save chat atr to this.storedAttributes
     this.storedAttributes = {};
     const allKeys = Object.keys(localStorage);

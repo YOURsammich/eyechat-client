@@ -4,6 +4,7 @@ const msgStyles = {
   '*': 'bold',
   '%': 'italic',
   '^': 'bigger',
+  '~': 'smaller'
 }
 
 const messageParser = {
@@ -498,7 +499,8 @@ class Messages extends React.Component {
     const styles = {
       '/*': { fontWeight: 'bold' },
       '/%': { fontStyle: 'italic' },
-      '/^': { fontSize: '1.2em' }
+      '/^': { fontSize: '1.2em' },
+      '/~': { fontSize: '0.8em' },
     }
     
     if (compName == 'color') {
@@ -568,6 +570,7 @@ class Messages extends React.Component {
         
 
         {this.props.messages.map(message => {
+          if (!message || !message.message) return null;
           if (this.cacheMessage[message.count]) return this.cacheMessage[message.count];
           const msg = this.renderMessage(message);
           this.cacheMessage[message.count] = msg;

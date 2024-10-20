@@ -1,8 +1,6 @@
 import Messages from './Messages';
 import InputBar from './InputBar';
 import Menu, { Overlay } from './../Menu';
-import Store from '../../utils/store';
-const store = window.store = new Store();
 
 class ChatWindow extends React.Component {
 
@@ -48,6 +46,10 @@ class ChatWindow extends React.Component {
       })
 
       this.setState({ messages: oldMessages });
+    });
+
+    this.props.socket.on('userStyle', (data) => {
+      console.log(data);
     });
 
     this.props.socket.on('message', (data) => {
@@ -219,6 +221,7 @@ class ChatWindow extends React.Component {
             addMessage={this.addMessage.bind(this)}
             user={this.props.user}
             userlist={this.props.userlist}
+            store={this.props.store}
           />
 
         </div>

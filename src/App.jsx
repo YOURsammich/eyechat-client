@@ -41,7 +41,7 @@ class App extends React.Component {
       getActiveChannel: () => this.state.activeChannel,
     })
       .then(() => {
-        this.store = new Store();
+        this.store = window.store = new Store();
 
         socket.on('pong', () => {
 
@@ -98,7 +98,7 @@ class App extends React.Component {
 
         const copeCloud = 'http://localhost:8080/'
 
-        fetch(copeCloud + 'getApps')
+        fetch(copeCloud + 'getPublicApps')
           .then(res => res.json())
           .then(res => {
             console.log(res);
@@ -171,8 +171,9 @@ class App extends React.Component {
                 editorShown={this.state.showApp}
                 user={this.getMyUser()}
                 focusOnChat={this.state.focusOn == 'chat'}
+                store={this.store}
               /> 
-                          
+              
           </div>
         </div>
 
