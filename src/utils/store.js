@@ -73,6 +73,8 @@ class Store {
       }
     };
 
+    this.defaultStateValues = {};
+
     this.altAtt = {colour: 'color', bg: 'background'};
 
     // save chat atr to this.storedAttributes
