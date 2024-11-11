@@ -11,7 +11,8 @@ class CodeRunWindow extends React.Component {
     this.iframe = React.createRef();
 
     this.state = {
-      draggingWindow: false
+      draggingWindow: false,
+      chatWidth: 600,
     }
 
   }
@@ -19,6 +20,9 @@ class CodeRunWindow extends React.Component {
   componentDidMount () {
     this.props.giveRefresh(this.refreshIframe.bind(this));
     this.scrollListenerInit();
+
+    this.props.giveIframe(this.iframe.current);
+
   }
 
   scrollListenerInit() {

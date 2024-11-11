@@ -18,7 +18,7 @@ class App extends React.Component {
       showApp: false,
       userlist: [],
       activeChannel: 'main',
-      chatWidth: 800,
+      chatWidth: 1000,
       userID: null,
       focusOn: 'chat',
       plugins: [],
@@ -108,6 +108,20 @@ class App extends React.Component {
           })
 
       })
+
+
+    window.addEventListener('message', (e) => {
+
+      
+      if (e.data == 'requestnick') {
+        const myUser = this.getMyUser();
+        console.log('sending nick', myUser.nick);
+        this.iframe.contentWindow.postMessage('nick: ' + myUser.nick, '*');
+      }
+
+
+    });
+
   }
 
   getMyUser() {
@@ -151,6 +165,7 @@ class App extends React.Component {
               focusOnCode={this.state.focusOn == 'code'}
               draggingWindow={this.state.draggingWindow}
               pluginName={this.state.showApp}
+              giveIframe={(iframe) => this.iframe = iframe}
             /> : null
           }
 

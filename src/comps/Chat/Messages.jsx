@@ -173,11 +173,21 @@ const messageParser = {
 
 
   },
-  parse (str, msgStyles, tracker = {data: '',parent: null,children: []}) {
+  parse (str, msgStyles, tracker = {data: '',parent: null,children: []}, depth = 0) {
 
     if (!tracker) {
       tracker = {data: '',parent: null,children: []};
       console.log('tracker is null');
+    }
+
+
+    if (depth > 5) {
+      tracker.children.push({
+        data: str,
+        parent: tracker,
+        children: []
+      });
+      return tracker;
     }
 
     const currComp = this.getCurrComp(str, msgStyles);
@@ -192,14 +202,20 @@ const messageParser = {
       if (currComp.type == 'styleBreaker') {
         let styleParent = this.getStyleParent(tracker);
         const styleLayer = (styleParent?.parent) || tracker;
-        this.parse(str.slice(currComp.strdata.length), msgStyles, styleLayer);
+        this.parse(str.slice(currComp.strdata.length), msgStyles, styleLayer, depth - 1);
       } else {
-        this.parse(str.slice(currComp.strdata.length), msgStyles, tracker.children[tracker.children.length - 1]);
+
+        if (currComp.type == 'style') {
+          depth++;
+        } 
+
+        this.parse(str.slice(currComp.strdata.length), msgStyles, tracker.children[tracker.children.length - 1], depth);
       }
 
 
     } else {//if a component doesn't match, then it's a text component
       const nextComp = this.getNextComp(str, msgStyles);
+      console.log(str, nextComp);
       if (!nextComp) {
         if (str.length > 0) tracker.children.push({
           data: str,
@@ -221,9 +237,9 @@ const messageParser = {
         let styleParent = this.getStyleParent(tracker);
         const styleLayer = (styleParent?.parent) || tracker;
 
-        this.parse(str.slice(nextComp.index), msgStyles, styleLayer);
+        this.parse(str.slice(nextComp.index), msgStyles, styleLayer, depth - 1);
       } else {
-        this.parse(str.slice(nextComp.index), msgStyles, tracker.children[tracker.children.length - 1]);
+        this.parse(str.slice(nextComp.index), msgStyles, tracker.children[tracker.children.length - 1], depth);
       }
 
     }
