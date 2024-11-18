@@ -310,7 +310,9 @@ class InputBar extends React.Component {
   }
 
   render() {
-    return <div className="input-container" >
+    return <div className="input-container" style={{
+      background: this.props.themeColor
+    }}>
       
       {this.state.emojis ? <EmojiMini
         addMessage={this.props.addMessage}

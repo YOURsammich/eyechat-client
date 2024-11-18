@@ -116,6 +116,9 @@ const COMMANDS = {
   },
   whois: {
     params: ['nick']
+  },
+  theme: {
+    params: ['id', 'color']
   }
 }
 

@@ -12,7 +12,7 @@ class ChatWindow extends React.Component {
       showOverlay: false,
       previewMessage: '',
       selectedList: 'users',
-
+      themecolors: {},
       //toggles
       toggles: {
         background: true
@@ -135,7 +135,12 @@ class ChatWindow extends React.Component {
           });
         }
 
-        this.setState({ [key]: value });
+        if (typeof value == 'object') {
+          this.setState({ [key]: { ...this.state[key], ...value } });
+        } else {
+          this.setState({ [key]: value });
+        }
+
       }
     })
   }
@@ -177,7 +182,9 @@ class ChatWindow extends React.Component {
 
         <div className='chatContainer'>
 
-          <div className="chatHeader">
+          <div className="chatHeader" style={{
+            backgroundColor: this.state.themecolors.topbarpri ? this.state.themecolors.topbarpri : '',
+          }}>
             
             <div className='channelNameHeader'>
               {'/' + this.props.channelName}
@@ -222,6 +229,7 @@ class ChatWindow extends React.Component {
             user={this.props.user}
             userlist={this.props.userlist}
             store={this.props.store}
+            themeColor={this.state.themecolors.inputbar}
           />
 
         </div>
@@ -235,6 +243,7 @@ class ChatWindow extends React.Component {
               activeList={this.state.selectedList}
               toggleStateChange={this.toggleStateChange.bind(this)}
               toggles={this.state.toggles}
+              themeColor={this.state.themecolors.menupri}
             /> : null
         }
 

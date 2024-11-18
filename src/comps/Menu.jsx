@@ -12,7 +12,9 @@ class Menu extends React.Component {
 
   render() {
     return (
-      <div className='menuPane'>
+      <div className='menuPane' style={{
+        background: this.props.themeColor
+      }}>
 
         <div className='menuHeader'>
           <h4> {
