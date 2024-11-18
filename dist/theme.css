@@ -211,6 +211,14 @@ display: none
   color: #777
 }
 
+/* hide menuPanel on mobile */
+
+@media (max-width: 768px) {
+  .menuPane {
+    display: none !important;
+  }
+}
+
 .menuPane {
   background-color: #181818;
   color: white;
@@ -572,6 +580,14 @@ display: none
 
 .toggleUsers {
   margin-right: 20px;
+}
+
+/* hide sideBar on mobile */
+
+@media (max-width: 768px) {
+  .sideBar {
+    display: none !important;
+  }
 }
 
 .sideBar {
