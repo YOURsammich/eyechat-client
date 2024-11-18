@@ -85,6 +85,8 @@ class App extends React.Component {
           }
         });
 
+
+
         socket.on('channelInfo', (channelInfo) => {
           this.store.handleStates(channelInfo);
           console.log(this.store);
@@ -115,8 +117,12 @@ class App extends React.Component {
       
       if (e.data == 'requestnick') {
         const myUser = this.getMyUser();
-        console.log('sending nick', myUser.nick);
+
         this.iframe.contentWindow.postMessage('nick: ' + myUser.nick, '*');
+      } else if (e.data == 'requesttrust') {
+        const myUser = this.getMyUser();
+
+        this.iframe.contentWindow.postMessage('trust: ' + myUser.trust, '*');
       }
 
 

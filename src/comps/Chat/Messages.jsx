@@ -215,7 +215,7 @@ const messageParser = {
 
     } else {//if a component doesn't match, then it's a text component
       const nextComp = this.getNextComp(str, msgStyles);
-      console.log(str, nextComp);
+
       if (!nextComp) {
         if (str.length > 0) tracker.children.push({
           data: str,
