@@ -4,7 +4,9 @@ const msgStyles = {
   '*': 'bold',
   '%': 'italic',
   '^': 'bigger',
-  '~': 'smaller'
+  '~': 'smaller',
+  ')': 'flip',
+  '(': 'flop'
 }
 
 const messageParser = {
@@ -517,6 +519,8 @@ class Messages extends React.Component {
       '/%': { fontStyle: 'italic' },
       '/^': { fontSize: '1.2em' },
       '/~': { fontSize: '0.8em' },
+      '/)': { transform: 'scaleX(-1)', display: 'inline-block' },
+      '/(': { transform: 'scaleY(-1)', display: 'inline-block' },
     }
     
     if (compName == 'color') {

@@ -71,7 +71,7 @@ class App extends React.Component {
      
           if (index !== -1) {
             userlist.splice(index, 1);
-            this.setState({ userlist })
+            this.setState({ userlist });
           }
         });
 
