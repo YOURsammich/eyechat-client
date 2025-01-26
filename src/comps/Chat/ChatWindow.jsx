@@ -23,9 +23,12 @@ class ChatWindow extends React.Component {
 
     this.blurred = false;
     this.unreadMessages = 0;
+    this.pendingMsgFetch = false;
   }
 
   componentDidMount() {
+
+    
 
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
@@ -66,7 +69,7 @@ class ChatWindow extends React.Component {
       }
 
       this.setState({ messages: oldMessages });
-    })
+    });
 
     this.props.socket.on('channelInfo', (channelInfo) => {
       console.log(channelInfo);
@@ -108,7 +111,7 @@ class ChatWindow extends React.Component {
 
       this.state.messages = oldMessages;
       this.setState(parsedChannelData);
-    })
+    });
 
     this.props.socket.on('userJoin', (user) => {
       const oldMessages = [...this.state.messages];
@@ -142,13 +145,47 @@ class ChatWindow extends React.Component {
         }
 
       }
-    })
+    });
   }
 
   addMessage(message) {
+    if (!Array.isArray(message)) message = [message];
+
     const oldMessages = [...this.state.messages];
-    oldMessages.push(message);
+    oldMessages.push(...message);
     this.setState({ messages: oldMessages });
+  }
+
+  setViewLog (log) {
+    if (this.pendingMsgFetch) return;
+
+    this.pendingMsgFetch = true;
+
+    const oldestMessage = this.state.messages[0];
+    if (oldestMessage && oldestMessage.count > 1) {
+      const range = (oldestMessage.count - 100) + '-' + (oldestMessage.count - 1);
+      
+      fetch('/channel/messages/' + range)
+        .then(res => res.json())
+        .then(data => {
+
+          for (let i = 0; i < data.length; i++) {
+            data[i].type = data[i].messageType;
+          }
+
+
+          const oldMessages = [...this.state.messages];
+
+          this.setState({ messages: data.concat(oldMessages) });
+
+          this.pendingMsgFetch = false;
+
+          console.log(data);
+
+        });
+    }
+
+
   }
 
   getUserFlair(nick) {
@@ -211,6 +248,7 @@ class ChatWindow extends React.Component {
             messages={this.state.messages}
             background={this.state.toggles.background ? this.state.background : '#000'}
             user={this.props.user}
+            setViewLog={this.setViewLog.bind(this)}
           >
             {
               this.state.showOverlay ?

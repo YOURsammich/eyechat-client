@@ -48,7 +48,7 @@ const COMMANDS = {
     params: ['attribute'],
     handler (params, {store, addMessage}) {
       const storeValue = store.get(params.attribute);
-      const message = (typeof storeValue == 'string' || typeof storeValue == 'number') ? storeValue : 'Attribute not found';
+      const message = (typeof storeValue == 'string' || typeof storeValue == 'number') ? storeValue : JSON.stringify(storeValue);
       
       addMessage({
         message: params.attribute + ' is set to ' + message,
@@ -70,6 +70,25 @@ const COMMANDS = {
       })
 
     }
+  },
+  block: {
+    params: ['nick'],
+    handler (params, {store, addMessage}) {
+      const blocked = store.get('block') || [];
+      blocked.push(params.nick);
+      store.setState('block', blocked);
+      addMessage({
+        message: params.nick + ' is now blocked',
+        type: 'info',
+        count: Math.random()
+      });
+    }
+  },
+  trust: {
+    params: ['nick', 'level'],
+  },
+  change_password: {
+    params: ['oldpass', 'newpass'],
   },
   flair: {
     params: ['flair'],
@@ -119,7 +138,12 @@ const COMMANDS = {
   },
   theme: {
     params: ['id', 'color']
-  }
+  },
+  chatgpt: {
+    params: ['message'],
+    parseMethod: 'leaveSpace'
+  },
+  sidebar: {}
 }
 
 const handleCommand = {
@@ -137,13 +161,15 @@ const handleCommand = {
     return parsedInput;
   },
   formatParams(cmd, params) {
-    const parseMethod = {
-      leaveSpace: this.parseParamSpaces(params, cmd.params.length),
-    }
-
     const paramObj = {};
     const paramKeys = cmd.params;
-    const paramValues = parseMethod[cmd.parseMethod] ?? params;
+
+    let paramValues;
+    if (cmd.parammethod === 'leaveSpace') {
+      paramValues = this.parseParamSpaces(params, cmd.params.length);
+    } else {
+      paramValues = params;
+    }
 
     paramKeys.forEach((key, i) => {
       paramObj[key] = paramValues[i];
@@ -156,9 +182,9 @@ const handleCommand = {
     const cmd = COMMANDS[commandName];
 
     if (!cmd) throw new Error("Invalid Command");
+    
+    const paramaObj = params ? this.formatParams(cmd, params.split(' ')) : false;
 
-    const paramaObj = this.formatParams(cmd, params.split(' '));
-    console.log('command sent', paramaObj)
     return {
       commandName,
       params: paramaObj,

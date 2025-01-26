@@ -6,7 +6,8 @@ const msgStyles = {
   '^': 'bigger',
   '~': 'smaller',
   ')': 'flip',
-  '(': 'flop'
+  '(': 'flop',
+  '@': 'blur',
 }
 
 const messageParser = {
@@ -272,6 +273,8 @@ function Emoji (props) {
   const [loaded, setLoaded] = React.useState(false);
   const emoji = props.emojis.find(emoji => emoji.id == props.emojiId.replaceAll(':', ''));
 
+
+
   return emoji ? (<div className='emoji' onClick={() => {
     const target = document.querySelector('.input-container textarea');
     const start = target.selectionStart;
@@ -290,6 +293,7 @@ function Emoji (props) {
     onLoad={(e) => {
       if (!loaded) {
         setLoaded(true);
+        props._imageLoaded(e.target);
       }
     }}
     onError={(e) => {
@@ -306,7 +310,7 @@ function QuoteMsg (props) {
   const [quoteVisible, setQuoteVisible] = React.useState(false);
 
   React.useEffect(() => {
-    fetch('/getMessage/' + props.message.data.strdata.slice(2))
+    fetch('/channel/getMessage/' + props.message.data.strdata.slice(2))
     .then(res => res.json())
     .then(res => {
       if (res.error || !res) {
@@ -316,6 +320,7 @@ function QuoteMsg (props) {
         setQuote({
           nick: res.nick,
           message: res.message,
+          type: res.messageType,
           messageParsed: messageParser.parse(res.message, msgStyles),
           time: res.time,
         });
@@ -354,6 +359,8 @@ function QuoteMsg (props) {
 }
 
 function LinkMsg (props) {
+  const [isLoaded, setLoad] = React.useState(false);
+
   const message = props.message;
   const href = message.data.strdata;
 
@@ -365,8 +372,12 @@ function LinkMsg (props) {
     imageType ? <div style={{
       display: 'inline-flex',
       alignItems: 'flex-end',
+      height: isLoaded ? 'auto' : '200px',
     }}>
-      <img src={href} loading='lazy' onLoad={(e) => props._imageLoaded(e.target)} />
+      <img src={href} loading='lazy' onLoad={(e) => {
+        setLoad(true);
+        props._imageLoaded(e.target)
+      }} />
     </div> : href
   }</a>;
 
@@ -436,6 +447,41 @@ class Messages extends React.Component {
       top: messageCon.scrollHeight,
       behavior: 'instant'
     });
+
+
+    messageCon.addEventListener('scroll', (e) => {
+      const target = e.target;
+      const scrollBottom = messageCon.scrollTop + messageCon.clientHeight;
+
+      if (target.scrollTop < 50) {
+        
+        this.props.setViewLog();
+
+        // const oldestMessage = this.props.messages[0];
+        // if (oldestMessage && oldestMessage.count > 1) {
+
+        //   const range = (oldestMessage.count - 100) + '-' + (oldestMessage.count - 1);
+
+        //   fetch('/channel/messages/' + range)
+        //   .then(res => res.json())
+        //   .then(res => {
+
+        //     this.props.setViewLog(res);
+
+        //     // if (res.error || !res) {
+        //     //   this.setState({block: [...this.state.block, oldestMessage.count]});
+        //     // } else {
+        //     //   this.props.addMessage(res);
+        //     // }
+        //   });
+        // }
+
+      }
+
+    });
+
+    this.scrollAccum = 0;
+
   }
 
   componentDidUpdate (prevProps, prevState) {
@@ -449,14 +495,13 @@ class Messages extends React.Component {
       const newMessageHeight = messageCon.children[messageCon.children.length - 1].offsetHeight;
 
       //don't scroll if the user has scrolled 50 pixels up
-      if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - newMessageHeight - 50) {
+      if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - newMessageHeight - 150) {
         messageCon.scrollTo({
           top: messageCon.scrollHeight,
           behavior: document.hasFocus() ? 'smooth' : 'instant'
         });
       }
     } else if (prevProps.messages.length == 0) {
-      console.log('inital scroll', messageCon.scrollHeight, this.props.messages[this.props.messages.length-1]);
       messageCon.scrollTo({
         top: messageCon.scrollHeight,
         behavior: 'instant'
@@ -468,13 +513,22 @@ class Messages extends React.Component {
 
   _imageLoaded (image) {
     const messageCon = this.messageCon.current;
-    if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - image.height - 50) {
+    const scrollBottom = messageCon.scrollTop + messageCon.clientHeight;
+    if ((messageCon.scrollHeight - scrollBottom) - this.scrollAccum - 150 < image.height) {
 
       messageCon.scrollTo({
         top: messageCon.scrollHeight,
         behavior: 'instant'
       });
-    } 
+    } else {
+      this.scrollAccum += image.height;
+
+      if (this.scrollAccumReset) clearTimeout(this.scrollAccumReset);
+
+      this.scrollAccumReset = setTimeout(() => {
+        this.scrollAccum = 0;
+      }, 1000);
+    }
   }
 
   renderTimeStamp (msgData) {
@@ -521,6 +575,7 @@ class Messages extends React.Component {
       '/~': { fontSize: '0.8em' },
       '/)': { transform: 'scaleX(-1)', display: 'inline-block' },
       '/(': { transform: 'scaleY(-1)', display: 'inline-block' },
+      '/@': { filter: 'blur(5px)', display: 'inline-block' },
     }
     
     if (compName == 'color') {

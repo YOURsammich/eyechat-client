@@ -100,6 +100,8 @@ class InputBar extends React.Component {
 
   _handleTab(event) {
     event.preventDefault();
+    const target = event.target;
+    const selectionStart = target.selectionStart || this.state.selectionStart;
 
     if (this.state.inputAuto) {
 
@@ -117,6 +119,11 @@ class InputBar extends React.Component {
 
       this.setState({ inputIndex });
 
+    } else {
+      const nicks = this.getNicks(target.value, selectionStart);
+      if (nicks) {
+        this.setState({ inputAuto: nicks, selectionStart, inputIndex: 0 });
+      }
     }
   }
 
@@ -141,7 +148,7 @@ class InputBar extends React.Component {
         );
 
       } catch (e) {
-
+        console.error(e);
         this.props.addMessage({
           message: e.message,
           type: 'error',
@@ -209,8 +216,8 @@ class InputBar extends React.Component {
   }
 
   getNicks (input = '', selectionStart) {
-    const wordStart = input.lastIndexOf('@', selectionStart);
-    if (wordStart == -1) return null;
+    let wordStart = input.lastIndexOf(' ', selectionStart);
+    if (wordStart == -1) wordStart = 0;
     
     let wordEnd = input.indexOf(' ', wordStart + 1);
     if (wordEnd != -1) {
@@ -219,19 +226,15 @@ class InputBar extends React.Component {
 
     const word = input.substring(wordStart).toLowerCase();
     console.log(word);
-    if ((input[wordStart - 1] != ' ' && input[wordStart - 1] != '@') && wordStart != 0) return null;
 
-    if (word.startsWith('@') && (!word.endsWith('@') || word.length == 1)) {
-      const matchedNicks = this.props.userlist.filter(a => a.nick.toLowerCase().match(word.slice(1)));
-      return matchedNicks.map(a => {
-        return {
-          id: a.nick,
-          replaceWith: '@' + a.nick
-        }
-      });
-    } else {
-      return null;
-    }
+  
+    const matchedNicks = this.props.userlist.filter(a => a.nick.toLowerCase().match(word.slice(1)));
+    return matchedNicks.map(a => {
+      return {
+        id: a.nick,
+        replaceWith: a.nick
+      }
+    });
   }
 
   handleChange(event) {
@@ -239,7 +242,7 @@ class InputBar extends React.Component {
     const selectionStart = target.selectionStart || this.state.selectionStart;
     const emojis = this.getEmojis(target.value, selectionStart);
     const commands = this.getCommands(target.value, selectionStart);
-    const nicks = this.getNicks(target.value, selectionStart);
+    const nicks = false;
     
     if (nicks) {
       this.setState({ inputAuto: nicks, selectionStart, inputIndex: 0 });

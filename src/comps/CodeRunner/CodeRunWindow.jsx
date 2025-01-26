@@ -61,7 +61,7 @@ class CodeRunWindow extends React.Component {
       width: this.state.chatWidth + 'px',
     }}>
       <div className='codeRunnerPanel' style={{pointerEvents: this.props.draggingWindow ? 'none' : ''}}>
-        <iframe ref={this.iframe} src={"https://mentalmeat.cloud/v/sammich/" + this.props.pluginName} style={{
+        <iframe ref={this.iframe} src={this.props.copeCloud + "v/sammich/" + this.props.pluginName} style={{
           flex:1, border: 'none', pointerEvents: (this.state.draggingWindow ? 'none' : '')
         }}></iframe>
       </div>

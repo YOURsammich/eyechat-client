@@ -43,11 +43,7 @@ class App extends React.Component {
       .then(() => {
         this.store = window.store = new Store();
 
-        socket.on('pong', () => {
-
-          socket.emit('ping');
-
-        });
+        socket.on('pong', () => socket.emit('ping'));
 
         socket.on('userlist', (userlist) => {
           this.setState({ userlist: userlist })
@@ -85,22 +81,48 @@ class App extends React.Component {
           }
         });
 
-
+        socket.on('setState', (data) => {
+          const key = data[0];
+          const value = data[1];
+          console.log(data);
+          if (this.state.hasOwnProperty(key)) {
+    
+            if (key == 'topic') {
+              this.addMessage({
+                message: 'Topic: ' + value,
+                type: 'general',
+                count: Math.random()
+              });
+            }
+    
+            if (typeof value == 'object') {
+              this.setState({ [key]: { ...this.state[key], ...value } });
+            } else {
+              this.setState({ [key]: value });
+            }
+    
+          }
+        });
 
         socket.on('channelInfo', (channelInfo) => {
           this.store.handleStates(channelInfo);
-          console.log(this.store);
+          console.log(channelInfo);
+
+          if (channelInfo.showPluginBar !== undefined) {
+            this.setState({ showPluginBar: channelInfo.showPluginBar });
+          }
+
         });
 
         socket.emit('joinChannel');
 
-        this._initChatEvents(socket);
+        //this._initChatEvents(socket);
 
         this.setState({ connected: true });
 
-        const copeCloud = 'https://mentalmeat.cloud/'
+        this.copeCloud = 'https://mentalmeat.cloud/'
 
-        fetch(copeCloud + 'getPublicApps')
+        fetch(this.copeCloud + 'getPublicApps')
           .then(res => res.json())
           .then(res => {
             console.log(res);
@@ -143,24 +165,27 @@ class App extends React.Component {
 
         <div id='main-container'>
 
-          <div className="sideBar">
-            <div className="appViewToggle" onClick={() => this.setState({ showApp: !this.state.showApp })}>
-              <span className="material-symbols-outlined">code</span>
-            </div>
 
-            <div className='pluginSelectionContainer'>
-              {
-                this.state.plugins.map((plugin) => (
-                  <div key={plugin} className="pluginSelect" onClick={() => {
-                    this.setState({ showApp: plugin })
-                  }}>
-                    {plugin.slice(0,2) + plugin.slice(-2)}
-                  </div>
-                ))
-              }
-            </div>
+          {
+            this.state.showPluginBar ? <div className="sideBar">
+              <div className="appViewToggle" onClick={() => this.setState({ showApp: !this.state.showApp })}>
+                <span className="material-symbols-outlined">code</span>
+              </div>
 
-          </div>
+              <div className='pluginSelectionContainer'>
+                {
+                  this.state.plugins.map((plugin) => (
+                    <div key={plugin} className="pluginSelect" onClick={() => {
+                      this.setState({ showApp: plugin })
+                    }}>
+                      {plugin.slice(0,2) + plugin.slice(-2)}
+                    </div>
+                  ))
+                }
+              </div>
+
+            </div> : null
+          }
             
 
           {
@@ -172,6 +197,7 @@ class App extends React.Component {
               draggingWindow={this.state.draggingWindow}
               pluginName={this.state.showApp}
               giveIframe={(iframe) => this.iframe = iframe}
+              copeCloud={this.copeCloud}
             /> : null
           }
 
