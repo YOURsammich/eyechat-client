@@ -1,7 +1,7 @@
 const COMMANDS = {
   nick: {
     params: ['nick'],
-    handler (params, {channelName}) {
+    handler (params, {channelName, addMessage}) {
 
       params.channelName = channelName;
 
@@ -9,7 +9,17 @@ const COMMANDS = {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ params, type: 'nickAvailable' })
-      });
+      })
+        .then(res => res.json())
+        .then(res => {
+          if (res.error) {
+            addMessage({
+              message: res.error,
+              type: 'error',
+              count: Math.random()
+            });
+          }
+        });
     }
   },
   register: {

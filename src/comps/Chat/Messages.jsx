@@ -8,7 +8,11 @@ const msgStyles = {
   ')': 'flip',
   '(': 'flop',
   '@': 'blur',
-}
+};
+
+const noStyle = {
+  noColor: true
+};
 
 const messageParser = {
 
@@ -67,7 +71,8 @@ const messageParser = {
 
     return {index: index, strdata: str.slice(index, nextSpace), type: 'quote'};
   },
-  getColorComp (str) {
+  getColorComp (str, msgStyles) {
+    if (msgStyles.noColor) return null;
 
     const colorTypes = [{
       type: 'glow',
@@ -603,7 +608,9 @@ class Messages extends React.Component {
   }
 
   renderMessageContent (msgData) {
-    const message = messageParser.parse(msgData.message, msgStyles); //parse the message for links and other things
+    const message = messageParser.parse(msgData.message, 
+      msgData.type == 'general' ? noStyle : msgStyles
+    ); //parse the message for links and other things
 
     return <div className='messageContent'>
       <NestMessage
