@@ -8,6 +8,9 @@ const msgStyles = {
   ')': 'flip',
   '(': 'flop',
   '@': 'blur',
+  '-': 'linethrough',
+  '--': 'space-out',
+  'c-': 'censor stamp',
 };
 
 const noStyle = {
