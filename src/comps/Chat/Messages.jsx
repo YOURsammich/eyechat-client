@@ -8,6 +8,9 @@ const msgStyles = {
   ')': 'flip',
   '(': 'flop',
   '@': 'blur',
+  '-': 'linethrough',
+  ',': 'space-out',
+  '.': 'censor stamp',
 };
 
 const noStyle = {
@@ -581,6 +584,10 @@ class Messages extends React.Component {
       '/)': { transform: 'scaleX(-1)', display: 'inline-block' },
       '/(': { transform: 'scaleY(-1)', display: 'inline-block' },
       '/@': { filter: 'blur(5px)', display: 'inline-block' },
+      '/-': { textDecoration: 'line-through', display: 'inline-block' },
+      '/.': { backgroundColor: 'black', color: 'white', transform: 'rotate(19deg)', display: 'inline-block' },
+      '/,': { letterSpacing: '0.2em' }
+
     }
     
     if (compName == 'color') {
