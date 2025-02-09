@@ -66,7 +66,7 @@ class EmojiMini extends React.Component {
           formData.append('emoji', this.file);
           formData.append('id', this.inputRef.current.value);
   
-          fetch('/a/uploadEmoji', {
+          fetch('/channel/uploadEmoji', {
             method: 'POST',
             body: formData
           })
