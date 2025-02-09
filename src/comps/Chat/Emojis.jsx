@@ -51,8 +51,9 @@ class EmojiMini extends React.Component {
   
       this.setState({ emojiUpload: true }, () => {
         this.inputRef.current.focus();
-        this.inputRef.current.value = file.name.split('.')[0];
+        this.inputRef.current.value = file.name.split('.')[0].toLowerCase();     // doesn't prevent changing after intial drop... I FUCKING HATE REACT I FUCKING HATE REACT I FUCKING HATE REACT I FUCKING HATE REACT I FUCKING HATE REACT I FUCKING HATE REACT I FUCKING HATE REACT I FUCKING HATE REACT 
       });
+//                                                           /\ change point
   
     }
   
