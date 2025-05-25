@@ -48,6 +48,7 @@ const COMMANDS = {
       })
         .then(res => res.json())
         .then(res => {
+          console.log(res);
           if (res.error) {
             addMessage({
               message: res.error,
@@ -163,7 +164,8 @@ const COMMANDS = {
     params: ['message'],
     parseMethod: 'leaveSpace'
   },
-  sidebar: {}
+  sidebar: {},
+  startbridge: {}
 }
 
 const handleCommand = {
