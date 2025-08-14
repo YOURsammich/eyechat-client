@@ -129,8 +129,9 @@ class InputBar extends React.Component {
 
   _handleEnter(event) {
     const target = event.target;
+    console.log(this.state.inputAuto);
     if (this.state.inputAuto && this.state.inputAuto.length) {
-      this.replaceSelectedWord(this.state.inputAuto[this.state.inputIndex].replaceWith, target.selectionStart);
+      this.replaceSelectedWord(this.state.inputAuto[this.state.inputIndex].replaceWith + ' ', target.selectionStart);
       this.setState({ inputAuto: false, emojis: false });
     } else {
 

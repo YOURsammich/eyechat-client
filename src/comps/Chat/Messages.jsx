@@ -367,8 +367,6 @@ function QuoteMsg (props) {
 }
 
 function LinkMsg (props) {
-  const [isLoaded, setLoad] = React.useState(false);
-
   const message = props.message;
   const href = message.data.strdata;
 
@@ -380,10 +378,9 @@ function LinkMsg (props) {
     imageType ? <div style={{
       display: 'inline-flex',
       alignItems: 'flex-end',
-      height: isLoaded ? 'auto' : '200px',
+      height: 'auto',
     }}>
       <img src={href} loading='lazy' onLoad={(e) => {
-        setLoad(true);
         props._imageLoaded(e.target)
       }} />
     </div> : href
@@ -504,12 +501,16 @@ class Messages extends React.Component {
 
       //don't scroll if the user has scrolled 50 pixels up
       if (messageCon.scrollTop + messageCon.clientHeight > messageCon.scrollHeight - newMessageHeight - 150) {
+        console.log('scrolling');
         messageCon.scrollTo({
-          top: messageCon.scrollHeight,
+          top: messageCon.scrollHeight + 200,
           behavior: document.hasFocus() ? 'smooth' : 'instant'
         });
+      } else {
+        console.log('no scroll');
       }
     } else if (prevProps.messages.length == 0) {
+      console.log('scrolling to bottom');
       messageCon.scrollTo({
         top: messageCon.scrollHeight,
         behavior: 'instant'
@@ -520,15 +521,18 @@ class Messages extends React.Component {
   }
 
   _imageLoaded (image) {
+    // console.log('image loaded', image.height);
     const messageCon = this.messageCon.current;
     const scrollBottom = messageCon.scrollTop + messageCon.clientHeight;
     if ((messageCon.scrollHeight - scrollBottom) - this.scrollAccum - 150 < image.height) {
-
+      // console.log('scrolling to bottom');
       messageCon.scrollTo({
         top: messageCon.scrollHeight,
-        behavior: 'instant'
+        behavior: 'smooth'
       });
+
     } else {
+      console.log('no scroll');
       this.scrollAccum += image.height;
 
       if (this.scrollAccumReset) clearTimeout(this.scrollAccumReset);
@@ -606,10 +610,9 @@ class Messages extends React.Component {
         link.href = 'https://fonts.googleapis.com/css2?family=' + fontFamily.replaceAll(' ', '+') + '&display=swap';
         document.head.appendChild(link);
       }
-
+      
       return { fontFamily };
     }
-
 
     return styles[value] || {};
   }

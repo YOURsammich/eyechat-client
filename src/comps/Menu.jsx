@@ -17,9 +17,7 @@ class Menu extends React.Component {
       }}>
 
         <div className='menuHeader'>
-          <h4> {
-            this.props.activeList === 'users' ? 'User List' : 'Settings'  
-          }</h4>
+          <h4> {this.props.activeList}</h4>
         </div>
 
         {
@@ -32,7 +30,9 @@ class Menu extends React.Component {
               <Settings 
                 toggles={this.props.toggles} 
                 toggleStateChange={this.props.toggleStateChange}
-              /> : null
+              /> : <Shop
+                hats={this.props.hats}
+              />
         }
 
       </div>
@@ -117,7 +117,6 @@ class UserList extends React.Component {
 }
 
 class Settings extends React.Component {
-
   constructor() {
     super()
 
@@ -146,6 +145,71 @@ class Settings extends React.Component {
     </div>
         
   }
+}
+
+class Shop extends React.Component {
+  constructor(props) {
+    super();
+
+    this.shopItems = [{
+      id: 1,
+      name: 'Pick a hat',
+      description: ':)',
+      price: 100
+    }, {
+      id: 2,
+      name: 'Filter a word',
+      description: 'uwu',
+      price: 200
+    }];
+
+    const formatHat = props.hats.map(a=> {
+      return {
+        id: a.hatName,
+        name: a.hatName,
+        description: a.description,
+        price: a.price,
+        image: a.hat
+      }
+    })
+
+    this.shopItems = this.shopItems.concat(formatHat);
+
+  }
+
+  render () {
+
+    return (
+      <div className='shopContainer' style={{width: '300px'}}>
+
+        <div className='shopNav'>
+          <span className='shopNavItem'>All</span>
+          <span className='shopNavItem'>Hats</span>
+          <span className='shopNavItem'>Filters</span>
+        </div>
+
+        <div className='shopItems'>
+          {this.shopItems.map(item => (
+            <div key={item.id} className='shopItem'>
+              <div className='shopItemImage'>
+                <img src={'./images/hats/' + item.image} alt={item.name} />
+              </div>
+              <div className='shopItemDescription'>                
+                <span className='shopItemName'>{item.name}</span>
+                <span className='shopItemDesc'>{item.description}</span>
+                <div className='shopBuy'>
+                  <span className='shopItemPrice'>₵{item.price}</span>
+                  <button className='stdBtn'>Buy</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+
+  }
+
 }
 
 export class Overlay extends React.Component {

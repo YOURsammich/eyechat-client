@@ -231,6 +231,8 @@ class ChatWindow extends React.Component {
 
             <div className='topBarBtns'>
 
+              <span className="material-symbols-outlined" onClick={() => this.setState({ selectedList: 'shop' })}>shopping_cart</span>
+
               <span className="material-symbols-outlined" onClick={() => this.setState({ selectedList: 'settings' })}>settings</span>
 
               <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ selectedList: 'users' })}>
@@ -282,6 +284,7 @@ class ChatWindow extends React.Component {
               toggleStateChange={this.toggleStateChange.bind(this)}
               toggles={this.state.toggles}
               themeColor={this.state.themecolors.menupri}
+              hats={this.state.hats}
             /> : null
         }
 
