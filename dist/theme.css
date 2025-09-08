@@ -50,12 +50,37 @@ display: none
 }
 
 
+.chatBox {
+  overflow-y: hidden;
+  flex: 1;
+  display: flex;
+  position: relative;
+}
+
+.messageBackground {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#center-text {
+  position: absolute;
+  color: white;
+  font-size: 4em;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
 #message-container {
   color: white;
   flex: 1;
   padding: 10px 10px;
   overflow-y: scroll;
   scroll-behavior: smooth;
+  position: relative;
 }
 
 .nick {
@@ -83,10 +108,13 @@ display: none
   text-shadow: rgb(0, 0, 0) -1px -1px 0px, rgb(0, 0, 0) 1px -1px 0px, rgb(0, 0, 0) -1px 1px 0px, rgb(0, 0, 0) 1px 1px 0px;
   white-space: pre-wrap;
   word-wrap: break-word;
-  background: rgba(255, 255, 255, 0.05);
   margin: 5px 3px;
   padding: 5px 6px;
   border-radius: 4px;
+}
+
+.bubbleMessage .message {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .emoji {
@@ -226,6 +254,35 @@ display: none
 .menuPane {
   background-color: #181818;
   color: white;
+  display: flex;
+  flex-direction: row-reverse;
+}
+
+.navBtn {
+  font-size: 20px;
+  cursor: pointer;
+  padding: 2px 0px;
+  margin: 5px 0px;
+  border-radius: 10px;
+  position: relative;
+  width: 40px;
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.quickNav {
+  display: flex;
+  flex-direction: column;
+  color: white;
+  margin: 0;
+  padding: 0 10px !important;
+  background-color: #0d0113;
+}
+
+.menuContent {
+  flex: 1;
   min-width: 200px;
   display: flex;
   flex-direction: column;
@@ -233,10 +290,11 @@ display: none
 
 .menuHeader {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   height: 45px;
   align-items: center;
   box-shadow: 0 1px 2px black;
+  padding: 0 5px;
 }
 
 .userLi {
@@ -256,11 +314,11 @@ display: none
 }
 
 .userLiSpan:hover .userLiActions {
-  visibility: visible;
+  display: unset;
 }
 
 .userLiActions {
-  visibility: hidden;
+  display: none;
   font-size: 12px;
   font-style: italic;
   color: #6eaef3;
@@ -1001,6 +1059,9 @@ display: none
 
 .settingsContainer {
   padding: 10px;
+  gap: 5px;
+  display: flex;
+  flex-direction: column;
 }
 
 .settingsLabel {
@@ -1014,14 +1075,14 @@ display: none
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding: 5px;
+  width: 250px;
 }
 
 .shopItems {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px;
-  align-items: center;
   overflow-y: scroll;
 }
 
@@ -1039,9 +1100,8 @@ display: none
   background: #15181a;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  width: 200px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   transition: all 0.15s ease;
 }
 
@@ -1054,6 +1114,7 @@ display: none
   padding: 8px;
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
 .shopItemDesc {
@@ -1072,8 +1133,37 @@ display: none
 
 .shopNav {
   display: flex;
+  flex-direction: column;
   justify-content: center;
-  gap: 20px;
-  border-bottom: 2px solid #15181a;
+  gap: 10px;
   padding-bottom: 6px;
+  margin-top: 10px;
+}
+
+.shopNavItem {
+  background-color: #000000ab;
+  border-radius: 6px;
+  margin: 0 5px;
+  padding: 10px;
+  box-shadow: 0 0 4px #3d3d3d;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.shopNavItem p {
+  font-size: 12px;
+  color: #ccc;
+  margin: 0;
+}
+
+.hatContainer {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-wrap: wrap;
+  overflow-y: scroll;
+  padding: 5px;
+  margin-top: 10px;
 }

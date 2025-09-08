@@ -73,7 +73,10 @@ class Store {
       }
     };
 
-    this.defaultStateValues = {};
+    this.defaultStateValues = {
+      'toggle-background': true,
+      'toggle-bubbles': true
+    };
 
     this.altAtt = {colour: 'color', bg: 'background'};
 

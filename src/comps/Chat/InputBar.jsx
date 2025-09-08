@@ -7,33 +7,53 @@ class StylePanel extends React.Component {
   constructor() {
     super();
 
-    this.state = {};
+    this.state = {
+      hats: [],
+      showAll: false
+    };
 
   }
 
   componentDidMount() {
 
-    fetch('/a/getHats')
+    fetch('/channel/getHats')
       .then(res => res.json())
       .then(data => {
         console.log(data);
+
+        for (let userHat of data.userHats) {
+          const index = data.hats.findIndex(a=> a.name.toLowerCase() == userHat.toLowerCase());
+          if (index != -1) data.hats[index].userHat = true;
+        }
 
         this.setState({ hats: data.hats });
 
       })
   }
 
+  pickHat (hat) {
+
+    this.props.handleInput('/hat ' + hat.name);
+
+  }
+
   render() {
     return <div className='stylePanel'>
       
       <div className='hatHeader'>
-        <button style={{backgroundColor:'#39f'}}>My Hats</button>
-        <button>All</button>
+        <button 
+          onClick={()=> this.setState({ showAll: false })} 
+          style={{backgroundColor:this.state.showAll ? '' : '#39f'}}
+        >My Hats</button>
+        <button 
+          onClick={()=> this.setState({ showAll: true })}
+          style={{backgroundColor:this.state.showAll ? '#39f' : ''}}
+        >All</button>
       </div>
 
       <div className='hatList'>
-        {this.state.hats?.map(a => {
-          return <div key={a.id} className='hat'>
+        {this.state.hats?.filter(b=>this.state.showAll || b.userHat).map(a => {
+          return <div key={a.name} className='hat' onClick={() => this.pickHat(a)}>
             <img style={{maxHeight: '64px'}} src={'/images/hats/' + a.file} />
             <div>{a.name}</div>
           </div>
@@ -45,7 +65,7 @@ class StylePanel extends React.Component {
 }
 
 class InputBar extends React.Component {
-  constructor() {
+  constructor(props) {
     super();
 
     this.state = {
@@ -59,6 +79,8 @@ class InputBar extends React.Component {
     this.historyIndex = -1;
 
     this.inputBarRef = React.createRef();
+
+    this.handleInput = (text) => handleInput.handle(text, props.socket, props.store, props.channelName, props.addMessage, props.user);
 
   }
 
@@ -129,7 +151,7 @@ class InputBar extends React.Component {
 
   _handleEnter(event) {
     const target = event.target;
-    console.log(this.state.inputAuto);
+    
     if (this.state.inputAuto && this.state.inputAuto.length) {
       this.replaceSelectedWord(this.state.inputAuto[this.state.inputIndex].replaceWith + ' ', target.selectionStart);
       this.setState({ inputAuto: false, emojis: false });
@@ -140,13 +162,7 @@ class InputBar extends React.Component {
       try {
         this.addHistory(target.value);
 
-        handleInput.handle(target.value, 
-          this.props.socket, 
-          this.props.store,
-          this.props.channelName,
-          this.props.addMessage,
-          this.props.user
-        );
+        this.handleInput(target.value);
 
       } catch (e) {
         console.error(e);
@@ -339,7 +355,9 @@ class InputBar extends React.Component {
         user={this.props.user}
       /> : null}
 
-      {this.state.showStyle ? <StylePanel /> : null}
+      {this.state.showStyle ? <StylePanel
+        handleInput={this.handleInput}
+      /> : null}
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '5px' }}>
 

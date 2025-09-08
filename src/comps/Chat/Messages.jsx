@@ -504,7 +504,7 @@ class Messages extends React.Component {
         console.log('scrolling');
         messageCon.scrollTo({
           top: messageCon.scrollHeight + 200,
-          behavior: document.hasFocus() ? 'smooth' : 'instant'
+          behavior: document.hasFocus() ? 'instant' : 'instant'
         });
       } else {
         console.log('no scroll');
@@ -634,7 +634,7 @@ class Messages extends React.Component {
   }
 
   renderMessage (message) {
-    return <div className={'message' + (message.type ? ' ' + message.type : '')} key={message.count}>
+    return <div className={'message' + (message.type ? ' ' + message.type : '')} key={'message-' + message.count}>
       { this.renderTimeStamp(message) }
       { message.type == 'chat' ? this.renderNick(message) : null }
       { this.renderMessageContent(message) }
@@ -654,12 +654,11 @@ class Messages extends React.Component {
 
   render() {
     return (
-      <div id="message-container" ref={this.messageCon} style={{ background: `${this.props.background}` }} onClick={this.handleClick.bind(this)}>
+      <div id="message-container" ref={this.messageCon}>
 
         {/* render Messages react children */}
 
         {this.props.children}
-        
 
         {this.props.messages.map(message => {
           if (!message || !message.message) return null;

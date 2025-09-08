@@ -15,7 +15,8 @@ class ChatWindow extends React.Component {
       themecolors: {},
       //toggles
       toggles: {
-        background: true
+        background: store.get('toggle-background'),
+        bubbles: store.get('toggle-bubbles')
       }
     }
 
@@ -209,6 +210,9 @@ class ChatWindow extends React.Component {
     toggles[attr] = state;
 
     this.setState({ toggles });
+
+    store.setState('toggle-background', toggles.background);
+    store.setState('toggle-bubbles', toggles.bubbles);
   }
 
   render() {
@@ -217,48 +221,51 @@ class ChatWindow extends React.Component {
     return (
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        <div className='chatContainer'>
+        <div className={'chatContainer' + (this.state.toggles.bubbles ? ' bubbleMessage' : '')}>
 
           <div className="chatHeader" style={{
             backgroundColor: this.state.themecolors.topbarpri ? this.state.themecolors.topbarpri : '',
           }}>
             
-            <div className='channelNameHeader'>
+            {/* <div className='channelNameHeader'>
               {'/' + this.props.channelName}
-            </div>
+            </div> */}
 
             <div className='topic'>{this.state.topic}</div>
 
             <div className='topBarBtns'>
 
-              <span className="material-symbols-outlined" onClick={() => this.setState({ selectedList: 'shop' })}>shopping_cart</span>
-
-              <span className="material-symbols-outlined" onClick={() => this.setState({ selectedList: 'settings' })}>settings</span>
-
-              <span className={`material-symbols-outlined toggleUsers`} onClick={() => this.setState({ selectedList: 'users' })}>
-                {this.state.showUsers ? 'group' : 'group'}
-              </span>
+              
 
             </div>
 
           </div>
+          
+          <div className='chatBox'>
 
-          <Messages
-            emojis={this.state.emojis}
-            socket={this.props.socket}
-            getUserFlair={this.getUserFlair.bind(this)}
-            messages={this.state.messages}
-            background={this.state.toggles.background ? this.state.background : '#000'}
-            user={this.props.user}
-            setViewLog={this.setViewLog.bind(this)}
-          >
-            {
-              this.state.showOverlay ?
-                <Overlay
-                  type={this.state.showOverlay}
-                /> : null
-            }
-          </Messages>
+            <div className='messageBackground' style={{ background: `${this.state.toggles.background ? this.state.background : '#000'}`}}>
+              <div id="center-text">{this.state.centermsg}</div>
+            </div>
+
+            <Messages
+              emojis={this.state.emojis}
+              socket={this.props.socket}
+              getUserFlair={this.getUserFlair.bind(this)}
+              messages={this.state.messages}
+              background={this.state.toggles.background ? this.state.background : '#000'}
+              user={this.props.user}
+              setViewLog={this.setViewLog.bind(this)}
+              centermsg={this.state.centermsg}
+            >
+              {
+                this.state.showOverlay ?
+                  <Overlay
+                    type={this.state.showOverlay}
+                  /> : null
+              }
+            </Messages>
+
+          </div>
 
 
           <InputBar

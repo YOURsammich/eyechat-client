@@ -160,6 +160,9 @@ const COMMANDS = {
   theme: {
     params: ['id', 'color']
   },
+  msg: {
+    params: ['msg']
+  },
   chatgpt: {
     params: ['message'],
     parseMethod: 'leaveSpace'
