@@ -1,6 +1,8 @@
 import * as React from 'react';
 import handleInput from '../utils/handleInput';
 
+import { useEffect, useState } from 'react';
+
 
 class Menu extends React.Component {
 
@@ -64,6 +66,7 @@ class Menu extends React.Component {
               <UserList 
                 socket={this.props.socket}
                 userlist={this.props.userlist} 
+                bridgeNicks={this.props.bridgeNicks}
               /> : 
               this.state.selectedList === 'settings' ?
                 <Settings 
@@ -149,6 +152,15 @@ class UserList extends React.Component {
           )
         })}
 
+        <i className='bridgeUserHeader'>Bridge Users</i>
+
+        {this.props.bridgeNicks?.map(user => {
+          return (
+            <div className={'userLiSpan bridgeUser'} key={user.nick}>
+              {user.nick}
+            </div>
+          )
+        })}
       </div>
     )
   }
@@ -216,6 +228,10 @@ class Shop extends React.Component {
       name: 'MWs',
       description: 'mods text in variety of ways',
       icon: 'wand_stars'
+    }, {
+      name: 'Join names',
+      description: 'Modify default join names',
+      icon: 'wand_stars'
     }]
 
     // const formatHat = props.hats.map(a=> {
@@ -255,19 +271,13 @@ class Shop extends React.Component {
   }
 
   setShopCat(cat) {
-    console.log(cat, this.state.selectedCat);
     this.setState({ selectedCat: cat == this.state.selectedCat ? 'nav' : cat });
   }
 
   render () {
-
-    const selectedCatData = this.storeCats.find(a => a.name.toLowerCase() === this.state.selectedCat);
-
     return (
       <div className='shopContainer'>
-
         {
-         
           <div className='shopNav'>
             {
               this.storeCats.filter(b=>this.state.selectedCat === 'nav' || b.name.toLowerCase() === this.state.selectedCat).map(a => (
@@ -285,26 +295,29 @@ class Shop extends React.Component {
           </div>
         }
 
-          {
-            this.state.selectedCat == 'hats' ? 
-                <div className="hatContainer">
-                  {this.props.hats.map(a => (
-                    <div key={a.hatName} className="hatItem">
-                      <div>
-                        <img src={'./images/hats/' + a.hat} alt={a.hatName} style={{width: '50px', height: '50px'}} />
-                      </div>
-                    </div>
-                  ))}
-                </div> :
-                this.state.selectedCat === 'filters' ? 
-              <div>
-                <h3>Filters</h3>
-              </div> : 
-                this.state.selectedCat === 'mws' ?
-              <div>
-                <h3>MWs</h3>
-              </div> : null
-          }
+        {
+          this.state.selectedCat == 'hats' ? 
+            <div className="hatContainer">
+              {this.props.hats.map(a => (
+                <div key={a.hatName} className="hatItem">
+                  <div>
+                    <img src={'./images/hats/' + a.hat} alt={a.hatName} style={{width: '50px', height: '50px'}} />
+                  </div>
+                </div>
+              ))}
+            </div> :
+            this.state.selectedCat === 'filters' ? 
+          <div>
+            <h3>Filters</h3>
+          </div> : 
+            this.state.selectedCat === 'mws' ?
+          <div>
+            <h3>MWs</h3>
+          </div> : 
+          this.state.selectedCat === 'join names' ?
+          <JoinNames /> :
+          null
+        }
 
           {/* <div className='shopItems'>
             {this.state.shopItems.map(item => (
@@ -332,6 +345,38 @@ class Shop extends React.Component {
     )
 
   }
+
+}
+
+function JoinNames() {
+
+  const [joinNames, setJoinNames] = useState({});
+
+  useEffect(() => {
+    fetch('/channel/info/main/joinnick')
+      .then(res => res.json())
+      .then(data => {
+        console.log(data);
+        const nouns = data.filter(a=>a.type === 'noun').map(a=>a.name);
+        const adjectives = data.filter(a=>a.type === 'adjective').map(a=>a.name);
+
+        setJoinNames({ nouns, adjectives });
+
+      });
+  }, [])
+
+
+
+  return (
+    <div className='joinNamesContainer'>
+      <h3>Nouns</h3>
+      {joinNames.nouns?.map(a => <div key={a} className='joinNameItem'>{a}</div>)}
+
+      <h3>Adjectives</h3>
+      {joinNames.adjectives?.map(a => <div key={a} className='joinNameItem'>{a}</div>)}
+
+    </div>
+  )
 
 }
 

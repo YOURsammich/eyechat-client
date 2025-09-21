@@ -286,6 +286,7 @@ class ChatWindow extends React.Component {
             <Menu
               socket={this.props.socket}
               userlist={this.props.userlist}
+              bridgeNicks={this.props.bridgeNicks}
               toggleOverlay={this.toggleOverlay}
               activeList={this.state.selectedList}
               toggleStateChange={this.toggleStateChange.bind(this)}

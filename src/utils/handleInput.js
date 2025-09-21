@@ -168,7 +168,8 @@ const COMMANDS = {
     parseMethod: 'leaveSpace'
   },
   sidebar: {},
-  startbridge: {}
+  startbridge: {},
+  stopbridge: {}
 }
 
 const handleCommand = {

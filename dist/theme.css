@@ -1167,3 +1167,15 @@ display: none
   padding: 5px;
   margin-top: 10px;
 }
+
+.bridgeUserHeader {
+  font-size: 12px;
+  color: #eee;
+  margin: 0 5px;
+  font-weight: bold;
+}
+
+.bridgeUser {
+  font-size: 14px;
+  font-weight: 200;
+}

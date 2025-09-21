@@ -8,7 +8,6 @@ import ChatWindow from './comps/Chat/ChatWindow';
 import Menu from './comps/Menu'
 import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 
-
 class App extends React.Component {
   constructor() {
     super();
@@ -47,6 +46,10 @@ class App extends React.Component {
 
         socket.on('userlist', (userlist) => {
           this.setState({ userlist: userlist })
+        });
+
+        socket.on('bridgeNicks', (bridgeNicks) => {
+          this.setState({ bridgeNicks });
         });
 
         socket.on('setID', (ID) => {
@@ -164,8 +167,6 @@ class App extends React.Component {
       <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         <div id='main-container'>
-
-
           {
             this.state.showPluginBar ? <div className="sideBar">
               <div className="appViewToggle" onClick={() => this.setState({ showApp: !this.state.showApp })}>
@@ -201,26 +202,25 @@ class App extends React.Component {
             /> : null
           }
 
-       
-
           <div style={{
             display: 'flex', flexDirection: 'column',
             flex: 1,
             overflowX: 'hidden'
           }}>
-            
-              <ChatWindow
-                socket={socket}
-                userlist={this.state.userlist}
-                conversationList={this.state.conversationList}
-                channelName={this.state.activeChannel}
-                toggleEditor={() => this.setState({ showApp: !this.state.showApp })}
-                editorShown={this.state.showApp}
-                user={this.getMyUser()}
-                focusOnChat={this.state.focusOn == 'chat'}
-                store={this.store}
-              /> 
               
+            <ChatWindow
+              socket={socket}
+              userlist={this.state.userlist}
+              bridgeNicks={this.state.bridgeNicks}
+              conversationList={this.state.conversationList}
+              channelName={this.state.activeChannel}
+              toggleEditor={() => this.setState({ showApp: !this.state.showApp })}
+              editorShown={this.state.showApp}
+              user={this.getMyUser()}
+              focusOnChat={this.state.focusOn == 'chat'}
+              store={this.store}
+            /> 
+           
           </div>
         </div>
 

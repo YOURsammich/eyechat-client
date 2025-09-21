@@ -654,7 +654,7 @@ class Messages extends React.Component {
 
   render() {
     return (
-      <div id="message-container" ref={this.messageCon}>
+      <div id="message-container" ref={this.messageCon} onClick={this.handleClick.bind(this)}>
 
         {/* render Messages react children */}
 
