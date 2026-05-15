@@ -75,7 +75,8 @@ class Store {
 
     this.defaultStateValues = {
       'toggle-background': true,
-      'toggle-bubbles': true
+      'toggle-bubbles': true,
+      'toggle-centermsg': true,
     };
 
     this.altAtt = {colour: 'color', bg: 'background'};

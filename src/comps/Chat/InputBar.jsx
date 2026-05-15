@@ -1,402 +1,215 @@
-import * as React from 'react';
+import { useState, useRef, useEffect } from 'react';
 import handleInput from '../../utils/handleInput';
 import { PM } from './PM_Client.jsx';
 import EmojiMini from './Emojis';
 
-class StylePanel extends React.Component {
-  constructor() {
-    super();
-
-    this.state = {
-      hats: [],
-      showAll: false
-    };
-
-  }
-
-  componentDidMount() {
-
-    fetch('/channel/getHats')
-      .then(res => res.json())
-      .then(data => {
-        console.log(data);
-
-        for (let userHat of data.userHats) {
-          const index = data.hats.findIndex(a=> a.name.toLowerCase() == userHat.toLowerCase());
-          if (index != -1) data.hats[index].userHat = true;
-        }
-
-        this.setState({ hats: data.hats });
-
-      })
-  }
-
-  pickHat (hat) {
-
-    this.props.handleInput('/hat ' + hat.name);
-
-  }
-
-  render() {
-    return <div className='stylePanel'>
-      
-      <div className='hatHeader'>
-        <button 
-          onClick={()=> this.setState({ showAll: false })} 
-          style={{backgroundColor:this.state.showAll ? '' : '#39f'}}
-        >My Hats</button>
-        <button 
-          onClick={()=> this.setState({ showAll: true })}
-          style={{backgroundColor:this.state.showAll ? '#39f' : ''}}
-        >All</button>
-      </div>
-
-      <div className='hatList'>
-        {this.state.hats?.filter(b=>this.state.showAll || b.userHat).map(a => {
-          return <div key={a.name} className='hat' onClick={() => this.pickHat(a)}>
-            <img style={{maxHeight: '64px'}} src={'/images/hats/' + a.file} />
-            <div>{a.name}</div>
-          </div>
-        })}
-      </div>
-
+function StylePanel() {
+  return (
+    <div className='stylePanel'>
+      <div className="stylePreview"></div>
+      <ul>
+        <li>Hats</li>
+        <li>Flair</li>
+        <li>Text Style (Font, color, etc)</li>
+      </ul>
     </div>
-  }
+  );
 }
 
-class InputBar extends React.Component {
-  constructor(props) {
-    super();
+function InputBar({ socket, store, channelName, addMessage, user, userlist, emoji, themeColor }) {
+  const [inputAuto, setInputAuto] = useState(null);
+  const [emojis, setEmojis] = useState(null);
+  const [selectionStart, setSelectionStart] = useState(0);
+  const [inputIndex, setInputIndex] = useState(0);
+  const [showConvos] = useState(false);
+  const [showStyle, setShowStyle] = useState(false);
 
-    this.state = {
-      value: '',
-      inputIndex: -1,
-      unreadConvo: false,
-      showConvos: false
-    }
+  const inputBarRef = useRef(null);
+  const historyRef = useRef([]);
+  const historyIndexRef = useRef(-1);
 
-    this.history = [];
-    this.historyIndex = -1;
+  useEffect(() => {
+    inputBarRef.current.focus();
+    const refocus = () => { if (!document.hidden) inputBarRef.current.focus(); };
+    document.addEventListener('visibilitychange', refocus);
+    return () => document.removeEventListener('visibilitychange', refocus);
+  }, []);
 
-    this.inputBarRef = React.createRef();
-
-    this.handleInput = (text) => handleInput.handle(text, props.socket, props.store, props.channelName, props.addMessage, props.user);
-
+  function handleInputFn(text) {
+    return handleInput.handle(text, socket, store, channelName, addMessage, user);
   }
 
-  componentDidMount() {
-
-    this.inputBarRef.current.focus();
-
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        this.inputBarRef.current.focus();
-      }
-    });
-
-  }
-
-  replaceSelectedWord(word, selectionStart) {
+  function replaceSelectedWord(word, sel) {
     const target = document.querySelector('.input-container textarea');
     const input = target.value;
-    const lastSpace = input.lastIndexOf(' ', selectionStart-1);
-    const wordStart = lastSpace != -1 ? lastSpace+1 : 0;
-    let wordEnd = input.indexOf(' ', selectionStart);
-    if (wordEnd == -1) {
-      wordEnd = input.length;
-    }
-
-    console.log(input, selectionStart, lastSpace, word);
-
+    const lastSpace = input.lastIndexOf(' ', sel - 1);
+    const wordStart = lastSpace !== -1 ? lastSpace + 1 : 0;
+    let wordEnd = input.indexOf(' ', sel);
+    if (wordEnd === -1) wordEnd = input.length;
     target.value = input.slice(0, wordStart) + word + input.slice(wordEnd);
     target.focus();
-
     target.selectionStart = wordStart + word.length + 1;
     target.selectionEnd = wordStart + word.length + 1;
   }
 
-  addHistory (message) {
-    this.historyIndex = -1;
-    this.history.unshift(message);
-  }
-
-  _handleTab(event) {
-    event.preventDefault();
-    const target = event.target;
-    const selectionStart = target.selectionStart || this.state.selectionStart;
-
-    if (this.state.inputAuto) {
-
-      let inputIndex = this.state.inputIndex;
-
-      if (event.shiftKey) {
-        if (--inputIndex < 0) {
-          inputIndex = this.state.inputAuto.length - 1;
-        }
-      } else {
-        if (++inputIndex >= this.state.inputAuto.length) {
-          inputIndex = 0;
-        }
-      }
-
-      this.setState({ inputIndex });
-
-    } else {
-      const nicks = this.getNicks(target.value, selectionStart);
-      if (nicks) {
-        this.setState({ inputAuto: nicks, selectionStart, inputIndex: 0 });
-      }
-    }
-  }
-
-  _handleEnter(event) {
-    const target = event.target;
-    
-    if (this.state.inputAuto && this.state.inputAuto.length) {
-      this.replaceSelectedWord(this.state.inputAuto[this.state.inputIndex].replaceWith + ' ', target.selectionStart);
-      this.setState({ inputAuto: false, emojis: false });
-    } else {
-
-      this.addHistory(target.value);
-
-      try {
-        this.addHistory(target.value);
-
-        this.handleInput(target.value);
-
-      } catch (e) {
-        console.error(e);
-        this.props.addMessage({
-          message: e.message,
-          type: 'error',
-          count: 'error' + Math.random()
-        });
-      }
-
-      target.value = '';
-    }
-  }
-
-  getEmojis(input = '', selectionStart) {
-    let wordStart = input.lastIndexOf(':', selectionStart);
-    if (wordStart == -1) return null;
-
+  function getEmojis(input = '', sel) {
+    let wordStart = input.lastIndexOf(':', sel);
+    if (wordStart === -1) return null;
     let wordEnd = input.indexOf(' ', wordStart + 1);
-    if (wordEnd == -1) {
-      wordEnd = input.length;
-    }
-
-    if (selectionStart < wordStart || selectionStart > wordEnd) {
-      return null;
-    }
-
-    const afterColon = input.substring(wordStart + 2, selectionStart).indexOf(':');
-    if (afterColon != -1) {
-      return null;
-    }
-
+    if (wordEnd === -1) wordEnd = input.length;
+    if (sel < wordStart || sel > wordEnd) return null;
+    if (input.substring(wordStart + 2, sel).indexOf(':') !== -1) return null;
     const word = input.substring(wordStart, wordEnd).toLowerCase();
-    if ((input[wordStart - 1] != ' ' && input[wordStart - 1] != ':') && wordStart != 0) {
-      return null;
+    if ((input[wordStart - 1] !== ' ' && input[wordStart - 1] !== ':') && wordStart !== 0) return null;
+    if (word.startsWith(':') && (!word.endsWith(':') || word.length === 1)) {
+      return emoji?.filter(a => a.id.toLowerCase().includes(word.slice(1)))
+        .map(a => ({ id: a.id, replaceWith: ':' + a.id + ':', imageName: a.imageName })) ?? null;
     }
-
-    if (word.startsWith(':') && (!word.endsWith(':') || word.length == 1)) {
-      const matchedEmojis = this.props.emoji.filter(a => a.id.toLowerCase().includes(word.slice(1)));
-      return matchedEmojis.map(a => {
-        return {
-          id: a.id,
-          replaceWith: ':' + a.id + ':',
-          imageName: a.imageName
-        }
-      });
-    } else {
-      return null;
-    }
+    return null;
   }
 
-  getCommands (input = '', selectionStart) {
-
-    if (input[0] != '/') return null;
-
+  function getCommands(input = '', sel) {
+    if (input[0] !== '/') return null;
     const commandName = input.split(' ')[0].slice(1);
-
-    if (selectionStart > commandName.length + 1) return null;
-
-    const command = input.split(' ')[0].slice(1);
-
-    return handleInput.getCommands().filter(b=> b.startsWith(command)).map(a => {
-      return {
-        id: a,
-        replaceWith: '/' + a
-      }
-    });
+    if (sel > commandName.length + 1) return null;
+    return handleInput.getCommands().filter(b => b.startsWith(commandName))
+      .map(a => ({ id: a, replaceWith: '/' + a }));
   }
 
-  getNicks (input = '', selectionStart) {
-    let wordStart = input.lastIndexOf(' ', selectionStart);
-    if (wordStart == -1) wordStart = 0;
-    
-    let wordEnd = input.indexOf(' ', wordStart + 1);
-    if (wordEnd != -1) {
-      return null;
-    }
-
+  function getNicks(input = '', sel) {
+    let wordStart = input.lastIndexOf(' ', sel);
+    if (wordStart === -1) wordStart = 0;
+    if (input.indexOf(' ', wordStart + 1) !== -1) return null;
     const word = input.substring(wordStart).toLowerCase();
-    console.log(word);
-
-  
-    const matchedNicks = this.props.userlist.filter(a => a.nick.toLowerCase().match(word.slice(1)));
-    return matchedNicks.map(a => {
-      return {
-        id: a.nick,
-        replaceWith: a.nick
-      }
-    });
+    return userlist.filter(a => a.nick.toLowerCase().match(word.slice(1)))
+      .map(a => ({ id: a.nick, replaceWith: a.nick }));
   }
 
-  handleChange(event) {
-    const target = event.target;
-    const selectionStart = target.selectionStart || this.state.selectionStart;
-    const emojis = this.getEmojis(target.value, selectionStart);
-    const commands = this.getCommands(target.value, selectionStart);
-    const nicks = false;
-    
-    if (nicks) {
-      this.setState({ inputAuto: nicks, selectionStart, inputIndex: 0 });
-    } else if (commands) {
-      this.setState({ inputAuto: commands, selectionStart, inputIndex: 0}); 
-    } else if (emojis) {
-      this.setState({ inputAuto: emojis, emojis, selectionStart, inputIndex: 0 });
-    } else if (!emojis) {
-      this.setState({ inputAuto: null, emojis: null });
+  function updateAutoComplete(value, sel) {
+    const emojiMatches = getEmojis(value, sel);
+    const commands = getCommands(value, sel);
+    if (commands?.length) {
+      setInputAuto(commands); setEmojis(null); setSelectionStart(sel); setInputIndex(0);
+    } else if (emojiMatches?.length) {
+      setInputAuto(emojiMatches); setEmojis(emojiMatches); setSelectionStart(sel); setInputIndex(0);
+    } else {
+      setInputAuto(null); setEmojis(null);
     }
   }
 
-  handleKeyUp(event) {
-
+  function handleKeyDown(event) {
     const target = event.target;
 
-    const countLines = target.value.split('\n').length;
-
-    target.rows = countLines;
-
-
-    if (!this.state.inputAuto) {
-      this.handleChange(event);
-    } 
-  }
-
-  handleKeyDown(event) {
-    const target = event.target;
-
-    if (event.which == 13) {
+    if (event.which === 13) {
       if (!event.shiftKey) {
         event.preventDefault();
+        if (!target.value) return;
 
-        if (target.value) {
-          this._handleEnter(event);
+        if (inputAuto?.length) {
+          replaceSelectedWord(inputAuto[inputIndex].replaceWith + ' ', target.selectionStart);
+          setInputAuto(null); setEmojis(null);
+        } else {
+          historyIndexRef.current = -1;
+          historyRef.current.unshift(target.value);
+          try {
+            handleInputFn(target.value);
+          } catch (e) {
+            console.error(e);
+            addMessage({ message: e.message, type: 'error', count: 'error' + Math.random() });
+          }
+          target.value = '';
         }
       }
-    } else if (event.which == 9) {
-      this._handleTab(event);
+    } else if (event.which === 9) {
+      event.preventDefault();
+      if (inputAuto) {
+        setInputIndex(prev => {
+          if (event.shiftKey) return prev <= 0 ? inputAuto.length - 1 : prev - 1;
+          return prev >= inputAuto.length - 1 ? 0 : prev + 1;
+        });
+      } else {
+        const nicks = getNicks(target.value, target.selectionStart || selectionStart);
+        if (nicks?.length) {
+          setInputAuto(nicks); setSelectionStart(target.selectionStart); setInputIndex(0);
+        }
+      }
     } else if (event.shiftKey) {
-      if (event.which == 40) {
-        if (this.historyIndex > 0) {
-          target.value = this.history[--this.historyIndex];
-        }
-
-      } else if (event.which == 38) {
-        if (this.historyIndex < this.history.length - 1) {
-          target.value = this.history[++this.historyIndex];
-        }      
+      if (event.which === 40 && historyIndexRef.current > 0) {
+        target.value = historyRef.current[--historyIndexRef.current];
+      } else if (event.which === 38 && historyIndexRef.current < historyRef.current.length - 1) {
+        target.value = historyRef.current[++historyIndexRef.current];
       }
     } else {
-      this.handleChange(event);
+      updateAutoComplete(target.value, target.selectionStart);
     }
   }
 
-  toggleDisplay(prop) {
-    this.setState( prevState => ({ [prop]: !prevState[prop] }))
+  function handleKeyUp(event) {
+    const target = event.target;
+    target.rows = target.value.split('\n').length;
+    if (!inputAuto) updateAutoComplete(target.value, target.selectionStart);
   }
 
-  _handleEmojiClick() {
-
-    if (this.state.emojis) {
-      this.setState({ emojis: false, inputAuto: false });
+  function handleEmojiClick() {
+    if (emojis) {
+      setEmojis(null); setInputAuto(null);
     } else {
-      const emojis = this.getEmojis(':', 1);
-      this.setState({ emojis, inputAuto: emojis, inputIndex: 0 });
+      const matches = getEmojis(':', 1);
+      setEmojis(matches); setInputAuto(matches); setInputIndex(0);
     }
   }
 
-  render() {
-    return <div className="input-container" style={{
-      background: this.props.themeColor
-    }}>
-      
-      {this.state.emojis ? <EmojiMini
-        addMessage={this.props.addMessage}
-        emojis={this.state.emojis}
-        inputIndex={this.state.inputIndex}
-        close={() => this.setState({ emojis: false, inputAuto: false })}
-        selectEmoji={(emoji) => this.replaceSelectedWord(':' + emoji + ':', this.state.selectionStart)}
+  return (
+    <div className="input-container" style={{ background: themeColor }}>
+
+      {emojis ? <EmojiMini
+        addMessage={addMessage}
+        emojis={emojis}
+        inputIndex={inputIndex}
+        close={() => { setEmojis(null); setInputAuto(null); }}
+        selectEmoji={(id) => replaceSelectedWord(':' + id + ':', selectionStart)}
       /> : null}
 
-      {
-        (this.state.inputAuto?.length) ? <div className='acBar'>{
-          this.state.inputAuto.slice(this.state.inputIndex).map((a, i) => {
-            return <div key={a.id} style={{ color: i == 0 ? 'white' : '' }}>{a.id}</div>
-        })
-        }</div> : null
-      }
+      {inputAuto?.length ? (
+        <div className='acBar'>
+          {inputAuto.slice(inputIndex).map((a, i) => (
+            <div key={a.id} style={{ color: i === 0 ? 'white' : '' }}>{a.id}</div>
+          ))}
+        </div>
+      ) : null}
 
-      {this.state.showConvos ? <PM
-        socket={this.props.socket}
-        user={this.props.user}
-      /> : null}
-
-      {this.state.showStyle ? <StylePanel
-        handleInput={this.handleInput}
-      /> : null}
+      {showConvos ? <PM socket={socket} user={user} /> : null}
+      {showStyle ? <StylePanel /> : null}
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '5px' }}>
-
         <div className='pretendInput'>
           <textarea
-            onClick={this.handleKeyUp.bind(this)}
-            onChange={this.handleChange.bind(this)}
-            onKeyUp={this.handleKeyUp.bind(this)}
-            onKeyDown={this.handleKeyDown.bind(this)}
+            onClick={handleKeyUp}
+            onChange={(e) => updateAutoComplete(e.target.value, e.target.selectionStart)}
+            onKeyUp={handleKeyUp}
+            onKeyDown={handleKeyDown}
             rows="1" placeholder="Type anything then press enter."
-            ref={this.inputBarRef}
-          ></textarea>
-
+            ref={inputBarRef}
+          />
           <div className='insideInputBarBtns'>
-            <div className='inputBarBtn' onClick={this._handleEmojiClick.bind(this)}>
-              <span className="material-symbols-outlined" style={{fontSize:'20px'}}>mood</span>
+            <div className='inputBarBtn' onClick={handleEmojiClick}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>mood</span>
             </div>
           </div>
         </div>
 
-
         <div className='inputBarBtns'>
-
-          <div className='inputBarBtn' onClick={() => this.toggleDisplay('showStyle')}>
-            <span style={{fontSize: '20px'}} className="material-symbols-outlined">palette</span>
+          <div className='inputBarBtn' onClick={() => setShowStyle(s => !s)}>
+            <span style={{ fontSize: '20px' }} className="material-symbols-outlined">palette</span>
           </div>
-
-          <div className='noSelect inputBarBtn' onClick={() => {
-            //this.toggleDisplay('showConvos')
-          }}>
-            <span style={{fontSize: '20px'}} className="material-symbols-outlined">forum</span>
+          <div className='noSelect inputBarBtn' onClick={() => { /* setShowConvos(s => !s) */ }}>
+            <span style={{ fontSize: '20px' }} className="material-symbols-outlined">forum</span>
           </div>
-
         </div>
       </div>
 
-
     </div>
-  }
+  );
 }
 
 export default InputBar;

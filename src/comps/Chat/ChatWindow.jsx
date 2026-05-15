@@ -1,306 +1,210 @@
+import { useState, useRef, useEffect } from 'react';
 import Messages from './Messages';
 import InputBar from './InputBar';
 import Menu, { Overlay } from './../Menu';
 
-class ChatWindow extends React.Component {
+const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
 
-  constructor() {
-    super();
-    this.state = {
-      messages: [],
-      showUsers: true,
-      showOverlay: false,
-      previewMessage: '',
-      selectedList: 'users',
-      themecolors: {},
-      //toggles
-      toggles: {
-        background: store.get('toggle-background'),
-        bubbles: store.get('toggle-bubbles')
-      }
-    }
+function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnChat, store }) {
+  const [messages, setMessages] = useState([]);
+  const [showUsers] = useState(true);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [selectedList] = useState('users');
+  const [toggles, setToggles] = useState(() => ({
+    background: store.get('toggle-background'),
+    bubbles: store.get('toggle-bubbles'),
+    centermsg: store.get('toggle-centermsg'),
+  }));
+  const [channelState, setChannelState] = useState({
+    background: '',
+    topic: '',
+    centermsg: '',
+    themecolors: {},
+    emojis: [],
+    hats: [],
+  });
 
-    this.toggleOverlay = this.toggleOverlay.bind(this);
+  const blurredRef = useRef(false);
+  const unreadRef = useRef(0);
+  const pendingFetchRef = useRef(false);
 
-    this.blurred = false;
-    this.unreadMessages = 0;
-    this.pendingMsgFetch = false;
-  }
-
-  componentDidMount() {
-
-    
-
-    document.addEventListener('visibilitychange', () => {
+  useEffect(() => {
+    const onVisibility = () => {
       if (document.hidden) {
-        this.blurred = true;
+        blurredRef.current = true;
       } else {
-        this.blurred = false;
-        this.unreadMessages = 0;
+        blurredRef.current = false;
+        unreadRef.current = 0;
         document.title = 'Cope.chat - The chat that always copes';
       }
-    });
+    };
+    document.addEventListener('visibilitychange', onVisibility);
 
-    this.props.socket.onDisconnect((reason) => {
+    socket.onDisconnect((reason) => {
       console.log('disconnected', reason);
-      const oldMessages = [...this.state.messages];
-      oldMessages.push({
-        message: 'You have been disconnected from the server.',
-        type: 'error',
-      })
-
-      this.setState({ messages: oldMessages });
+      setMessages(prev => [...prev, { message: 'You have been disconnected from the server.', type: 'error' }]);
     });
 
-    this.props.socket.on('userStyle', (data) => {
-      console.log(data);
-    });
-
-    this.props.socket.on('message', (data) => {
-      const oldMessages = [...this.state.messages];
-      data.type = data.messageType;
-
-      console.log(data);
-
-      oldMessages.push(data)
-
-      if (this.blurred) {
-        this.unreadMessages++;
-        document.title = (this.unreadMessages ? `(${this.unreadMessages}) ` : '') + 'Cope.chat - The chat that always copes';
+    const offMessage = socket.on('message', (data) => {
+      const msg = { ...data, type: data.messageType };
+      if (blurredRef.current) {
+        unreadRef.current++;
+        document.title = `(${unreadRef.current}) Cope.chat - The chat that always copes`;
       }
-
-      this.setState({ messages: oldMessages });
+      setMessages(prev => [...prev, msg]);
     });
 
-    this.props.socket.on('channelInfo', (channelInfo) => {
-      console.log(channelInfo);
-      const oldMessages = [...this.state.messages];
+    const offChannelInfo = socket.on('channelInfo', (channelInfo) => {
+      const messageLog = channelInfo.message_log.reverse().map(a => ({
+        message: a.message,
+        type: a.messageType,
+        count: a.count,
+        nick: a.nick,
+        flair: a.flair,
+        hat: a.hat,
+        time: a.time ? Number(a.time) : undefined
+      }));
 
-      const messageLog = channelInfo.message_log.reverse().map(a => {
-        return {
-          message: a.message,
-          type: a.messageType,
-          count: a.count,
-          nick: a.nick,
-          flair: a.flair,
-          hat: a.hat,
-          time: a.time?Number(a.time) : undefined
-        }
-      });
+      const extra = [];
+      if (channelInfo.note) extra.push({ message: channelInfo.note, type: 'note', count: 'note' });
+      if (channelInfo.topic) extra.push({ message: 'Topic: ' + channelInfo.topic, type: 'general', count: 'topic' });
 
-      oldMessages.push(...messageLog);
+      setMessages(prev => [...prev, ...messageLog, ...extra]);
 
-      if (channelInfo.note) {
-        oldMessages.push({
-          message: channelInfo.note,
-          type: 'note',
-          count: 'note'
-        });
-      }
-
-      if (channelInfo.topic) {
-
-        oldMessages.push({
-          message: 'Topic: ' + channelInfo.topic,
-          type: 'general',
-          count: 'topic'
-        });
-      }
-
-      const parsedChannelData = store.handleStates(channelInfo);
-      parsedChannelData.messages = oldMessages
-
-      this.state.messages = oldMessages;
-      this.setState(parsedChannelData);
+      const parsed = store.handleStates(channelInfo);
+      setChannelState(prev => ({ ...prev, ...parsed }));
     });
 
-    this.props.socket.on('userJoin', (user) => {
-      const oldMessages = [...this.state.messages];
-      oldMessages.push({
-        message: user.nick + ' has joined',
-        type: 'general',
-        count: Math.random()
-      })
-
-      this.setState({ messages: oldMessages });
+    const offUserJoin = socket.on('userJoin', (user) => {
+      setMessages(prev => [...prev, { message: user.nick + ' has joined', type: 'general', count: Math.random() }]);
     });
 
-    this.props.socket.on('setState', (data) => {
+    const offSetState = socket.on('setState', (data) => {
       const key = data[0];
       const value = data[1];
+      if (!CHAT_STATE_KEYS.has(key)) return;
 
-      if (this.state.hasOwnProperty(key)) {
-
-        if (key == 'topic') {
-          this.addMessage({
-            message: 'Topic: ' + value,
-            type: 'general',
-            count: Math.random()
-          });
-        }
-
-        if (typeof value == 'object') {
-          this.setState({ [key]: { ...this.state[key], ...value } });
-        } else {
-          this.setState({ [key]: value });
-        }
-
+      if (key === 'topic') {
+        setMessages(prev => [...prev, { message: 'Topic: ' + value, type: 'general', count: Math.random() }]);
       }
+
+      setChannelState(prev => ({
+        ...prev,
+        [key]: typeof value === 'object' ? { ...(prev[key] || {}), ...value } : value
+      }));
     });
-  }
 
-  addMessage(message) {
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      offMessage();
+      offChannelInfo();
+      offUserJoin();
+      offSetState();
+    };
+  }, []);
+
+  function addMessage(message) {
     if (!Array.isArray(message)) message = [message];
-
-    const oldMessages = [...this.state.messages];
-    oldMessages.push(...message);
-    this.setState({ messages: oldMessages });
+    setMessages(prev => [...prev, ...message]);
   }
 
-  setViewLog (log) {
-    if (this.pendingMsgFetch) return;
+  function setViewLog() {
+    if (pendingFetchRef.current) return;
+    pendingFetchRef.current = true;
 
-    this.pendingMsgFetch = true;
+    setMessages(prev => {
+      const oldest = prev[0];
+      if (!oldest || oldest.count <= 1) { pendingFetchRef.current = false; return prev; }
 
-    const oldestMessage = this.state.messages[0];
-    if (oldestMessage && oldestMessage.count > 1) {
-      const range = (oldestMessage.count - 100) + '-' + (oldestMessage.count - 1);
-      
+      const range = (oldest.count - 100) + '-' + (oldest.count - 1);
       fetch('/channel/messages/' + range)
         .then(res => res.json())
         .then(data => {
-
-          for (let i = 0; i < data.length; i++) {
-            data[i].type = data[i].messageType;
-          }
-
-
-          const oldMessages = [...this.state.messages];
-
-          this.setState({ messages: data.concat(oldMessages) });
-
-          this.pendingMsgFetch = false;
-
-          console.log(data);
-
+          for (const m of data) m.type = m.messageType;
+          setMessages(current => [...data, ...current]);
+          pendingFetchRef.current = false;
         });
-    }
 
-
+      return prev;
+    });
   }
 
-  getUserFlair(nick) {
-    const user = this.props.userlist.find(a => a.nick == nick);
-    return user ? user.flairColor : '';
+  function toggleOverlay(id) {
+    setShowOverlay(prev => prev === id ? false : id);
   }
 
-  toggleOverlay(id) {
-    const toggle = (id === this.state.showOverlay)
-
-    if (toggle) {
-      this.setState({ showOverlay: false })
-    } else {
-      this.setState({ showOverlay: id })
-    }
+  function toggleStateChange(attr, state) {
+    setToggles(prev => {
+      const next = { ...prev, [attr]: state };
+      store.setState('toggle-background', next.background);
+      store.setState('toggle-bubbles', next.bubbles);
+      store.setState('toggle-centermsg', next.centermsg);
+      return next;
+    });
   }
 
-  toggleStateChange (attr, state) {
-    console.log(this)
-    const toggles = {...this.state.toggles};
-    toggles[attr] = state;
-
-    this.setState({ toggles });
-
-    store.setState('toggle-background', toggles.background);
-    store.setState('toggle-bubbles', toggles.bubbles);
+  function getUserFlair(nick) {
+    const u = userlist.find(a => a.nick === nick);
+    return u ? u.flairColor : '';
   }
 
-  render() {
-    if (!this.props.focusOnChat) return;
+  if (!focusOnChat) return null;
 
-    return (
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+  return (
+    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className={'chatContainer' + (toggles.bubbles ? ' bubbleMessage' : '')}>
 
-        <div className={'chatContainer' + (this.state.toggles.bubbles ? ' bubbleMessage' : '')}>
-
-          <div className="chatHeader" style={{
-            backgroundColor: this.state.themecolors.topbarpri ? this.state.themecolors.topbarpri : '',
-          }}>
-            
-            {/* <div className='channelNameHeader'>
-              {'/' + this.props.channelName}
-            </div> */}
-
-            <div className='topic'>{this.state.topic}</div>
-
-            <div className='topBarBtns'>
-
-              
-
-            </div>
-
-          </div>
-          
-          <div className='chatBox'>
-
-            <div className='messageBackground' style={{ background: `${this.state.toggles.background ? this.state.background : '#000'}`}}>
-              <div id="center-text">{this.state.centermsg}</div>
-            </div>
-
-            <Messages
-              emojis={this.state.emojis}
-              socket={this.props.socket}
-              getUserFlair={this.getUserFlair.bind(this)}
-              messages={this.state.messages}
-              background={this.state.toggles.background ? this.state.background : '#000'}
-              user={this.props.user}
-              setViewLog={this.setViewLog.bind(this)}
-              centermsg={this.state.centermsg}
-            >
-              {
-                this.state.showOverlay ?
-                  <Overlay
-                    type={this.state.showOverlay}
-                  /> : null
-              }
-            </Messages>
-
-          </div>
-
-
-          <InputBar
-            emoji={this.state.emojis}
-            socket={this.props.socket}
-            channelName={this.props.channelName}
-            addMessage={this.addMessage.bind(this)}
-            user={this.props.user}
-            userlist={this.props.userlist}
-            store={this.props.store}
-            themeColor={this.state.themecolors.inputbar}
-          />
-
+        <div className="chatHeader" style={{ backgroundColor: channelState.themecolors.topbarpri || '' }}>
+          <div className='topic'>{channelState.topic}</div>
+          <div className='topBarBtns'></div>
         </div>
 
-        {
-          this.state.showUsers ?
-            <Menu
-              socket={this.props.socket}
-              userlist={this.props.userlist}
-              bridgeNicks={this.props.bridgeNicks}
-              toggleOverlay={this.toggleOverlay}
-              activeList={this.state.selectedList}
-              toggleStateChange={this.toggleStateChange.bind(this)}
-              toggles={this.state.toggles}
-              themeColor={this.state.themecolors.menupri}
-              hats={this.state.hats}
-            /> : null
-        }
+        <div className='chatBox'>
+          <div className='messageBackground' style={{ background: toggles.background ? channelState.background : '#000' }}>
+            {toggles.centermsg ? <div id="center-text">{channelState.centermsg}</div> : null}
+          </div>
 
+          <Messages
+            emojis={channelState.emojis}
+            socket={socket}
+            getUserFlair={getUserFlair}
+            messages={messages}
+            background={toggles.background ? channelState.background : '#000'}
+            user={user}
+            setViewLog={setViewLog}
+            centermsg={channelState.centermsg}
+          >
+            {showOverlay ? <Overlay type={showOverlay} /> : null}
+          </Messages>
+        </div>
+
+        <InputBar
+          emoji={channelState.emojis}
+          socket={socket}
+          channelName={channelName}
+          addMessage={addMessage}
+          user={user}
+          userlist={userlist}
+          store={store}
+          themeColor={channelState.themecolors.inputbar}
+        />
       </div>
-    )
 
-  }
-
+      {showUsers ? (
+        <Menu
+          socket={socket}
+          userlist={userlist}
+          bridgeNicks={bridgeNicks}
+          toggleOverlay={toggleOverlay}
+          activeList={selectedList}
+          toggleStateChange={toggleStateChange}
+          toggles={toggles}
+          themeColor={channelState.themecolors.menupri}
+          hats={channelState.hats}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 export default ChatWindow;

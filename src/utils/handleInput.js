@@ -241,10 +241,7 @@ const handleInput = {
       }
 
     } else {
-
       const { color } = this.getStylePrefix(store);
-
-      console.log(color + input);
 
       socket.emit('message', {
         message: color + input

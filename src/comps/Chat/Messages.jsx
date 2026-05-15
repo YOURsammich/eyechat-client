@@ -1,4 +1,6 @@
 import * as React from 'react';
+import { useEffect } from 'react';
+
 
 const msgStyles = {
   '*': 'bold',
@@ -11,6 +13,14 @@ const msgStyles = {
   '-': 'linethrough',
   ',': 'space-out',
   '.': 'censor stamp',
+  '!': 'rainbow',
+  '$': 'shake',
+  '+': 'spin',
+  '_': 'underline',
+  '#': 'spolier',
+  '&': 'wavy',
+  '?': 'cursed'
+
 };
 
 const noStyle = {
@@ -58,10 +68,31 @@ const messageParser = {
     const index = str.indexOf(':');
     if (index == -1) return null;
 
-    const nextSpace = str.indexOf(' ', index);
-    if (nextSpace == -1 && str[str.length - 1] == ':' && str.length -1 != index) return {index, strdata: str.slice(index), type: 'emoji'};
+    const nextColon = str.indexOf(':', index+1);
+    if (nextColon == -1) return null;
 
-    if (str[nextSpace - 1] == ':' && ((nextSpace - 1) != index)) return {index: index, strdata: str.slice(index, nextSpace), type: 'emoji'};
+    if (nextColon - 1 != index) return {index, strdata: str.slice(index, nextColon+1), type: 'emoji'};
+
+    //if (str[nextColon] == ':' && ((nextColon - 1) != index)) return {index: index, strdata: str.slice(index, nextColon + 1), type: 'emoji'};
+
+    return null;
+  },
+  getNextEmojiMergeComp (str) {
+    const index = str.indexOf(':');
+    if (index == -1) return null;
+
+    const nextColon = str.indexOf(':', index+1);
+    if (nextColon == -1) return null;
+
+    if (str[nextColon + 1] != '$') return null;
+
+    const nextIndex = str.indexOf(':', nextColon + 2);
+    if (nextIndex == -1) return null;
+
+    const nextEmojiColon = str.indexOf(':', nextIndex + 1);
+    if (nextEmojiColon == -1) return null;
+
+    if (nextColon - 1 != index) return {index, strdata: str.slice(index, nextEmojiColon+1), type: 'emojiMerge'};
 
     return null;
   },
@@ -125,6 +156,8 @@ const messageParser = {
 
   },
 
+
+
   getStyleBreaker (str) {
     const index = str.indexOf('|');
     if (index == -1) return null;
@@ -136,6 +169,7 @@ const messageParser = {
     const nextStyleBreaker = this.getStyleBreaker(str);
     const nextStyleComp = this.getNextStyleComp(str, msgStyles);
     const nextLinkComp = this.getNextLinkComp(str, msgStyles);
+    const nextEmojiMergeComp = this.getNextEmojiMergeComp(str);
     const nextEmojiComp = this.getNextEmojiComp(str);
     const nextColorComp = this.getColorComp(str, msgStyles);
     const nextFontComp = this.getFontComp(str, msgStyles);
@@ -149,6 +183,7 @@ const messageParser = {
       nextFontComp, 
       nextStyleComp, 
       nextLinkComp, 
+      nextEmojiMergeComp,
       nextEmojiComp, 
       nextColorComp
     ].filter(comp => comp != null);
@@ -184,7 +219,7 @@ const messageParser = {
 
 
   },
-  parse (str, msgStyles, tracker = {data: '',parent: null,children: []}, depth = 0) {
+  parse (str, msgStyles = msgStyles, tracker = {data: '',parent: null,children: []}, depth = 0) {
 
     if (!tracker) {
       tracker = {data: '',parent: null,children: []};
@@ -312,6 +347,15 @@ function Emoji (props) {
   </div>) : props.emojiId
 }
 
+function EmojiMerge (props) {
+
+  const emojiSplit = props.message.data.strdata.split('$');
+
+
+  return <div>{emojiSplit.join('')}</div>;
+
+}
+
 function QuoteMsg (props) {
 
   const [quote, setQuote] = React.useState(null);
@@ -344,8 +388,8 @@ function QuoteMsg (props) {
         //set position of quote
         const quoteContainer = document.querySelector('.quote-container');
         if (quoteContainer) {
-          quoteContainer.style.top = (e.clientY - quoteContainer.offsetHeight) + 'px';
-          quoteContainer.style.left = e.clientX + 'px';
+          // quoteContainer.style.bottom = (e.clientY - quoteContainer.offsetHeight) + 'px';
+          // quoteContainer.style.left = e.clientX + 'px';
         }
       }}
       onMouseEnter={() => quote && setQuoteVisible(true)}
@@ -374,29 +418,48 @@ function LinkMsg (props) {
   const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
   const imageType = imageTypes.find(type => href.endsWith(type));
 
-  return <a href={href} target='_blank'>{
+  const isMP4 = href.endsWith('mp4');
+  const isYouTube = href.includes('youtube.com/watch') || href.includes('youtu.be/');
+
+  return (<>
+  <a href={href} target='_blank' rel="noopener noreferrer">{
     imageType ? <div style={{
-      display: 'inline-flex',
-      alignItems: 'flex-end',
-      height: 'auto',
+      display: 'inline-flex',alignItems: 'flex-end',height: 'auto',
     }}>
       <img src={href} loading='lazy' onLoad={(e) => {
         props._imageLoaded(e.target)
       }} />
     </div> : href
-  }</a>;
+  }</a>
+  {' '}
+  
+  {(isMP4 || isYouTube) ? <a target='_blank' rel="noopener noreferrer" onClick={(e) => {
+    props.setOverlay({
+      href: href,
+      type: isYouTube ? 'youtube' : 'video'
+    });
+  }}>[embed]</a> : null}
+
+
+</>);
 
 }
 
-function getCompRender (message, props) {
-
+function getCompRender (message, props, spanish) {
+  console.log('render', spanish, message.data);
   switch (true) {
     case typeof message.data == 'string':
-      return message.data;
+      return spanish ? message.data.split('').map((a,i)=><span style={{display:'inline-block'}} key={message.count+a+i}>{a}</span>) : message.data;
     case message.data.type == 'slideshow':
       return <SlideShow message={message.data.strdata} />;
     case message.data.type == 'link':
-      return <LinkMsg message={message} _imageLoaded={image => props._imageLoaded(image)} />;
+      return <LinkMsg 
+        message={message} 
+        _imageLoaded={image => props._imageLoaded(image)} 
+        setOverlay={props.setOverlay} 
+      />;
+    case message.data.type == 'emojiMerge':
+      return <EmojiMerge message={message} renderMessage={props.renderMessage} />;
     case message.data.type == 'emoji':
       return <Emoji emojiId={message.data.strdata} emojis={props.emojis} _imageLoaded={(image) => props._imageLoaded(image)} />;
     case message.data.type == 'quote':
@@ -414,16 +477,22 @@ function NestMessage (props) {
   return messages.map((message, i) => {
     if (message.data?.type == 'styleBreaker') return null;
 
-    return <span key={i} style={props.getMsgCss(message.data?.type, message.data.strdata)}>
+    const msgcss = getMsgCss(message.data?.type, message.data.strdata);
+    const className = msgcss.className || '';
 
-      { getCompRender(message, props) }
+    msgcss.className = undefined;
+
+    return <span key={i} style={msgcss} className={className}>
+
+      { getCompRender(message, props, props.spanish) }
       
       {message.children.length > 0 ? <NestMessage 
-        getMsgCss={props.getMsgCss}
+        spanish={props.spanish || msgcss.spanish}
         message={message} 
         emojis={props.emojis}
         _imageLoaded={(image) => props._imageLoaded(image)}
         renderMessage={props.renderMessage}
+        setOverlay={(id) => props.setOverlay(id)}
       /> : null}
     </span>
 
@@ -431,19 +500,141 @@ function NestMessage (props) {
 
 }
 
+const fonts = {};
+
+function getMsgCss (compName, value) {
+  const styles = {
+    '/*': { fontWeight: 'bold' },
+    '/%': { fontStyle: 'italic' },
+    '/^': { fontSize: '1.2em' },
+    '/~': { fontSize: '0.8em' },
+    '/)': { transform: 'scaleX(-1)', display: 'inline-block' },
+    '/(': { transform: 'scaleY(-1)', display: 'inline-block' },
+    '/@': { filter: 'blur(5px)', display: 'inline-block' },
+    '/-': { textDecoration: 'line-through', display: 'inline-block' },
+    '/.': { backgroundColor: 'black', color: 'white', transform: 'rotate(19deg)', display: 'inline-block' },
+    '/,': { letterSpacing: '0.2em' },
+    '/!': { className: 'rainbow' },
+    '/$': { className: 'shake', display: 'inline-block' },
+    '/+': { className: 'spin', display: 'inline-block' },
+    '/_': { textDecoration: 'underline' },
+    '/#': { backgroundColor: 'black', color: 'black', className: 'spolier' },
+    '/&': { className: 'wavy', display: 'inline-block', spanish: true },
+    '/?': { filter: 'contrast(10000000000%) saturate(1000000000%)' },
+  }
+  
+  if (compName == 'color') {
+    const color = value;
+    return { color };
+  } else if (compName == 'glow') {
+    const color = value.slice(2);
+    return { textShadow: `0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}` };
+  } else if (compName == 'font') {
+    const fontFamily = value.slice(1, -1);
+    if (!fonts[fontFamily]) {
+      fonts[fontFamily] = true;
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=' + fontFamily.replaceAll(' ', '+') + '&display=swap';
+      document.head.appendChild(link);
+    }
+    
+    return { fontFamily };
+  }
+  return styles[value] || {};
+}
+
+function Draggable ({ children }) {
+
+  const ref = React.useRef();
+
+  useEffect(() => {
+
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    const element = ref.current;
+    const firstChild = element.children[0];
+
+    element.style.position = 'fixed';
+    element.style.cursor = 'move';
+
+    function onMouseDown(e) {
+      if (e.target.nodeName === 'BUTTON') return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      const rect = element.getBoundingClientRect();
+      initialX = rect.left;
+      initialY = rect.top;
+
+      firstChild.style.pointerEvents = 'none';
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
+    function onMouseMove(e) {
+      if (isDragging) {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        element.style.left = initialX + dx + 'px';
+        element.style.top = initialY + dy + 'px';
+      }
+    }
+
+    function onMouseUp() {
+      isDragging = false;
+      firstChild.style.pointerEvents = 'auto';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    element.addEventListener('mousedown', onMouseDown);
+    return () => {
+      element.removeEventListener('mousedown', onMouseDown);
+    };
+
+  });
+
+  return <div ref={ref}>
+    {children}
+  </div>;
+}
+
+function EmbedOverlay (props) {
+  return <Draggable>
+      <div id='embed-overlay'>
+        <header>
+          <button onClick={() => props.setOverlay(null)}>[close]</button>
+        </header>
+
+        {props.src.type == 'youtube' ? <iframe
+          width="100%"
+          height="100%"
+          src={'https://www.youtube.com/embed/' + (props.src.href.includes('youtu.be/') ? props.src.href.split('youtu.be/')[1].split('?')[0] : new URL(props.src.href).searchParams.get('v'))}
+          title="YouTube video player"
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        ></iframe> : null}
+
+        {props.src.type == 'video' ? <video width="100%" height="100%" src={props.src.href} controls></video> : null}
+    </div>
+  </Draggable>;
+}
+
 class Messages extends React.Component {
   constructor () {
     super();
 
     this.state = {
-      block: []
+      block: [],
+      showOverlay: false,
     }
 
     this.cacheMessage = {};
 
     this.messageCon = React.createRef();
-
-    this.fonts = {};
   }
 
   componentDidMount () {
@@ -573,48 +764,10 @@ class Messages extends React.Component {
       {msgData.hat ? <div className='hat' style={{
         backgroundImage: `url('/images/hats/${msgData.hat}')`,
       }}></div> : null}
-      { textContent != msgData.nick ? msgData.nick : <NestMessage message={flair} getMsgCss={this.getMsgCss.bind(this)} /> }{': '}
+      { textContent != msgData.nick ? msgData.nick : <NestMessage message={flair} /> }{': '}
     </div>
 
     return nickEl;
-  }
-
-  getMsgCss (compName, value) {
-    const styles = {
-      '/*': { fontWeight: 'bold' },
-      '/%': { fontStyle: 'italic' },
-      '/^': { fontSize: '1.2em' },
-      '/~': { fontSize: '0.8em' },
-      '/)': { transform: 'scaleX(-1)', display: 'inline-block' },
-      '/(': { transform: 'scaleY(-1)', display: 'inline-block' },
-      '/@': { filter: 'blur(5px)', display: 'inline-block' },
-      '/-': { textDecoration: 'line-through', display: 'inline-block' },
-      '/.': { backgroundColor: 'black', color: 'white', transform: 'rotate(19deg)', display: 'inline-block' },
-      '/,': { letterSpacing: '0.2em' }
-
-    }
-    
-    if (compName == 'color') {
-      const color = value;
-      return { color };
-    } else if (compName == 'glow') {
-      const color = value.slice(2);
-      return { textShadow: `0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}` };
-    } else if (compName == 'font') {
-      const fontFamily = value.slice(1, -1);
-      if (!this.fonts[fontFamily]) {
-        this.fonts[fontFamily] = true;
-
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://fonts.googleapis.com/css2?family=' + fontFamily.replaceAll(' ', '+') + '&display=swap';
-        document.head.appendChild(link);
-      }
-      
-      return { fontFamily };
-    }
-
-    return styles[value] || {};
   }
 
   renderMessageContent (msgData) {
@@ -626,9 +779,9 @@ class Messages extends React.Component {
       <NestMessage
         message={message} 
         emojis={this.props.emojis}
-        getMsgCss={this.getMsgCss.bind(this)} 
         _imageLoaded={(image) => this._imageLoaded(image)}
         renderMessage={this.renderMessage.bind(this)}
+        setOverlay={(id) => this.setState({showOverlay: id})}
       />
     </div>
   }
@@ -654,9 +807,22 @@ class Messages extends React.Component {
 
   render() {
     return (
+
       <div id="message-container" ref={this.messageCon} onClick={this.handleClick.bind(this)}>
 
         {/* render Messages react children */}
+
+        {/* {overlay here} */}
+        {
+          this.state.showOverlay ? <EmbedOverlay 
+            src={this.state.showOverlay}
+            setOverlay={(id) => {
+              console.log('set overlay', id);
+              this.setState({showOverlay: id})
+            }
+            }
+          /> : null
+        }
 
         {this.props.children}
 
@@ -669,8 +835,10 @@ class Messages extends React.Component {
         })}
 
       </div>
+
     )
   }
 }
 
 export default Messages;
+export { NestMessage, messageParser };

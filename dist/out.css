@@ -1,0 +1,19 @@
+/* eyechat-client/src/comps/Chat/chat.css */
+.chatContainer {
+  display: flex;
+  flex-direction: column;
+  width: 500px;
+  overflow-y: hidden;
+  z-index: 1;
+  box-shadow: #111 0px 0px 4px;
+}
+.quote {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 1rem;
+  margin: 0;
+  padding: 0;
+}
+/*# sourceMappingURL=out.css.map */

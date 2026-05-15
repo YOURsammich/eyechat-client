@@ -1,233 +1,146 @@
-import * as React from 'react'
+import { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import Store from './utils/store';
-import socket from './utils/socket'
+import socket from './utils/socket';
 
 import ChatWindow from './comps/Chat/ChatWindow';
-import Menu from './comps/Menu'
 import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 
-class App extends React.Component {
-  constructor() {
-    super();
+const COPE_CLOUD = 'http://localhost:8080/';
 
-    this.state = {
-      connected: false,
-      showApp: false,
-      userlist: [],
-      activeChannel: 'main',
-      chatWidth: 1000,
-      userID: null,
-      focusOn: 'chat',
-      plugins: [],
+function App() {
+  const [connected, setConnected] = useState(false);
+  const [showApp, setShowApp] = useState(false);
+  const [showPluginBar, setShowPluginBar] = useState(false);
+  const [userlist, setUserlist] = useState([]);
+  const [userID, setUserID] = useState(null);
+  const [plugins, setPlugins] = useState([]);
+  const [bridgeNicks, setBridgeNicks] = useState([]);
 
-      //chat states
-      messages: [],
-    }
+  const storeRef = useRef(null);
+  const iframeRef = useRef(null);
 
-    this.getMyUser = this.getMyUser.bind(this)
-  }
+  const myUser = userlist.find(u => u.id === userID);
 
-  _initChatEvents (socket) {
+  useEffect(() => {
+    socket.init({ getActiveChannel: () => 'main' }).then(() => {
+      storeRef.current = window.store = new Store();
 
-    
+      socket.on('pong', () => socket.emit('ping'));
 
-  }
+      socket.on('userlist', (list) => setUserlist(list));
 
-  componentDidMount() {
-    socket.init({
-      getActiveChannel: () => this.state.activeChannel,
-    })
-      .then(() => {
-        this.store = window.store = new Store();
+      socket.on('bridgeNicks', (nicks) => setBridgeNicks(nicks));
 
-        socket.on('pong', () => socket.emit('ping'));
+      socket.on('setID', (id) => setUserID(id));
 
-        socket.on('userlist', (userlist) => {
-          this.setState({ userlist: userlist })
+      socket.on('userJoin', (user) => {
+        setUserlist(prev => [...prev, user]);
+        fetch('/set-nick', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nick: user.nick })
         });
+      });
 
-        socket.on('bridgeNicks', (bridgeNicks) => {
-          this.setState({ bridgeNicks });
+      socket.on('userLeft', (user) => {
+        setUserlist(prev => {
+          const index = prev.findIndex(a => a.id === user.id);
+          if (index === -1) return prev;
+          const next = [...prev];
+          next.splice(index, 1);
+          return next;
         });
+      });
 
-        socket.on('setID', (ID) => {
-          console.log('setid',this.state.userlist[ID]);
-          this.setState({ userID: ID });
-        })
-
-        socket.on('userJoin', (user) => {
-          const userlist = [...this.state.userlist];
-          userlist.push(user);
-
-          this.setState({ userlist })
+      socket.on('userStateChange', ({ user, stateChange }) => {
+        setUserlist(prev => {
+          const index = prev.findIndex(a => a.id === user.id);
+          if (index === -1) return prev;
+          const next = [...prev];
+          next[index] = { ...next[index], ...stateChange };
+          return next;
         });
+      });
 
-        socket.on('userLeft', (user) => {
-          const userlist = [...this.state.userlist];
-          const index = userlist.findIndex(a => a.id == user.id);
-     
-          if (index !== -1) {
-            userlist.splice(index, 1);
-            this.setState({ userlist });
-          }
-        });
+      socket.on('setState', (data) => {
+        if (data[0] === 'showPluginBar') setShowPluginBar(data[1]);
+      });
 
-        socket.on('userStateChange', ({ user, stateChange }) => {
-          const userlist = [...this.state.userlist];
-          const index = userlist.findIndex(a => a.id == user.id);
+      socket.on('channelInfo', (channelInfo) => {
+        if (channelInfo.showPluginBar !== undefined) {
+          setShowPluginBar(channelInfo.showPluginBar);
+        }
+      });
 
-          if (index !== -1) {
-            userlist[index] = { ...userlist[index], ...stateChange };
-            this.setState({ userlist })
-          }
-        });
+      socket.emit('joinChannel');
+      setConnected(true);
 
-        socket.on('setState', (data) => {
-          const key = data[0];
-          const value = data[1];
-          console.log(data);
-          if (this.state.hasOwnProperty(key)) {
-    
-            if (key == 'topic') {
-              this.addMessage({
-                message: 'Topic: ' + value,
-                type: 'general',
-                count: Math.random()
-              });
-            }
-    
-            if (typeof value == 'object') {
-              this.setState({ [key]: { ...this.state[key], ...value } });
-            } else {
-              this.setState({ [key]: value });
-            }
-    
-          }
-        });
-
-        socket.on('channelInfo', (channelInfo) => {
-          this.store.handleStates(channelInfo);
-          console.log(channelInfo);
-
-          if (channelInfo.showPluginBar !== undefined) {
-            this.setState({ showPluginBar: channelInfo.showPluginBar });
-          }
-
-        });
-
-        socket.emit('joinChannel');
-
-        //this._initChatEvents(socket);
-
-        this.setState({ connected: true });
-
-        this.copeCloud = 'https://mentalmeat.cloud/'
-
-        fetch(this.copeCloud + 'getPublicApps')
-          .then(res => res.json())
-          .then(res => {
-            console.log(res);
-
-            this.setState({ plugins: Object.keys(res) })
-
-          })
-
-      })
-
-
-    window.addEventListener('message', (e) => {
-
-      
-      if (e.data == 'requestnick') {
-        const myUser = this.getMyUser();
-
-        this.iframe.contentWindow.postMessage('nick: ' + myUser.nick, '*');
-      } else if (e.data == 'requesttrust') {
-        const myUser = this.getMyUser();
-
-        this.iframe.contentWindow.postMessage('trust: ' + myUser.trust, '*');
-      }
-
-
+      fetch(COPE_CLOUD + 'getPublicApps')
+        .then(res => res.json())
+        .then(res => setPlugins(Object.keys(res)))
+        .catch(() => {});
     });
 
-  }
+    window.addEventListener('message', (e) => {
+      if (e.data === 'requestnick' && iframeRef.current && myUser) {
+        iframeRef.current.contentWindow.postMessage('nick: ' + myUser.nick, '*');
+      } else if (e.data === 'requesttrust' && iframeRef.current && myUser) {
+        iframeRef.current.contentWindow.postMessage('trust: ' + myUser.trust, '*');
+      }
+    });
+  }, []);
 
-  getMyUser() {
-    const user = this.state.userlist.find((user) => user.id === this.state.userID);
+  if (!connected) return 'connecting';
 
-    return user;
-  }
+  return (
+    <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div id='main-container'>
 
-  render() {
-    return this.state.connected ? (
-
-      <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-        <div id='main-container'>
-          {
-            this.state.showPluginBar ? <div className="sideBar">
-              <div className="appViewToggle" onClick={() => this.setState({ showApp: !this.state.showApp })}>
-                <span className="material-symbols-outlined">code</span>
-              </div>
-
-              <div className='pluginSelectionContainer'>
-                {
-                  this.state.plugins.map((plugin) => (
-                    <div key={plugin} className="pluginSelect" onClick={() => {
-                      this.setState({ showApp: plugin })
-                    }}>
-                      {plugin.slice(0,2) + plugin.slice(-2)}
-                    </div>
-                  ))
-                }
-              </div>
-
-            </div> : null
-          }
-            
-
-          {
-            this.state.showApp ? <CodeRunWindow 
-              socket={socket}
-              userlist={this.state.userlist}
-              giveRefresh={(refresh) => this.refreshIframe = refresh}
-              focusOnCode={this.state.focusOn == 'code'}
-              draggingWindow={this.state.draggingWindow}
-              pluginName={this.state.showApp}
-              giveIframe={(iframe) => this.iframe = iframe}
-              copeCloud={this.copeCloud}
-            /> : null
-          }
-
-          <div style={{
-            display: 'flex', flexDirection: 'column',
-            flex: 1,
-            overflowX: 'hidden'
-          }}>
-              
-            <ChatWindow
-              socket={socket}
-              userlist={this.state.userlist}
-              bridgeNicks={this.state.bridgeNicks}
-              conversationList={this.state.conversationList}
-              channelName={this.state.activeChannel}
-              toggleEditor={() => this.setState({ showApp: !this.state.showApp })}
-              editorShown={this.state.showApp}
-              user={this.getMyUser()}
-              focusOnChat={this.state.focusOn == 'chat'}
-              store={this.store}
-            /> 
-           
+        {showPluginBar ? (
+          <div className="sideBar">
+            <div className="appViewToggle" onClick={() => setShowApp(s => !s)}>
+              <span className="material-symbols-outlined">code</span>
+            </div>
+            <div className='pluginSelectionContainer'>
+              {plugins.map((plugin) => (
+                <div key={plugin} className="pluginSelect" onClick={() => setShowApp(plugin)}>
+                  {plugin.slice(0, 2) + plugin.slice(-2)}
+                </div>
+              ))}
+            </div>
           </div>
+        ) : null}
+
+        {showApp ? (
+          <CodeRunWindow
+            socket={socket}
+            userlist={userlist}
+            giveRefresh={(refresh) => { window._refreshIframe = refresh; }}
+            focusOnCode={false}
+            draggingWindow={false}
+            pluginName={showApp}
+            giveIframe={(iframe) => { iframeRef.current = iframe; }}
+            copeCloud={COPE_CLOUD}
+          />
+        ) : null}
+
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowX: 'hidden' }}>
+          <ChatWindow
+            socket={socket}
+            userlist={userlist}
+            bridgeNicks={bridgeNicks}
+            channelName='main'
+            user={myUser}
+            focusOnChat={true}
+            store={storeRef.current}
+          />
         </div>
 
       </div>
-    ) : 'connecting';
-  }
-
+    </div>
+  );
 }
 
 const root = createRoot(document.getElementById('root'));

@@ -1,401 +1,217 @@
-import * as React from 'react';
+import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import handleInput from '../utils/handleInput';
 
-import { useEffect, useState } from 'react';
+const SUB_MENUS = [
+  { name: 'users',    label: 'Users',    icon: 'group' },
+  { name: 'settings', label: 'Settings', icon: 'settings' },
+  { name: 'shop',     label: 'Shop',     icon: 'shopping_cart' },
+];
 
+const STORE_CATS = [
+  { name: 'filters',    label: 'Filters',    description: 'One word becomes another',    icon: 'find_replace' },
+  { name: 'mws',        label: 'MWs',        description: 'Mods text in a variety of ways', icon: 'wand_stars' },
+  { name: 'join names', label: 'Join Names', description: 'Modify default join names',   icon: 'wand_stars' },
+];
 
-class Menu extends React.Component {
+function getUserActions(nick, socket) {
+  return [
+    { name: 'PM',    callback: () => {} },
+    { name: 'whois', callback: () => handleInput.handle('/whois ' + nick, socket) },
+    { name: 'block', callback: () => {} },
+    { name: 'MOD',   callback: () => {} },
+  ];
+}
 
-  constructor() {
-    super();
+// ─── Menu ──────────────────────────────────────────────────────────────────────
 
-    this.state = {
-      selectedList: 'users'
-    }
+function Menu({ themeColor, socket, userlist, bridgeNicks, toggles, toggleStateChange, hats }) {
+  const [selectedList, setSelectedList] = useState('users');
+  const selected = SUB_MENUS.find(m => m.name === selectedList);
 
+  return (
+    <div className='menuPane' style={{ background: themeColor }}>
+      <ul className='quickNav'>
+        {SUB_MENUS.map(m => (
+          <li className={`navBtn${m.name === selectedList ? ' active' : ''}`} key={m.name} onClick={() => setSelectedList(m.name)}>
+            <span className="material-symbols-outlined">{m.icon}</span>
+          </li>
+        ))}
+      </ul>
 
-    this.subMenus = [{
-      name: 'Users',
-      icon: 'group',
-      action: () => this.setState({ selectedList: 'users' })
-    }, {
-      name: 'Settings',
-      icon: 'settings',
-      action: () => this.setState({ selectedList: 'settings' })
-    }, {
-      name: 'Shop',
-      icon: 'shopping_cart',
-      action: () => this.setState({ selectedList: 'shop' })
-    }]
-
-  }
-
-  render() {
-    const selectedMenu = this.subMenus.find(a => a.name.toLowerCase() === this.state.selectedList);
-
-    return (
-      <div className='menuPane' style={{
-        background: this.props.themeColor
-      }}>
-        
-        <ul className='quickNav'>
-
-          {
-            this.subMenus.map(a => {
-              return <li className='navBtn' key={a.name}>
-                <span className="material-symbols-outlined" onClick={a.action}>{a.icon}</span>
-              </li>
-            })
-          }
-
-        </ul>
-
-        <div className='menuContent'>
-          <div className='menuHeader'>
-            <h4> {selectedMenu?.name}</h4>
-            {/* <div className='quickNav'>
-              <span className="material-symbols-outlined" onClick={() => this.setState({ selectedList: 'shop' })}>shopping_cart</span>
-              <span className={`material-symbols-outlined`} onClick={() => this.setState({ selectedList: 'users' })}>group</span>
-              <span className="material-symbols-outlined" onClick={() => this.setState({ selectedList: 'settings' })}>keyboard_arrow_down</span>
-            </div> */}
-
-          </div>
-
-          {
-            this.state.selectedList === 'users' ? 
-              <UserList 
-                socket={this.props.socket}
-                userlist={this.props.userlist} 
-                bridgeNicks={this.props.bridgeNicks}
-              /> : 
-              this.state.selectedList === 'settings' ?
-                <Settings 
-                  toggles={this.props.toggles} 
-                  toggleStateChange={this.props.toggleStateChange}
-                /> : <Shop
-                  hats={this.props.hats}
-                />
-          }
+      <div className='menuContent'>
+        <div className='menuHeader'>
+          <h4>{selected?.label}</h4>
         </div>
 
+        {selectedList === 'users' && (
+          <UserList socket={socket} userlist={userlist} bridgeNicks={bridgeNicks} />
+        )}
+        {selectedList === 'settings' && (
+          <Settings toggles={toggles} toggleStateChange={toggleStateChange} />
+        )}
+        {selectedList === 'shop' && (
+          <Shop hats={hats} />
+        )}
       </div>
-    )
-
-  }
-
-}
-
-class UserList extends React.Component {
-  constructor() {
-    super();
-
-  }
-
-  getUserActions(name) {
-
-    return [
-      {
-        name: 'PM',
-        callback: () => {}
-      },
-      {
-        name: 'whois',
-        callback: () => {
-          handleInput.handle('/whois ' + name, this.props.socket);
-        }
-      },
-      {
-        name: 'block',
-        callback: () => {}
-      },
-      {
-        name: 'MOD',
-        callback: () => {}
-      }
-    ]
-
-  }
-
-  render() {
-    return (
-      <div className='userLi'>
-
-        {this.props.userlist.map(a => {
-          return (
-            <div className={'userLiSpan'} key={a.id}>
-
-              <span className='userLiName'>
-                {a.nick}
-              </span>
-
-              <span className='userLiCurrency'>
-                ₵{a.tokens}
-              </span>
-
-              <div className='userLiActions'>
-                {this.getUserActions(a.nick).map(a => {
-                  return (
-                    <button 
-                      key={a.name} 
-                      className='userActionBtn'
-                      onClick={a.callback}
-                    >
-                      {a.name}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className='userLiAFK'>{a.afk} </div>
-
-            </div>
-          )
-        })}
-
-        <i className='bridgeUserHeader'>Bridge Users</i>
-
-        {this.props.bridgeNicks?.map(user => {
-          return (
-            <div className={'userLiSpan bridgeUser'} key={user.nick}>
-              {user.nick}
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
-}
-
-class Settings extends React.Component {
-  constructor() {
-    super()
-
-  }
-
-  render() {
-
-    console.log(this.props);
-    return <div className="settingsContainer">
-
-      {
-        Object.entries(this.props.toggles).map(([key,value]) => {
-          return (
-            <label className='settingsLabel' key={key} onClick={() => {
-              this.props.toggleStateChange(key, !value);
-            }}>
-              {key}
-              <button className='stdBtn'>{
-                value ? 'On' : 'Off'
-              }</button>
-            </label>
-          )
-        })
-      }
-
     </div>
-        
-  }
+  );
 }
 
-class Shop extends React.Component {
-  constructor(props) {
-    super();
+Menu.propTypes = {
+  themeColor:        PropTypes.string,
+  socket:            PropTypes.object.isRequired,
+  userlist:          PropTypes.array.isRequired,
+  bridgeNicks:       PropTypes.array,
+  toggles:           PropTypes.object.isRequired,
+  toggleStateChange: PropTypes.func.isRequired,
+  hats:              PropTypes.array.isRequired,
+};
 
-    this.state={
-      shopItems: [{
-      id: 1,
-      name: 'Pick a hat',
-      description: ':)',
-      price: 100
-    }, {
-      id: 2,
-      name: 'Filter a word',
-      description: 'uwu',
-      price: 200
-      }],
-      selectedCat: 'nav'
-    }
+// ─── UserList ──────────────────────────────────────────────────────────────────
 
-    this.storeCats = [{
-      name: 'Hats',
-      description: 'you wear it on your head',
-      icon: 'checkroom'
-    }, {
-      name: 'Filters',
-      description: 'One word becomes another',
-      icon: 'find_replace'
-    }, {
-      name: 'MWs',
-      description: 'mods text in variety of ways',
-      icon: 'wand_stars'
-    }, {
-      name: 'Join names',
-      description: 'Modify default join names',
-      icon: 'wand_stars'
-    }]
-
-    // const formatHat = props.hats.map(a=> {
-    //   return {
-    //     id: a.hatName,
-    //     name: a.hatName,
-    //     description: a.description,
-    //     price: a.price,
-    //     image: a.hat
-    //   }
-    // })
-
-   // this.shopItems = this.shopItems.concat(formatHat);
-
-  }
-
-  componentDidMount() {
-    fetch('/getShopItems')
-      .then(res => res.json())
-      .then(data => {
-        console.log(data);
-
-        const formatHat = data.map(a=> {
-          return {
-            id: a.name +a.id,
-            name: a.name,
-            image: a.asset,
-            price: 100
-          }
-        });
-
-        this.setState({
-          shopItems: this.state.shopItems.concat(formatHat)
-        });
-
-      });
-  }
-
-  setShopCat(cat) {
-    this.setState({ selectedCat: cat == this.state.selectedCat ? 'nav' : cat });
-  }
-
-  render () {
-    return (
-      <div className='shopContainer'>
-        {
-          <div className='shopNav'>
-            {
-              this.storeCats.filter(b=>this.state.selectedCat === 'nav' || b.name.toLowerCase() === this.state.selectedCat).map(a => (
-                <div className='shopNavItem' key={a.name} onClick={() => {
-                  this.setShopCat(a.name.toLowerCase());
-                }}>
-                  <span className="material-symbols-outlined">{a.icon}</span>
-                  <div>
-                    <div>{a.name}</div>
-                    <p>{a.description}</p>
-                  </div>
-                </div>
-              ))
-            }
-          </div>
-        }
-
-        {
-          this.state.selectedCat == 'hats' ? 
-            <div className="hatContainer">
-              {this.props.hats.map(a => (
-                <div key={a.hatName} className="hatItem">
-                  <div>
-                    <img src={'./images/hats/' + a.hat} alt={a.hatName} style={{width: '50px', height: '50px'}} />
-                  </div>
-                </div>
-              ))}
-            </div> :
-            this.state.selectedCat === 'filters' ? 
-          <div>
-            <h3>Filters</h3>
-          </div> : 
-            this.state.selectedCat === 'mws' ?
-          <div>
-            <h3>MWs</h3>
-          </div> : 
-          this.state.selectedCat === 'join names' ?
-          <JoinNames /> :
-          null
-        }
-
-          {/* <div className='shopItems'>
-            {this.state.shopItems.map(item => (
-              <div key={item.id} className='shopItem'>
-                {
-                  item.image ? <div className='shopItemImage'>
-                  <img src={'./images/hats/' + item.image} alt={item.name} />
-                </div> : null
-                }
-                <div className='shopItemDescription'>                
-                  <span className='shopItemName'>{item.name}</span>
-                  <span className='shopItemDesc'>{item.description}</span>
-                  <div className='shopBuy'>
-                    <span className='shopItemPrice'>₵{item.price}</span>
-                    <button className='stdBtn'>Buy</button>
-                  </div>
-                </div>
-              </div>
+function UserList({ socket, userlist, bridgeNicks }) {
+  return (
+    <div className='userLi'>
+      {userlist.map(user => (
+        <div className='userLiSpan' key={user.id}>
+          <span className='userLiName'>{user.nick}</span>
+          <span className='userLiCurrency'>₵{user.tokens}</span>
+          <div className='userLiActions'>
+            {getUserActions(user.nick, socket).map(action => (
+              <button key={action.name} className='userActionBtn' onClick={action.callback}>
+                {action.name}
+              </button>
             ))}
-          </div> */}
+          </div>
+          <div className='userLiAFK'>{user.afk}</div>
+        </div>
+      ))}
 
- 
-        
-      </div>
-    )
+      <i className='bridgeUserHeader'>Bridge Users</i>
 
+      {bridgeNicks?.map(user => (
+        <div className='userLiSpan bridgeUser' key={'bridgeuser-' + user.nick}>
+          {user.nick}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+UserList.propTypes = {
+  socket:      PropTypes.object.isRequired,
+  userlist:    PropTypes.array.isRequired,
+  bridgeNicks: PropTypes.array,
+};
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+function Settings({ toggles, toggleStateChange }) {
+  return (
+    <div className='settingsContainer'>
+      {Object.entries(toggles).map(([key, value]) => (
+        <label className='settingsLabel' key={key} onClick={() => toggleStateChange(key, !value)}>
+          {key}
+          <button className='stdBtn'>{value ? 'On' : 'Off'}</button>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+Settings.propTypes = {
+  toggles:           PropTypes.object.isRequired,
+  toggleStateChange: PropTypes.func.isRequired,
+};
+
+// ─── Shop ─────────────────────────────────────────────────────────────────────
+
+function Shop({ hats }) {
+  const [selectedCat, setSelectedCat] = useState('nav');
+
+  function selectCat(name) {
+    setSelectedCat(prev => prev === name ? 'nav' : name);
   }
 
+  return (
+    <div className='shopContainer'>
+      {selectedCat === 'nav' && (
+        <div className='shopNav'>
+          {STORE_CATS.map(cat => (
+            <div className='shopNavItem' key={cat.name} onClick={() => selectCat(cat.name)}>
+              <span className="material-symbols-outlined">{cat.icon}</span>
+              <div>
+                <div>{cat.label}</div>
+                <p>{cat.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selectedCat === 'hats' && (
+        <div className='hatContainer'>
+          {hats.map(hat => (
+            <div key={hat.hatName} className='hatItem'>
+              <img src={'./images/hats/' + hat.hat} alt={hat.hatName} style={{ width: '50px', height: '50px' }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selectedCat === 'filters'    && <div><h3>Filters</h3></div>}
+      {selectedCat === 'mws'        && <div><h3>MWs</h3></div>}
+      {selectedCat === 'join names' && <JoinNames />}
+    </div>
+  );
 }
+
+Shop.propTypes = {
+  hats: PropTypes.array.isRequired,
+};
+
+// ─── JoinNames ────────────────────────────────────────────────────────────────
 
 function JoinNames() {
-
   const [joinNames, setJoinNames] = useState({});
 
   useEffect(() => {
     fetch('/channel/info/main/joinnick')
       .then(res => res.json())
       .then(data => {
-        console.log(data);
-        const nouns = data.filter(a=>a.type === 'noun').map(a=>a.name);
-        const adjectives = data.filter(a=>a.type === 'adjective').map(a=>a.name);
-
-        setJoinNames({ nouns, adjectives });
-
+        setJoinNames({
+          nouns:      data.filter(a => a.type === 'noun').map(a => a.name),
+          adjectives: data.filter(a => a.type === 'adjective').map(a => a.name),
+        });
       });
-  }, [])
-
-
+  }, []);
 
   return (
     <div className='joinNamesContainer'>
-      <h3>Nouns</h3>
-      {joinNames.nouns?.map(a => <div key={a} className='joinNameItem'>{a}</div>)}
-
-      <h3>Adjectives</h3>
-      {joinNames.adjectives?.map(a => <div key={a} className='joinNameItem'>{a}</div>)}
-
-    </div>
-  )
-
-}
-
-export class Overlay extends React.Component {
-  constructor() {
-    super()
-
-  }
-
-  render() {
-    console.log(this.props.type)
-    return (
-      <div className='overlayMask'>
-
-        <h3>{this.props.type}</h3>
-
+      <div className='randomNameDisplay'>
+        <h3>Random Name</h3>
       </div>
-    )
-  }
+      <div className='nameCategory'>
+        <b>Nouns</b>
+        <b>Adjectives</b>
+      </div>
+    </div>
+  );
 }
+
+// ─── Overlay ──────────────────────────────────────────────────────────────────
+
+export function Overlay({ type }) {
+  return (
+    <div className='overlayMask'>
+      <h3>{type}</h3>
+    </div>
+  );
+}
+
+Overlay.propTypes = {
+  type: PropTypes.string.isRequired,
+};
 
 export default Menu;

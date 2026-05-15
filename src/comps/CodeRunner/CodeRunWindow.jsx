@@ -1,80 +1,58 @@
-import React from 'react';
+import { useState, useRef, useEffect } from 'react';
 
-class CodeRunWindow extends React.Component {
+function CodeRunWindow({ giveRefresh, giveIframe, draggingWindow, pluginName, copeCloud }) {
+  const [chatWidth, setChatWidth] = useState(600);
+  const resizeBarRef = useRef(null);
+  const iframeRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const diffRef = useRef(0);
 
-  constructor () {
-    super();
+  useEffect(() => {
+    giveRefresh(() => { iframeRef.current.src = iframeRef.current.src; });
+    giveIframe(iframeRef.current);
 
-    this.resizeBarRef = React.createRef();
+    const resizeBar = resizeBarRef.current;
 
-    //iframe ref
-    this.iframe = React.createRef();
-
-    this.state = {
-      draggingWindow: false,
-      chatWidth: 600,
+    function handleMouseDown(e) {
+      e.preventDefault();
+      const container = resizeBar.parentElement.parentElement;
+      diffRef.current = container.offsetWidth - e.clientX;
+      isDraggingRef.current = true;
     }
 
-  }
+    function handleMouseMove(e) {
+      if (isDraggingRef.current) setChatWidth(e.clientX + diffRef.current);
+    }
 
-  componentDidMount () {
-    this.props.giveRefresh(this.refreshIframe.bind(this));
-    this.scrollListenerInit();
+    function handleMouseUp() {
+      isDraggingRef.current = false;
+    }
 
-    this.props.giveIframe(this.iframe.current);
+    resizeBar.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
 
-  }
+    return () => {
+      resizeBar.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
-  scrollListenerInit() {
-    this.resizeBarRef.current.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-
-      const resizeBar = this.resizeBarRef.current.parentElement;
-      const container = resizeBar.parentElement;
-
-      this.diff = container.offsetWidth - e.clientX;
-
-      this.setState({draggingWindow: true});
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      if (this.state.draggingWindow) {
-        this.setState({ chatWidth: (e.clientX + this.diff) });
-      }
-    });
-
-    document.addEventListener('mouseup', (e) => {
-
-      this.setState({draggingWindow: false});
-    });
-
-  }
-
-  refreshIframe () {
-    this.iframe.current.src = this.iframe.current.src;
-  }
-
-  render () {
-
-    return <div style={{
-      display: 'flex',
-      width: this.state.chatWidth + 'px',
-    }}>
-      <div className='codeRunnerPanel' style={{pointerEvents: this.props.draggingWindow ? 'none' : ''}}>
-        <iframe ref={this.iframe} src={this.props.copeCloud + "v/sammich/" + this.props.pluginName} style={{
-          flex:1, border: 'none', pointerEvents: (this.state.draggingWindow ? 'none' : '')
-        }}></iframe>
+  return (
+    <div style={{ display: 'flex', width: chatWidth + 'px' }}>
+      <div className='codeRunnerPanel' style={{ pointerEvents: draggingWindow ? 'none' : '' }}>
+        <iframe ref={iframeRef} src={copeCloud + 'v/sammich/' + pluginName}
+          style={{ flex: 1, border: 'none', pointerEvents: isDraggingRef.current ? 'none' : '' }}
+        />
       </div>
-
       <div className='resizeBar'>
-        <div className='resizeHandle' ref={this.resizeBarRef}>
+        <div className='resizeHandle' ref={resizeBarRef}>
           <span className="material-symbols-outlined">width</span>
         </div>
       </div>
-
     </div>
-  }
-
+  );
 }
 
 export default CodeRunWindow;

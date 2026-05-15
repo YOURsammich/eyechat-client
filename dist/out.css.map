@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/comps/Chat/chat.css"],
+  "sourcesContent": [".chatContainer {\r\n  display: flex;\r\n  flex-direction: column;\r\n  width: 500px;\r\n  overflow-y: hidden;\r\n  z-index: 1;\r\n  box-shadow: #111 0px 0px 4px;\r\n}\r\n\r\n/* style this button like a link */\r\n.quote {\r\n  background: none;\r\n  border: none;\r\n  color: #007bff;\r\n  cursor: pointer;\r\n  font-size: 1rem;\r\n  margin: 0;\r\n  padding: 0;\r\n}"],
+  "mappings": ";AAAA;AACE;AACA;AACA;AACA;AACA;AACA;AAAA;AAIF;AACE;AACA;AACA;AACA;AACA;AACA;AACA;AAAA;",
+  "names": []
+}
