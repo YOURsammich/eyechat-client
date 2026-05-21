@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import Messages from './Messages';
 import InputBar from './InputBar';
 import Menu, { Overlay } from './../Menu';
+import FluidBackground from './FluidBackground';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
 
@@ -9,6 +10,8 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
   const [messages, setMessages] = useState([]);
   const [showUsers] = useState(true);
   const [showOverlay, setShowOverlay] = useState(false);
+  const [showFluid, setShowFluid] = useState(false);
+  const [fluidPalette, setFluidPalette] = useState(0);
   const [selectedList] = useState('users');
   const [toggles, setToggles] = useState(() => ({
     background: store.get('toggle-background'),
@@ -80,6 +83,7 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
     });
 
     const offSetState = socket.on('setState', (data) => {
+      console.log(data);
       const key = data[0];
       const value = data[1];
       if (!CHAT_STATE_KEYS.has(key)) return;
@@ -101,6 +105,17 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
       offUserJoin();
       offSetState();
     };
+  }, []);
+
+  useEffect(() => {
+    const onFluid = (e) => {
+      const secs = e.detail?.duration ?? 30;
+      setFluidPalette(e.detail?.palette ?? 0);
+      setShowFluid(true);
+      setTimeout(() => setShowFluid(false), secs * 1000);
+    };
+    window.addEventListener('fluid', onFluid);
+    return () => window.removeEventListener('fluid', onFluid);
   }, []);
 
   function addMessage(message) {
@@ -160,7 +175,8 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
         </div>
 
         <div className='chatBox'>
-          <div className='messageBackground' style={{ background: toggles.background ? channelState.background : '#000' }}>
+          <div className='messageBackground' style={{ background: showFluid ? '#000' : (toggles.background ? channelState.background : '#000') }}>
+            {showFluid ? <FluidBackground palette={fluidPalette} /> : null}
             {toggles.centermsg ? <div id="center-text">{channelState.centermsg}</div> : null}
           </div>
 

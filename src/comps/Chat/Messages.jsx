@@ -209,7 +209,7 @@ const messageParser = {
 
     if (!dataTree.parent) return dataTree;
 
-    if (!['color', 'glow'].includes(dataTree.data.type)) return dataTree;
+    if (![''].includes(dataTree.data.type)) return dataTree;
 
     if (dataTree.parent) {
       return this.getStyleParent(dataTree.parent);
@@ -283,7 +283,7 @@ const messageParser = {
         let styleParent = this.getStyleParent(tracker);
         const styleLayer = (styleParent?.parent) || tracker;
 
-        this.parse(str.slice(nextComp.index), msgStyles, styleLayer, depth - 1);
+        this.parse(str.slice(nextComp.index+1), msgStyles, styleLayer, depth - 1);
       } else {
         this.parse(str.slice(nextComp.index), msgStyles, tracker.children[tracker.children.length - 1], depth);
       }
@@ -446,7 +446,6 @@ function LinkMsg (props) {
 }
 
 function getCompRender (message, props, spanish) {
-  console.log('render', spanish, message.data);
   switch (true) {
     case typeof message.data == 'string':
       return spanish ? message.data.split('').map((a,i)=><span style={{display:'inline-block'}} key={message.count+a+i}>{a}</span>) : message.data;
@@ -771,7 +770,11 @@ class Messages extends React.Component {
   }
 
   renderMessageContent (msgData) {
-    const message = messageParser.parse(msgData.message, 
+    if (msgData.type === 'weather') {
+      return <div className='messageContent'><pre className='weatherBlock' dangerouslySetInnerHTML={{ __html: msgData.message }} /></div>;
+    }
+
+    const message = messageParser.parse(msgData.message,
       msgData.type == 'general' ? noStyle : msgStyles
     ); //parse the message for links and other things
 
@@ -841,4 +844,4 @@ class Messages extends React.Component {
 }
 
 export default Messages;
-export { NestMessage, messageParser };
+export { NestMessage, messageParser, msgStyles };

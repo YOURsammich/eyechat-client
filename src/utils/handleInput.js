@@ -48,7 +48,6 @@ const COMMANDS = {
       })
         .then(res => res.json())
         .then(res => {
-          console.log(res);
           if (res.error) {
             addMessage({
               message: res.error,
@@ -168,8 +167,26 @@ const COMMANDS = {
     parseMethod: 'leaveSpace'
   },
   sidebar: {},
+  flipcoin: {},
   startbridge: {},
-  stopbridge: {}
+  stopbridge: {},
+  weather: {
+    params: ['location'],
+    parseMethod: 'leaveSpace'
+  },
+  findmsg: {
+    params: ['text'],
+    parseMethod: 'leaveSpace'
+  },
+  fluid: {
+    params: ['duration', 'palette'],
+    handler(params) {
+      const secs = parseInt(params.duration) || 30;
+      const palettes = { paint: 0, fire: 1, ocean: 2, acid: 3, cosine: 4, hsv: 5, plasma: 6, voronoi: 7 };
+      const palette = palettes[params.palette] ?? 0;
+      window.dispatchEvent(new CustomEvent('fluid', { detail: { duration: secs, palette } }));
+    }
+  }
 }
 
 const handleCommand = {
@@ -191,7 +208,7 @@ const handleCommand = {
     const paramKeys = cmd.params;
 
     let paramValues;
-    if (cmd.parammethod === 'leaveSpace') {
+    if (cmd.parseMethod === 'leaveSpace') {
       paramValues = this.parseParamSpaces(params, cmd.params.length);
     } else {
       paramValues = params;
@@ -250,6 +267,9 @@ const handleInput = {
   },
   getCommands() {
     return Object.keys(COMMANDS);
+  },
+  getCommandParams(name) {
+    return COMMANDS[name]?.params ?? [];
   }
 }
 

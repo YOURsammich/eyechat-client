@@ -21,3 +21,12 @@
 .shopItems {
   background-color: #15181a;
 }
+
+.weatherBlock {
+  display: inline-block;
+  font-family: monospace;
+  white-space: pre;
+  font-size: 0.8em;
+  margin: 0;
+  line-height: 1.3;
+}
