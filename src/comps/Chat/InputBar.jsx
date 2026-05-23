@@ -35,6 +35,7 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
   const [showConvos] = useState(false);
   const [showStyle, setShowStyle] = useState(false);
   const [showGif, setShowGif] = useState(false);
+  const [gifInitialQuery, setGifInitialQuery] = useState(null);
 
   const inputBarRef = useRef(null);
   const historyRef = useRef([]);
@@ -47,21 +48,164 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
     return () => document.removeEventListener('visibilitychange', refocus);
   }, []);
 
+  // --- contenteditable helpers ---
+
+  function getInputText() {
+    const el = inputBarRef.current;
+    let text = '';
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
+      else if (node.nodeName === 'IMG') text += node.dataset.gifUrl ?? node.dataset.emojiId ?? '';
+      else if (node.nodeName === 'BR') text += '\n';
+      else text += node.textContent;
+    }
+    return text;
+  }
+
+  function getCaretOffset() {
+    const sel = window.getSelection();
+    if (!sel?.rangeCount) return 0;
+    const range = sel.getRangeAt(0).cloneRange();
+    range.setStart(inputBarRef.current, 0);
+    return range.toString().length;
+  }
+
+  function clearInput() {
+    inputBarRef.current.innerHTML = '';
+  }
+
+  function getPlainText() {
+    const el = inputBarRef.current;
+    let text = '';
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
+      else if (node.nodeName === 'BR') text += '\n';
+    }
+    return text;
+  }
+
+  function getTextNodeAtOffset(el, targetOffset) {
+    let remaining = targetOffset;
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const len = node.textContent.length;
+        if (len === 0) continue;
+        if (remaining <= len) return { node, offset: remaining };
+        remaining -= len;
+      }
+    }
+    return null;
+  }
+
+  function insertEmojiChip(id, imageName, partialStart, partialEnd) {
+    const el = inputBarRef.current;
+    const img = document.createElement('img');
+    img.src = '/images/emojis/' + imageName;
+    img.dataset.emojiId = ':' + id + ':';
+    img.className = 'inputEmojiChip';
+    img.alt = ':' + id + ':';
+    const startPos = getTextNodeAtOffset(el, partialStart);
+    const endPos = getTextNodeAtOffset(el, partialEnd);
+    if (startPos && endPos) {
+      const range = document.createRange();
+      range.setStart(startPos.node, startPos.offset);
+      range.setEnd(endPos.node, endPos.offset);
+      range.deleteContents();
+      range.insertNode(img);
+      range.setStartAfter(img);
+      range.collapse(true);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      el.appendChild(img);
+    }
+    el.focus();
+  }
+
+  function convertEmojiSyntaxToChips() {
+    const el = inputBarRef.current;
+    const emojiPattern = /:[a-zA-Z0-9_]+:/g;
+    const textNodes = Array.from(el.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
+    let lastImg = null;
+    for (const textNode of textNodes) {
+      const text = textNode.textContent;
+      const matches = [...text.matchAll(emojiPattern)].filter(m => emoji?.find(e => e.id === m[0].slice(1, -1)));
+      if (!matches.length) continue;
+      const fragment = document.createDocumentFragment();
+      let lastIndex = 0;
+      for (const match of matches) {
+        const emojiObj = emoji?.find(e => e.id === match[0].slice(1, -1));
+        if (match.index > lastIndex) fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        const img = document.createElement('img');
+        img.src = '/images/emojis/' + emojiObj.imageName;
+        img.dataset.emojiId = match[0];
+        img.className = 'inputEmojiChip';
+        img.alt = match[0];
+        fragment.appendChild(img);
+        lastImg = img;
+        lastIndex = match.index + match[0].length;
+      }
+      if (lastIndex < text.length) fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+      textNode.parentNode.replaceChild(fragment, textNode);
+    }
+    return lastImg;
+  }
+
+  function insertGifAtCursor(url, previewUrl) {
+    const img = document.createElement('img');
+    img.src = previewUrl;
+    img.dataset.gifUrl = url;
+    img.className = 'inputGifChip';
+    const el = inputBarRef.current;
+    const sel = window.getSelection();
+    const selectionInInput = sel?.rangeCount && el.contains(sel.getRangeAt(0).commonAncestorContainer);
+    if (selectionInInput) {
+      const range = sel.getRangeAt(0);
+      range.collapse(false);
+      range.insertNode(img);
+      range.setStartAfter(img);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      el.appendChild(img);
+      const range = document.createRange();
+      range.setStartAfter(img);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    el.focus();
+  }
+
+  // --- end helpers ---
+
   function handleInputFn(text) {
     return handleInput.handle(text, socket, store, channelName, addMessage, user);
   }
 
   function replaceSelectedWord(word, sel) {
-    const target = inputBarRef.current;
-    const input = target.value;
-    const lastSpace = input.lastIndexOf(' ', sel - 1);
+    const el = inputBarRef.current;
+    if (el.querySelector('img')) { el.focus(); return; }
+    const text = el.innerText;
+    const lastSpace = text.lastIndexOf(' ', sel - 1);
     const wordStart = lastSpace !== -1 ? lastSpace + 1 : 0;
-    let wordEnd = input.indexOf(' ', sel);
-    if (wordEnd === -1) wordEnd = input.length;
-    target.value = input.slice(0, wordStart) + word + input.slice(wordEnd);
-    target.focus();
-    target.selectionStart = wordStart + word.length + 1;
-    target.selectionEnd = wordStart + word.length + 1;
+    let wordEnd = text.indexOf(' ', sel);
+    if (wordEnd === -1) wordEnd = text.length;
+    el.innerText = text.slice(0, wordStart) + word + text.slice(wordEnd);
+    // Reposition cursor after the inserted word
+    const newPos = wordStart + word.length;
+    const textNode = el.firstChild;
+    if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+      const range = document.createRange();
+      range.setStart(textNode, Math.min(newPos, textNode.length));
+      range.collapse(true);
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(range);
+    }
+    el.focus();
   }
 
   function getEmojis(input = '', sel) {
@@ -112,60 +256,122 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
   }
 
   function handleKeyDown(event) {
-    const target = event.target;
+    if (event.ctrlKey && event.key === 'g') {
+      event.preventDefault();
+      setShowGif(s => !s);
+      if (!showGif) setGifInitialQuery(null);
+      return;
+    }
 
     if (event.which === 13) {
       if (!event.shiftKey) {
         event.preventDefault();
-        if (!target.value) return;
+        const inputText = getInputText();
+        if (!inputText) return;
+
+        // /gif [query] — open picker instead of sending
+        const gifMatch = /^\/gif\s*([\s\S]*)/.exec(inputText.trim());
+        if (gifMatch) {
+          const q = gifMatch[1].trim() || null;
+          setGifInitialQuery(q);
+          setShowGif(true);
+          clearInput();
+          setGhostText('');
+          setInputAuto(null); setEmojis(null);
+          return;
+        }
 
         if (inputAuto?.length) {
-          replaceSelectedWord(inputAuto[inputIndex].replaceWith + ' ', target.selectionStart);
+          const selected = inputAuto[inputIndex];
+          if (selected.imageName) {
+            const text = getPlainText();
+            const wordStart = text.lastIndexOf(':', selectionStart);
+            let wordEnd = text.indexOf(' ', wordStart + 1);
+            if (wordEnd === -1) wordEnd = text.length;
+            insertEmojiChip(selected.id, selected.imageName, wordStart, wordEnd);
+          } else {
+            replaceSelectedWord(selected.replaceWith + ' ', selectionStart);
+          }
           setInputAuto(null); setEmojis(null);
-          setGhostText(getParamGhost(inputBarRef.current.value));
+          setGhostText(getParamGhost(getPlainText()));
         } else {
           historyIndexRef.current = -1;
-          historyRef.current.unshift(target.value);
+          historyRef.current.unshift(inputText);
           try {
-            handleInputFn(target.value);
+            handleInputFn(inputText);
           } catch (e) {
             console.error(e);
             addMessage({ message: e.message, type: 'error', count: 'error' + Math.random() });
           }
-          target.value = '';
+          clearInput();
           setGhostText('');
         }
       }
     } else if (event.which === 9) {
       event.preventDefault();
+      const inputText = getInputText();
+      const caretOffset = getCaretOffset();
       if (inputAuto) {
         const next = event.shiftKey
           ? (inputIndex <= 0 ? inputAuto.length - 1 : inputIndex - 1)
           : (inputIndex >= inputAuto.length - 1 ? 0 : inputIndex + 1);
         setInputIndex(next);
-        setGhostText(computeGhostText(target.value, selectionStart, inputAuto[next].replaceWith));
+        setGhostText(computeGhostText(inputText, selectionStart, inputAuto[next].replaceWith));
       } else {
-        const nicks = getNicks(target.value, target.selectionStart || selectionStart);
+        const nicks = getNicks(inputText, caretOffset || selectionStart);
         if (nicks?.length) {
-          setGhostText(computeGhostText(target.value, target.selectionStart, nicks[0].replaceWith));
-          setInputAuto(nicks); setSelectionStart(target.selectionStart); setInputIndex(0);
+          setGhostText(computeGhostText(inputText, caretOffset, nicks[0].replaceWith));
+          setInputAuto(nicks); setSelectionStart(caretOffset); setInputIndex(0);
         }
       }
     } else if (event.shiftKey) {
+      const el = inputBarRef.current;
       if (event.which === 40 && historyIndexRef.current > 0) {
-        target.value = historyRef.current[--historyIndexRef.current];
+        el.innerText = historyRef.current[--historyIndexRef.current];
       } else if (event.which === 38 && historyIndexRef.current < historyRef.current.length - 1) {
-        target.value = historyRef.current[++historyIndexRef.current];
+        el.innerText = historyRef.current[++historyIndexRef.current];
       }
     } else {
-      updateAutoComplete(target.value, target.selectionStart);
+      updateAutoComplete(getPlainText(), getCaretOffset());
     }
   }
 
-  function handleKeyUp(event) {
-    const target = event.target;
-    target.rows = target.value.split('\n').length;
-    if (!inputAuto) updateAutoComplete(target.value, target.selectionStart);
+  function handleKeyUp() {
+    if (!inputAuto) updateAutoComplete(getPlainText(), getCaretOffset());
+  }
+
+  function handlePaste(e) {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItem = items.find(item => item.type.startsWith('image/'));
+    if (imageItem) {
+      e.preventDefault();
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      const ext = file.type.split('/')[1] || 'png';
+      const formData = new FormData();
+      formData.append('image', file, `paste.${ext}`);
+      fetch('/a/upload/image', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+          if (data.url) socket.emit('message', { message: window.location.origin + data.url });
+        });
+      return;
+    }
+    // Paste as plain text to avoid injecting HTML formatting into contenteditable
+    e.preventDefault();
+    const text = e.clipboardData?.getData('text/plain') ?? '';
+    if (text) {
+      document.execCommand('insertText', false, text);
+      const lastImg = convertEmojiSyntaxToChips();
+      if (lastImg) {
+        const range = document.createRange();
+        range.setStartAfter(lastImg);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
   }
 
   function handleEmojiClick() {
@@ -185,7 +391,16 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
         emojis={emojis}
         inputIndex={inputIndex}
         close={() => { setEmojis(null); setInputAuto(null); setGhostText(''); }}
-        selectEmoji={(id) => replaceSelectedWord(':' + id + ':', selectionStart)}
+        selectEmoji={(id) => {
+          const emojiObj = emoji?.find(e => e.id === id);
+          if (!emojiObj) return;
+          const text = getPlainText();
+          const wordStart = text.lastIndexOf(':', selectionStart);
+          let wordEnd = text.indexOf(' ', wordStart + 1);
+          if (wordEnd === -1) wordEnd = text.length;
+          insertEmojiChip(id, emojiObj.imageName, wordStart, wordEnd);
+          setInputAuto(null); setEmojis(null); setGhostText('');
+        }}
       /> : null}
 
       {inputAuto?.length && !emojis ? (
@@ -198,13 +413,11 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
 
       {showConvos ? <PM socket={socket} user={user} /> : null}
       {showGif ? <GifPicker
-        onSelect={(url) => {
-          const target = inputBarRef.current;
-          const sep = target.value ? ' ' : '';
-          target.value = target.value + sep + url;
-          target.focus();
+        initialQuery={gifInitialQuery}
+        onSelect={(url, previewUrl) => {
+          insertGifAtCursor(url, previewUrl);
         }}
-        onClose={() => setShowGif(false)}
+        onClose={() => { setShowGif(false); setGifInitialQuery(null); }}
       /> : null}
       <FlairBuilder
         open={showStyle}
@@ -238,14 +451,16 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
                 {ghostText}
               </div>
             ) : null}
-            <textarea
-              onClick={handleKeyUp}
-              onChange={(e) => updateAutoComplete(e.target.value, e.target.selectionStart)}
-              onKeyUp={handleKeyUp}
-              onKeyDown={handleKeyDown}
-              rows="1"
-              placeholder="Type anything then press enter."
+            <div
+              contentEditable="true"
               ref={inputBarRef}
+              data-placeholder="Type anything then press enter."
+              onKeyDown={handleKeyDown}
+              onKeyUp={handleKeyUp}
+              onInput={() => updateAutoComplete(getPlainText(), getCaretOffset())}
+              onClick={handleKeyUp}
+              onPaste={handlePaste}
+              className="chatInput"
               style={{ position: 'relative', zIndex: 1, fontFamily: 'inherit' }}
             />
           </div>
@@ -260,7 +475,11 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
           <div className='inputBarBtn' onClick={() => setShowStyle(s => !s)}>
             <span style={{ fontSize: '20px' }} className="material-symbols-outlined">palette</span>
           </div>
-          <div className='inputBarBtn' onClick={() => setShowGif(s => !s)}>
+          <div
+            className={'inputBarBtn' + (showGif ? ' inputBarBtn--active' : '')}
+            title="Send a GIF"
+            onClick={() => setShowGif(s => !s)}
+          >
             <span style={{ fontSize: '20px' }} className="material-symbols-outlined">gif</span>
           </div>
           <div className='noSelect inputBarBtn' onClick={() => { /* setShowConvos(s => !s) */ }}>

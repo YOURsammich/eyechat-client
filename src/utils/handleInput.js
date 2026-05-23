@@ -58,6 +58,10 @@ const COMMANDS = {
       });
     }
   },
+  gif: {
+    params: ['query'],
+    handler () { /* handled by InputBar before reaching here */ }
+  },
   color: {
     params: ['code'],
     handler (params, {channelName, store}) {

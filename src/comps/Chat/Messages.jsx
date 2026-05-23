@@ -319,17 +319,32 @@ function Emoji (props) {
 
 
   return emoji ? (<div className='emoji' onClick={() => {
-    const target = document.querySelector('.input-container textarea');
-    const start = target.selectionStart;
-    const end = target.selectionEnd;
-    const value = target.value;
-    const newValue = value.slice(0, start) + ':' + emoji.id + ':' + value.slice(end);
-    target.value = newValue;
-
-    target.focus();
-    target.selectionStart = start + emoji.id.length + 2;
-    target.selectionEnd = start + emoji.id.length + 2;
-
+    const el = document.querySelector('.chatInput');
+    if (!el) return;
+    const img = document.createElement('img');
+    img.src = '/images/emojis/' + emoji.imageName;
+    img.dataset.emojiId = ':' + emoji.id + ':';
+    img.className = 'inputEmojiChip';
+    img.alt = ':' + emoji.id + ':';
+    const sel = window.getSelection();
+    const selectionInInput = sel?.rangeCount && el.contains(sel.getRangeAt(0).commonAncestorContainer);
+    if (selectionInInput) {
+      const range = sel.getRangeAt(0);
+      range.collapse(false);
+      range.insertNode(img);
+      range.setStartAfter(img);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      el.appendChild(img);
+      const range = document.createRange();
+      range.setStartAfter(img);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    el.focus();
   }}>
     <img
     className='emoji'
@@ -347,13 +362,31 @@ function Emoji (props) {
   </div>) : props.emojiId
 }
 
-function EmojiMerge (props) {
+function EmojiMerge(props) {
+  const parts = props.message.data.strdata.split('$');
+  const ids = parts.map(p => p.replace(/:/g, ''));
+  const e1 = props.emojis?.find(e => e.id === ids[0]);
+  const e2 = props.emojis?.find(e => e.id === ids[1]);
 
-  const emojiSplit = props.message.data.strdata.split('$');
+  if (!e1 || !e2) return props.message.data.strdata;
 
-
-  return <div>{emojiSplit.join('')}</div>;
-
+  return (
+    <div
+      className='emoji'
+      style={{
+        display: 'inline-block',
+        width: 64,
+        height: 64,
+        backgroundImage: `url(/images/emojis/${e1.imageName}), url(/images/emojis/${e2.imageName})`,
+        backgroundSize: 'contain',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        backgroundBlendMode: 'multiply',
+        verticalAlign: 'middle',
+        flexShrink: 0,
+      }}
+    />
+  );
 }
 
 function QuoteMsg (props) {
@@ -458,7 +491,7 @@ function getCompRender (message, props, spanish) {
         setOverlay={props.setOverlay} 
       />;
     case message.data.type == 'emojiMerge':
-      return <EmojiMerge message={message} renderMessage={props.renderMessage} />;
+      return <EmojiMerge message={message} renderMessage={props.renderMessage} emojis={props.emojis} />;
     case message.data.type == 'emoji':
       return <Emoji emojiId={message.data.strdata} emojis={props.emojis} _imageLoaded={(image) => props._imageLoaded(image)} />;
     case message.data.type == 'quote':

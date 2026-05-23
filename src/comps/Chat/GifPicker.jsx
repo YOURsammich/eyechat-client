@@ -1,33 +1,73 @@
 import { useState, useEffect, useRef } from 'react';
 
-function GifPicker({ onSelect, onClose }) {
+function GifPicker({ onSelect, onClose, initialQuery }) {
+  const [mode, setMode] = useState('gif');
   const [categories, setCategories] = useState([]);
   const [gifs, setGifs] = useState([]);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery ?? '');
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('categories');
+  const [view, setView] = useState('gifs');
+  const [hoveredItem, setHoveredItem] = useState(null);
   const searchTimer = useRef(null);
+  const initializedRef = useRef(false);
+  const pickerRef = useRef(null);
 
   useEffect(() => {
-    loadCategories();
+    if (initialQuery) {
+      loadMedia(initialQuery, 1, 'gif');
+    } else {
+      loadCategories('gif');
+    }
+    initializedRef.current = true;
   }, []);
 
-  async function loadCategories() {
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    if (initialQuery) {
+      setQuery(initialQuery);
+      setMode('gif');
+      setView('gifs');
+      loadMedia(initialQuery, 1, 'gif');
+    }
+  }, [initialQuery]);
+
+  // Escape key + click-outside to close
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+    }
+    function onMouseDown(e) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [onClose]);
+
+  async function loadCategories(currentMode) {
     setLoading(true);
-    const res = await fetch('/api/gif/categories').then(r => r.json());
+    const endpoint = currentMode === 'sticker' ? '/api/sticker/categories' : '/api/gif/categories';
+    const res = await fetch(endpoint).then(r => r.json());
     setCategories(res?.data?.categories ?? []);
+    setGifs([]);
+    setView('categories');
     setLoading(false);
   }
 
-  async function loadGifs(q, pg) {
+  async function loadMedia(q, pg, currentMode) {
     setLoading(true);
-    const res = await fetch(`/api/gif/search?q=${encodeURIComponent(q)}&page=${pg}`).then(r => r.json());
+    const endpoint = currentMode === 'sticker' ? '/api/sticker/search' : '/api/gif/search';
+    const res = await fetch(`${endpoint}?q=${encodeURIComponent(q)}&page=${pg}`).then(r => r.json());
     const items = res?.data?.data ?? [];
     setGifs(pg === 1 ? items : prev => [...prev, ...items]);
     setHasNext(!!res?.data?.has_next);
     setPage(pg);
+    setView('gifs');
     setLoading(false);
   }
 
@@ -36,35 +76,65 @@ function GifPicker({ onSelect, onClose }) {
     setQuery(q);
     clearTimeout(searchTimer.current);
     if (!q) {
-      setView('categories');
-      setGifs([]);
+      loadCategories(mode);
       return;
     }
     setView('gifs');
-    searchTimer.current = setTimeout(() => loadGifs(q, 1), 350);
+    setGifs([]);  // clear immediately so grid doesn't show stale results during debounce
+    searchTimer.current = setTimeout(() => loadMedia(q, 1, mode), 350);
   }
 
   function selectCategory(cat) {
     setQuery(cat.query);
-    setView('gifs');
-    loadGifs(cat.query, 1);
+    loadMedia(cat.query, 1, mode);
   }
 
   function loadMore() {
-    loadGifs(query, page + 1);
+    loadMedia(query, page + 1, mode);
+  }
+
+  function switchMode(newMode) {
+    if (newMode === mode && view === 'categories') return;
+    setMode(newMode);
+    setGifs([]);
+    setCategories([]);
+    setQuery('');
+    clearTimeout(searchTimer.current);
+    loadCategories(newMode);
+  }
+
+  function getSelectUrl(item) {
+    if (mode === 'sticker') {
+      return item.file?.hd?.webp?.url ?? item.file?.sm?.webp?.url;
+    }
+    return item.file?.hd?.gif?.url;
+  }
+
+  function getPreviewUrl(item) {
+    return item.file?.sm?.webp?.url ?? item.file?.sm?.gif?.url;
   }
 
   return (
-    <div className='gifPicker'>
+    <div className='gifPicker' ref={pickerRef}>
+      <div className='gifPicker-tabs'>
+        <button
+          className={'gifPicker-tab' + (mode === 'gif' ? ' gifPicker-tab--active' : '')}
+          onClick={() => switchMode('gif')}
+        >GIF</button>
+        <button
+          className={'gifPicker-tab' + (mode === 'sticker' ? ' gifPicker-tab--active' : '')}
+          onClick={() => switchMode('sticker')}
+        >Sticker</button>
+        <button className='gifPicker-closeBtn' onClick={onClose}>✕</button>
+      </div>
       <div className='gifPicker-header'>
         <input
           className='gifPicker-search'
-          placeholder='Search GIFs...'
+          placeholder={mode === 'sticker' ? 'Search stickers...' : 'Search GIFs...'}
           value={query}
           onChange={handleSearch}
           autoFocus
         />
-        <span className='gifPicker-close' onClick={onClose}>✕</span>
       </div>
       <div className='gifPicker-grid'>
         {view === 'categories'
@@ -74,18 +144,25 @@ function GifPicker({ onSelect, onClose }) {
                 <div className='gifPicker-category-label'>{cat.category}</div>
               </div>
             ))
-          : gifs.map((gif, i) => (
+          : gifs.map((item, i) => (
               <img
                 key={i}
                 className='gifPicker-item'
-                src={gif.file?.sm?.webp?.url}
+                src={getPreviewUrl(item)}
                 loading='lazy'
-                onClick={() => { onSelect(gif.file?.hd?.gif?.url); onClose(); }}
+                onMouseEnter={() => setHoveredItem(item)}
+                onMouseLeave={() => setHoveredItem(null)}
+                onClick={() => { onSelect(getSelectUrl(item), getPreviewUrl(item)); onClose(); }}
               />
             ))
         }
         {!loading && (view === 'categories' ? categories : gifs).length === 0 && (
           <div className='gifPicker-empty'>{view === 'categories' ? 'No categories' : 'No results'}</div>
+        )}
+        {hoveredItem && (
+          <div className='gifPicker-preview'>
+            <img src={getPreviewUrl(hoveredItem)} />
+          </div>
         )}
       </div>
       {view === 'gifs' && hasNext && (
