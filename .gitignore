@@ -2,3 +2,5 @@ dist/out.js.map
 dist/out.js
 dist/images/emojis/*
 dist/images/hats/*
+dist/images/avatars/*
+dist/assets/*

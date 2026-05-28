@@ -326,10 +326,21 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
       }
     } else if (event.shiftKey) {
       const el = inputBarRef.current;
+      let navigated = false;
       if (event.which === 40 && historyIndexRef.current > 0) {
         el.innerText = historyRef.current[--historyIndexRef.current];
+        navigated = true;
       } else if (event.which === 38 && historyIndexRef.current < historyRef.current.length - 1) {
         el.innerText = historyRef.current[++historyIndexRef.current];
+        navigated = true;
+      }
+      if (navigated) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
       }
     } else {
       updateAutoComplete(getPlainText(), getCaretOffset());
@@ -372,6 +383,15 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
         sel.addRange(range);
       }
     }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    const text = e.dataTransfer?.getData('text/plain') ?? '';
+    if (!text) return;
+    inputBarRef.current?.focus();
+    document.execCommand('insertText', false, text);
+    convertEmojiSyntaxToChips();
   }
 
   function handleEmojiClick() {
@@ -460,6 +480,7 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
               onInput={() => updateAutoComplete(getPlainText(), getCaretOffset())}
               onClick={handleKeyUp}
               onPaste={handlePaste}
+              onDrop={handleDrop}
               className="chatInput"
               style={{ position: 'relative', zIndex: 1, fontFamily: 'inherit' }}
             />

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useEffect } from 'react';
+import AvatarDisplay from './AvatarDisplay.jsx';
 
 
 const msgStyles = {
@@ -792,7 +793,10 @@ class Messages extends React.Component {
     const flair = messageParser.parse(msgData.flair || msgData.nick, msgStyles);
     const textContent = messageParser.getTextContent(flair);
 
+    const avatar = msgData.avatar ? (typeof msgData.avatar === 'string' ? JSON.parse(msgData.avatar) : msgData.avatar) : null;
+
     const nickEl = <div className='nick'>
+      {avatar ? <AvatarDisplay avatar={avatar} /> : null}
       {msgData.hat ? <div className='hat' style={{
         backgroundImage: `url('/images/hats/${msgData.hat}')`,
       }}></div> : null}

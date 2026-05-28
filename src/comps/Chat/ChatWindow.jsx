@@ -65,6 +65,7 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
         nick: a.nick,
         flair: a.flair,
         hat: a.hat,
+        avatar: a.avatar ?? null,
         time: a.time ? Number(a.time) : undefined
       }));
 

@@ -174,6 +174,9 @@ const COMMANDS = {
   flipcoin: {},
   startbridge: {},
   stopbridge: {},
+  avatar: {
+    params: ['type', 'id'],
+  },
   weather: {
     params: ['location'],
     parseMethod: 'leaveSpace'
