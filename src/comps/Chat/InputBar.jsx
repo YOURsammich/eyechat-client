@@ -216,7 +216,7 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
     if (sel < wordStart || sel > wordEnd) return null;
     if (input.substring(wordStart + 2, sel).indexOf(':') !== -1) return null;
     const word = input.substring(wordStart, wordEnd).toLowerCase();
-    if ((input[wordStart - 1] !== ' ' && input[wordStart - 1] !== ':') && wordStart !== 0) return null;
+    if ((input[wordStart - 1] !== ' ' && input[wordStart - 1] !== ':' && input[wordStart - 1] !== '$') && wordStart !== 0) return null;
     if (word.startsWith(':') && (!word.endsWith(':') || word.length === 1)) {
       return emoji?.filter(a => a.id.toLowerCase().includes(word.slice(1)))
         .map(a => ({ id: a.id, replaceWith: ':' + a.id + ':', imageName: a.imageName })) ?? null;

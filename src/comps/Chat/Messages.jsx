@@ -713,7 +713,29 @@ class Messages extends React.Component {
 
   }
 
-  componentDidUpdate (prevProps, prevState) {
+  getSnapshotBeforeUpdate(prevProps) {
+    const el = this.messageCon.current;
+    if (
+      prevProps.messages.length > 0 &&
+      this.props.messages[0]?.count !== prevProps.messages[0]?.count &&
+      this.props.messages[0]?.count < prevProps.messages[0]?.count
+    ) {
+      return el.scrollHeight - el.scrollTop;
+    }
+    return null;
+  }
+
+  componentDidUpdate (prevProps, prevState, snapshot) {
+    if (snapshot !== null) {
+      const el = this.messageCon.current;
+      el.scrollTop = el.scrollHeight - snapshot;
+      return;
+    }
+
+    if (prevProps.layout !== this.props.layout) {
+      this.cacheMessage = {};
+    }
+
     //check if the messages have changed by comparing message from this.state and prevState
     const oldMessage = this.props.messages[this.props.messages.length - 1];
     const newMessage = prevProps.messages[prevProps.messages.length - 1];
@@ -848,7 +870,7 @@ class Messages extends React.Component {
   render() {
     return (
 
-      <div id="message-container" ref={this.messageCon} onClick={this.handleClick.bind(this)}>
+      <div id="message-container" className={this.props.layout ? `layout-${this.props.layout}` : ''} ref={this.messageCon} onClick={this.handleClick.bind(this)}>
 
         {/* render Messages react children */}
 

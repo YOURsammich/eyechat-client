@@ -400,6 +400,9 @@ a {
   color: white;
   display: flex;
   flex-direction: row-reverse;
+  overflow: hidden;
+  width: 330px;
+  flex-shrink: 0;
 }
 
 .quickNav {
@@ -434,6 +437,7 @@ a {
   min-width: 200px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .menuHeader {
@@ -449,6 +453,8 @@ a {
 
 .userLi {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 10px 0;
 }
 
@@ -1585,3 +1591,37 @@ a {
   margin: 0;
   line-height: 1.3;
 }
+
+/* ── layout: cozy (timestamp floated right) ──────────────────────────── */
+#message-container.layout-cozy .message {
+  display: flex;
+  align-items: baseline;
+}
+#message-container.layout-cozy .time {
+  order: 10;
+  margin-left: auto;
+  display: inline-block !important;
+  padding-left: 12px;
+}
+
+/* ── layout: discord (nick on own line, message indented below) ───────── */
+#message-container.layout-discord .message.chat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+#message-container.layout-discord .message.chat .nick {
+  display: inline-flex !important;
+  align-items: center;
+  width: 100%;
+}
+#message-container.layout-discord .message.chat .time {
+  display: inline-block !important;
+  margin-left: auto;
+}
+#message-container.layout-discord .message.chat .messageContent {
+  display: block !important;
+  padding-left: 46px;
+  width: 100%;
+}
+.search-input::placeholder { color: black; opacity: 1; }

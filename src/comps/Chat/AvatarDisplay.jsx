@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-const PART_ORDER = ['heads', 'hair', 'eyes', 'noses', 'mouths'];
+const PART_ORDER = ['heads', 'eyes', 'noses', 'mouths', 'hair'];
 
 export default function AvatarDisplay({ avatar, size = 40 }) {
   if (!avatar) return null;

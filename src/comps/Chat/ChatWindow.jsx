@@ -3,6 +3,7 @@ import Messages from './Messages';
 import InputBar from './InputBar';
 import Menu, { Overlay } from './../Menu';
 import FluidBackground from './FluidBackground';
+import SearchBar from './SearchBar';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
 
@@ -18,6 +19,7 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
     bubbles: store.get('toggle-bubbles'),
     centermsg: store.get('toggle-centermsg'),
   }));
+  const [layout, setLayout] = useState(() => store.get('layout') || 'cozy');
   const [channelState, setChannelState] = useState({
     background: '',
     topic: '',
@@ -75,8 +77,14 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
 
       setMessages(prev => [...prev, ...messageLog, ...extra]);
 
+      // Extract plain string fields before handleStates JSON.parses and possibly
+      // converts them to booleans/null (e.g. topic="true" → true, which React won't render)
+      const topic = channelInfo.topic ?? '';
+      const background = channelInfo.background ?? '';
+      const centermsg = channelInfo.centermsg ?? '';
+
       const parsed = store.handleStates(channelInfo);
-      setChannelState(prev => ({ ...prev, ...parsed }));
+      setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg }));
     });
 
     const offUserJoin = socket.on('userJoin', (user) => {
@@ -133,7 +141,7 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
       if (!oldest || oldest.count <= 1) { pendingFetchRef.current = false; return prev; }
 
       const range = (oldest.count - 100) + '-' + (oldest.count - 1);
-      fetch('/channel/messages/' + range)
+      fetch('/channel/messages/' + range + '?channel=' + encodeURIComponent(channelName))
         .then(res => res.json())
         .then(data => {
           for (const m of data) m.type = m.messageType;
@@ -147,6 +155,11 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
 
   function toggleOverlay(id) {
     setShowOverlay(prev => prev === id ? false : id);
+  }
+
+  function changeLayout(name) {
+    setLayout(name);
+    store.setState('layout', name);
   }
 
   function toggleStateChange(attr, state) {
@@ -172,7 +185,9 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
 
         <div className="chatHeader" style={{ backgroundColor: channelState.themecolors.topbarpri || '' }}>
           <div className='topic'>{channelState.topic}</div>
-          <div className='topBarBtns'></div>
+          <div className='topBarBtns'>
+            <SearchBar channelName={channelName} />
+          </div>
         </div>
 
         <div className='chatBox'>
@@ -190,6 +205,7 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
             user={user}
             setViewLog={setViewLog}
             centermsg={channelState.centermsg}
+            layout={layout}
           >
             {showOverlay ? <Overlay type={showOverlay} /> : null}
           </Messages>
@@ -216,8 +232,11 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
           activeList={selectedList}
           toggleStateChange={toggleStateChange}
           toggles={toggles}
+          layout={layout}
+          changeLayout={changeLayout}
           themeColor={channelState.themecolors.menupri}
           hats={channelState.hats}
+          user={user}
         />
       ) : null}
     </div>
