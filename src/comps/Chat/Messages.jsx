@@ -818,7 +818,7 @@ class Messages extends React.Component {
     const avatar = msgData.avatar ? (typeof msgData.avatar === 'string' ? JSON.parse(msgData.avatar) : msgData.avatar) : null;
 
     const nickEl = <div className='nick'>
-      {avatar ? <AvatarDisplay avatar={avatar} /> : null}
+      {avatar && this.props.showAvatars ? <AvatarDisplay avatar={avatar} /> : null}
       {msgData.hat ? <div className='hat' style={{
         backgroundImage: `url('/images/hats/${msgData.hat}')`,
       }}></div> : null}

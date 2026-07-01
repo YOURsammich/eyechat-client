@@ -200,7 +200,7 @@ a {
 }
 
 .bubbleMessage .message {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bubble-bg, rgba(255, 255, 255, 0.05));
 }
 
 .message img {
@@ -989,6 +989,18 @@ a {
   background-color: #333;
   color: #666;
   cursor: not-allowed;
+}
+
+.stdInput {
+  padding: 5px 0px 5px 0px;
+  text-indent: 10px;
+  outline: none;
+  font-family: inherit;
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: inset 0px 0px 1px black;
+  border: 1px solid;
+  height: 21px;
 }
 
 .uploadEmojiBtn {

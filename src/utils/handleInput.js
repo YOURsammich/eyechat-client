@@ -193,6 +193,11 @@ const COMMANDS = {
       const palette = palettes[params.palette] ?? 0;
       window.dispatchEvent(new CustomEvent('fluid', { detail: { duration: secs, palette } }));
     }
+  },
+  uno: {
+    handler() {
+      window.dispatchEvent(new CustomEvent('uno:open'));
+    }
   }
 }
 

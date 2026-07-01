@@ -8,6 +8,7 @@ const SUB_MENUS = [
   { name: 'settings', label: 'Settings', icon: 'settings' },
   { name: 'shop',     label: 'Shop',     icon: 'shopping_cart' },
   { name: 'avatar',   label: 'Avatar',   icon: 'face' },
+  { name: 'channel',  label: 'Channel',  icon: 'palette' },
 ];
 
 const AVATAR_PART_ORDER = ['heads', 'eyes', 'noses', 'mouths', 'hair'];
@@ -29,7 +30,7 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, socket, userlist, bridgeNicks, toggles, toggleStateChange, layout, changeLayout, hats, user }) {
+function Menu({ themeColor, socket, userlist, bridgeNicks, toggles, toggleStateChange, layout, changeLayout, hats, user, themecolors, channelName }) {
   const [selectedList, setSelectedList] = useState('users');
   const selected = SUB_MENUS.find(m => m.name === selectedList);
 
@@ -59,6 +60,9 @@ function Menu({ themeColor, socket, userlist, bridgeNicks, toggles, toggleStateC
         )}
         {selectedList === 'avatar' && (
           <AvatarBuilder user={user} />
+        )}
+        {selectedList === 'channel' && (
+          <ChannelTheme themecolors={themecolors} channelName={channelName} />
         )}
       </div>
     </div>
@@ -114,7 +118,7 @@ UserList.propTypes = {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
-const LAYOUTS = ['classic', 'cozy', 'discord'];
+const LAYOUTS = ['classic', 'cozy'];
 
 function Settings({ toggles, toggleStateChange, layout, changeLayout }) {
   return (
@@ -299,6 +303,111 @@ function AvatarBuilder({ user }) {
           {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved!' : status === 'error' ? 'Error — try again' : 'Save Avatar'}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── ChannelTheme ─────────────────────────────────────────────────────────────
+
+const THEME_KEYS = [
+  { key: 'topbarpri', label: 'Top Bar' },
+  { key: 'inputbar',  label: 'Input Bar' },
+  { key: 'menupri',   label: 'Menu' },
+  { key: 'bubblebg',  label: 'Bubble BG', alpha: true },
+];
+
+function parseRgba(val) {
+  const m = val?.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\s*\)/);
+  if (m) {
+    const r = parseInt(m[1]).toString(16).padStart(2, '0');
+    const g = parseInt(m[2]).toString(16).padStart(2, '0');
+    const b = parseInt(m[3]).toString(16).padStart(2, '0');
+    return { hex: `#${r}${g}${b}`, alpha: m[4] !== undefined ? parseFloat(m[4]) : 1 };
+  }
+  return { hex: val || '#ffffff', alpha: 1 };
+}
+
+function hexAlphaToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function ChannelTheme({ themecolors, channelName }) {
+  const [colors, setColors] = useState(themecolors || {});
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    setColors(themecolors || {});
+  }, [themecolors]);
+
+  function save() {
+    setStatus('saving');
+    Promise.all(
+      THEME_KEYS.map(({ key }) =>
+        fetch('/a/theme', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channelName, key, color: colors[key] || '' }),
+        }).then(r => r.json())
+      )
+    )
+      .then(results => setStatus(results.some(r => r.error) ? 'error' : 'saved'))
+      .catch(() => setStatus('error'));
+  }
+
+  return (
+    <div style={{ padding: '12px 10px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <div style={{ fontSize: 11, color: '#777', marginBottom: 12 }}>Theme Colors</div>
+      {THEME_KEYS.map(({ key, label, alpha: hasAlpha }) => {
+        if (hasAlpha) {
+          const { hex, alpha } = parseRgba(colors[key] || 'rgba(255,255,255,0.05)');
+          return (
+            <div key={key} style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ flex: 1, fontSize: 13 }}>{label}</span>
+                <input
+                  type="color"
+                  value={hex}
+                  onChange={e => { setColors(prev => ({ ...prev, [key]: hexAlphaToRgba(e.target.value, parseRgba(prev[key] || 'rgba(255,255,255,0.05)').alpha) })); setStatus(null); }}
+                  style={{ width: 36, height: 28, cursor: 'pointer', border: 'none', background: 'none', padding: 0 }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, color: '#777' }}>opacity</span>
+                <input
+                  type="range"
+                  min="0" max="1" step="0.01"
+                  value={alpha}
+                  onChange={e => { setColors(prev => ({ ...prev, [key]: hexAlphaToRgba(parseRgba(prev[key] || 'rgba(255,255,255,0.05)').hex, parseFloat(e.target.value)) })); setStatus(null); }}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontSize: 11, color: '#aaa', width: 28, textAlign: 'right' }}>{Math.round(alpha * 100)}%</span>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+            <span style={{ flex: 1, fontSize: 13 }}>{label}</span>
+            <input
+              type="color"
+              value={colors[key] || '#181818'}
+              onChange={e => { setColors(prev => ({ ...prev, [key]: e.target.value })); setStatus(null); }}
+              style={{ width: 36, height: 28, cursor: 'pointer', border: 'none', background: 'none', padding: 0 }}
+            />
+          </div>
+        );
+      })}
+      <button
+        className='stdBtn'
+        onClick={save}
+        disabled={status === 'saving'}
+        style={{ width: '100%', marginTop: 8, padding: '6px 0' }}
+      >
+        {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved!' : status === 'error' ? 'Error — try again' : 'Save Colors'}
+      </button>
     </div>
   );
 }

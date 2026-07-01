@@ -4,6 +4,7 @@ import InputBar from './InputBar';
 import Menu, { Overlay } from './../Menu';
 import FluidBackground from './FluidBackground';
 import SearchBar from './SearchBar';
+import UnoPanel from './../Uno/UnoPanel';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
 
@@ -13,13 +14,15 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
   const [showOverlay, setShowOverlay] = useState(false);
   const [showFluid, setShowFluid] = useState(false);
   const [fluidPalette, setFluidPalette] = useState(0);
+  const [showUno, setShowUno] = useState(false);
   const [selectedList] = useState('users');
   const [toggles, setToggles] = useState(() => ({
     background: store.get('toggle-background'),
-    bubbles: store.get('toggle-bubbles'),
-    centermsg: store.get('toggle-centermsg'),
+    avatars:    store.get('toggle-avatars') !== false,
+    bubbles:    store.get('toggle-bubbles'),
+    centermsg:  store.get('toggle-centermsg'),
   }));
-  const [layout, setLayout] = useState(() => store.get('layout') || 'cozy');
+  const [layout, setLayout] = useState(() => store.get('layout') || 'classic');
   const [channelState, setChannelState] = useState({
     background: '',
     topic: '',
@@ -127,6 +130,17 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
     return () => window.removeEventListener('fluid', onFluid);
   }, []);
 
+  useEffect(() => {
+    const onOpen = () => setShowUno(true);
+    const onClose = () => setShowUno(false);
+    window.addEventListener('uno:open', onOpen);
+    window.addEventListener('uno:close', onClose);
+    return () => {
+      window.removeEventListener('uno:open', onOpen);
+      window.removeEventListener('uno:close', onClose);
+    };
+  }, []);
+
   function addMessage(message) {
     if (!Array.isArray(message)) message = [message];
     setMessages(prev => [...prev, ...message]);
@@ -166,6 +180,7 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
     setToggles(prev => {
       const next = { ...prev, [attr]: state };
       store.setState('toggle-background', next.background);
+      store.setState('toggle-avatars', next.avatars);
       store.setState('toggle-bubbles', next.bubbles);
       store.setState('toggle-centermsg', next.centermsg);
       return next;
@@ -181,7 +196,7 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
 
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      <div className={'chatContainer' + (toggles.bubbles ? ' bubbleMessage' : '')}>
+      <div className={'chatContainer' + (toggles.bubbles ? ' bubbleMessage' : '')} style={{ '--bubble-bg': channelState.themecolors.bubblebg || '' }}>
 
         <div className="chatHeader" style={{ backgroundColor: channelState.themecolors.topbarpri || '' }}>
           <div className='topic'>{channelState.topic}</div>
@@ -206,6 +221,7 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
             setViewLog={setViewLog}
             centermsg={channelState.centermsg}
             layout={layout}
+            showAvatars={toggles.avatars}
           >
             {showOverlay ? <Overlay type={showOverlay} /> : null}
           </Messages>
@@ -235,8 +251,18 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
           layout={layout}
           changeLayout={changeLayout}
           themeColor={channelState.themecolors.menupri}
+          themecolors={channelState.themecolors}
+          channelName={channelName}
           hats={channelState.hats}
           user={user}
+        />
+      ) : null}
+
+      {showUno ? (
+        <UnoPanel
+          socket={socket}
+          user={user}
+          onClose={() => setShowUno(false)}
         />
       ) : null}
     </div>
