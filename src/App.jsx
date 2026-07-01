@@ -10,7 +10,6 @@ import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 const COPE_CLOUD = 'http://localhost:8080/';
 
 function App() {
-  const [connected, setConnected] = useState(false);
   const [showApp, setShowApp] = useState(false);
   const [showPluginBar, setShowPluginBar] = useState(false);
   const [userlist, setUserlist] = useState([]);
@@ -21,61 +20,66 @@ function App() {
   const storeRef = useRef(null);
   const iframeRef = useRef(null);
 
+  // Build the store synchronously so the chat shell can render on first paint,
+  // before the WebSocket connects. It only reads localStorage.
+  if (!storeRef.current) storeRef.current = window.store = new Store();
+
   const myUser = userlist.find(u => u.id === userID);
 
   useEffect(() => {
-    socket.init({ getActiveChannel: () => 'main' }).then(() => {
-      storeRef.current = window.store = new Store();
+    // Register handlers up front (they only fire once events arrive over the
+    // socket, which can't happen until it connects), then connect. The shell
+    // renders immediately instead of waiting on the preconnect + WS handshake.
+    socket.on('pong', () => socket.emit('ping'));
 
-      socket.on('pong', () => socket.emit('ping'));
+    socket.on('userlist', (list) => setUserlist(list));
 
-      socket.on('userlist', (list) => setUserlist(list));
+    socket.on('bridgeNicks', (nicks) => setBridgeNicks(nicks));
 
-      socket.on('bridgeNicks', (nicks) => setBridgeNicks(nicks));
+    socket.on('setID', (id) => setUserID(id));
 
-      socket.on('setID', (id) => setUserID(id));
-
-      socket.on('userJoin', (user) => {
-        setUserlist(prev => [...prev, user]);
-        fetch('/set-nick', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nick: user.nick })
-        });
+    socket.on('userJoin', (user) => {
+      setUserlist(prev => [...prev, user]);
+      fetch('/set-nick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nick: user.nick })
       });
+    });
 
-      socket.on('userLeft', (user) => {
-        setUserlist(prev => {
-          const index = prev.findIndex(a => a.id === user.id);
-          if (index === -1) return prev;
-          const next = [...prev];
-          next.splice(index, 1);
-          return next;
-        });
+    socket.on('userLeft', (user) => {
+      setUserlist(prev => {
+        const index = prev.findIndex(a => a.id === user.id);
+        if (index === -1) return prev;
+        const next = [...prev];
+        next.splice(index, 1);
+        return next;
       });
+    });
 
-      socket.on('userStateChange', ({ user, stateChange }) => {
-        setUserlist(prev => {
-          const index = prev.findIndex(a => a.id === user.id);
-          if (index === -1) return prev;
-          const next = [...prev];
-          next[index] = { ...next[index], ...stateChange };
-          return next;
-        });
+    socket.on('userStateChange', ({ user, stateChange }) => {
+      setUserlist(prev => {
+        const index = prev.findIndex(a => a.id === user.id);
+        if (index === -1) return prev;
+        const next = [...prev];
+        next[index] = { ...next[index], ...stateChange };
+        return next;
       });
+    });
 
-      socket.on('setState', (data) => {
-        if (data[0] === 'showPluginBar') setShowPluginBar(data[1]);
-      });
+    socket.on('setState', (data) => {
+      if (data[0] === 'showPluginBar') setShowPluginBar(data[1]);
+    });
 
-      socket.on('channelInfo', (channelInfo) => {
-        if (channelInfo.showPluginBar !== undefined) {
-          setShowPluginBar(channelInfo.showPluginBar);
-        }
-      });
+    socket.on('channelInfo', (channelInfo) => {
+      if (channelInfo.showPluginBar !== undefined) {
+        setShowPluginBar(channelInfo.showPluginBar);
+      }
+    });
 
+    socket.init({ getActiveChannel: () => 'main' }).then((ok) => {
+      if (!ok) return;
       socket.emit('joinChannel');
-      setConnected(true);
 
       // fetch(COPE_CLOUD + 'getPublicApps')
       //   .then(res => res.json())
@@ -91,8 +95,6 @@ function App() {
       }
     });
   }, []);
-
-  if (!connected) return 'connecting';
 
   return (
     <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>

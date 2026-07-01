@@ -1,21 +1,25 @@
 const socket = {
 
-  init ({ getActiveChannel } = {}) {    
+  _serverEvents: {},
+  _pendingEmits: [],
+  _pendingDisconnectCbs: [],
+
+  init ({ getActiveChannel } = {}) {
     this.getActiveChannel = getActiveChannel;
 
-    return new Promise ((resolve, reject) => {
-      fetch('/preconnect', { method: 'POST' })
-        .then(res => res.json())
-        .then((message) => {
-          if (message.success) {
-            this.initSocket()
-              .then(resolve);
-          } else {
-            console.log('preconnect', message);
-          }
-        });
-    });
+    // Reuse the preconnect kicked off by the inline script in index.html so it
+    // overlaps bundle download/parse; fall back to firing it here if absent.
+    const preconnect = window.__preconnect
+      ? window.__preconnect
+      : fetch('/preconnect', { method: 'POST' }).then(res => res.json());
 
+    return preconnect.then((message) => {
+      if (message && message.success) {
+        return this.initSocket().then(() => true);
+      }
+      console.log('preconnect', message);
+      return false;
+    });
   },
 
   initSocket () {
@@ -24,15 +28,22 @@ const socket = {
       const prefix = window.location.protocol === 'https:' ? 'wss' : 'ws';
 
       this._socket = new WebSocket(prefix + '://' + location.host);
-  
-      this._serverEvents = {};
-      
+
+      // Attach any disconnect handlers registered before the socket existed.
+      for (const cb of this._pendingDisconnectCbs) this._socket.addEventListener('close', cb);
+      this._pendingDisconnectCbs = [];
+
       this._socket.addEventListener('error', (err,r) => {
         console.log('error', err,r);
       });
 
-      this._socket.addEventListener('open', resolve);
-    
+      this._socket.addEventListener('open', () => {
+        // Flush any emits queued while the socket was still connecting.
+        for (const payload of this._pendingEmits) this._socket.send(payload);
+        this._pendingEmits = [];
+        resolve();
+      });
+
       this._socket.addEventListener('message', (e) => {
         const data = JSON.parse(e.data);
         this._triggerEvent(data.event, data.data);
@@ -76,13 +87,24 @@ const socket = {
   },
 
   emit (event, data) {
-    this._socket.send(JSON.stringify({
+    const payload = JSON.stringify({
       event, data, channelName: this.getActiveChannel()
-    }))
+    });
+
+    if (this._socket && this._socket.readyState === WebSocket.OPEN) {
+      this._socket.send(payload);
+    } else {
+      // Queue until the socket opens (see flush in initSocket).
+      this._pendingEmits.push(payload);
+    }
   },
 
   onDisconnect (callback) {
-    this._socket.addEventListener('close', callback);
+    if (this._socket) {
+      this._socket.addEventListener('close', callback);
+    } else {
+      this._pendingDisconnectCbs.push(callback);
+    }
   }
 
 
