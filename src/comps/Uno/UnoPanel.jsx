@@ -353,8 +353,7 @@ class UNOReact extends React.Component {
       view: 'menu',
       players: [],
       currentSession: {},
-      sessions: {},
-      balance: 0
+      sessions: {}
     };
     this.pendingGame = props.lobby;
     this.views = { menu: UNOMenu, lobby: UNOLobby, waitLobby: UNOWaitLobby, game: UNOGame };
@@ -362,8 +361,6 @@ class UNOReact extends React.Component {
 
   componentDidMount() {
     const { tools, myNick } = this.props;
-
-    this.balanceEvent = tools.on('balance', (balance) => this.setState({ balance }));
 
     this.playerLeftEvent = tools.on('playerLeft', ({ nick, sessionName }) => {
       if (sessionName === this.state.currentSession.sessionName) {
@@ -448,7 +445,6 @@ class UNOReact extends React.Component {
 
   componentWillUnmount() {
     const { tools } = this.props;
-    tools.removeEvent(this.balanceEvent);
     tools.removeEvent(this.playerLeftEvent);
     tools.removeEvent(this.handLengthEvent);
     tools.removeEvent(this.gameOverEvent);
@@ -479,7 +475,7 @@ class UNOReact extends React.Component {
       <View
         tools={this.props.tools}
         myNick={this.props.myNick}
-        balance={this.state.balance}
+        balance={this.props.balance}
         watchGame={(a) => this.watchGame(a)}
         restartGame={() => this.restartGame()}
         handLength={this.state.handLength}
@@ -561,7 +557,7 @@ function UnoPanel({ socket, user, onClose }) {
       </div>
 
       <div style={{ padding: '10px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
-        <UNOReact tools={tools} myNick={myNick} />
+        <UNOReact tools={tools} myNick={myNick} balance={user?.coins ?? 0} />
       </div>
     </div>
   );

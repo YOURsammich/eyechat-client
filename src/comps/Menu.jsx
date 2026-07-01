@@ -87,7 +87,7 @@ function UserList({ socket, userlist, bridgeNicks }) {
       {userlist.map(user => (
         <div className='userLiSpan' key={user.id}>
           <span className='userLiName'>{user.nick}</span>
-          <span className='userLiCurrency'>₵{user.tokens}</span>
+          <span className='userLiCurrency'>₵{user.coins}</span>
           <div className='userLiActions'>
             {getUserActions(user.nick, socket).map(action => (
               <button key={action.name} className='userActionBtn' onClick={action.callback}>
