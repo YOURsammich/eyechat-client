@@ -77,10 +77,10 @@ function App() {
       socket.emit('joinChannel');
       setConnected(true);
 
-      fetch(COPE_CLOUD + 'getPublicApps')
-        .then(res => res.json())
-        .then(res => setPlugins(Object.keys(res)))
-        .catch(() => {});
+      // fetch(COPE_CLOUD + 'getPublicApps')
+      //   .then(res => res.json())
+      //   .then(res => setPlugins(Object.keys(res)))
+      //   .catch(() => {});
     });
 
     window.addEventListener('message', (e) => {
