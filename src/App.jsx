@@ -40,11 +40,6 @@ function App() {
 
     socket.on('userJoin', (user) => {
       setUserlist(prev => [...prev, user]);
-      fetch('/set-nick', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nick: user.nick })
-      });
     });
 
     socket.on('userLeft', (user) => {
@@ -95,6 +90,17 @@ function App() {
       }
     });
   }, []);
+
+  // Persist *our own* nick so /preconnect can re-auth us on refresh. Fires when
+  // our nick first becomes known and whenever it changes.
+  useEffect(() => {
+    if (!myUser?.nick) return;
+    fetch('/set-nick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nick: myUser.nick })
+    });
+  }, [myUser?.nick]);
 
   return (
     <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>

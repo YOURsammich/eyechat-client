@@ -394,6 +394,30 @@ function QuoteMsg (props) {
 
   const [quote, setQuote] = React.useState(null);
   const [quoteVisible, setQuoteVisible] = React.useState(false);
+  const containerRef = React.useRef(null);
+  const cursorRef = React.useRef({ x: 0, y: 0 });
+
+  // Place the preview to the right of the cursor and above it, flipping to stay
+  // on screen rather than overflowing.
+  const positionBox = (clientX, clientY) => {
+    const box = containerRef.current;
+    if (!box) return;
+    const rect = box.getBoundingClientRect();
+    const margin = 8;
+    const gap = 14;
+    let left = clientX + gap;                // right of the cursor
+    let top = clientY - rect.height - gap;   // above the cursor
+    if (left + rect.width > window.innerWidth - margin) left = clientX - rect.width - gap; // flip left
+    if (left < margin) left = margin;
+    if (top < margin) top = clientY + gap;   // flip below if no room above
+    if (top + rect.height > window.innerHeight - margin) top = window.innerHeight - rect.height - margin;
+    box.style.left = left + 'px';
+    box.style.top = top + 'px';
+  };
+
+  React.useLayoutEffect(() => {
+    if (quoteVisible) positionBox(cursorRef.current.x, cursorRef.current.y);
+  }, [quoteVisible]);
 
   React.useEffect(() => {
     fetch('/channel/getMessage/' + props.message.data.strdata.slice(2))
@@ -417,25 +441,17 @@ function QuoteMsg (props) {
 
   const color = quote ? '' : '#ad0000'
   return <>
-    <button className='quote' style={{color:color, position: 'relative'}} onFocus={() => 0} 
-      onMouseMove={(e) => {
-        //set position of quote
-        const quoteContainer = document.querySelector('.quote-container');
-        if (quoteContainer) {
-          // quoteContainer.style.bottom = (e.clientY - quoteContainer.offsetHeight) + 'px';
-          // quoteContainer.style.left = e.clientX + 'px';
-        }
-      }}
-      onMouseEnter={() => quote && setQuoteVisible(true)}
+    <button className='quote' style={{color:color, position: 'relative'}} onFocus={() => 0}
+      onMouseEnter={(e) => { cursorRef.current = { x: e.clientX, y: e.clientY }; if (quote) setQuoteVisible(true); }}
+      onMouseMove={(e) => { cursorRef.current = { x: e.clientX, y: e.clientY }; if (quoteVisible) positionBox(e.clientX, e.clientY); }}
       onMouseLeave={() => setQuoteVisible(false)}
-    
     >
       {props.message.data.strdata}
 
     </button>
     {
-        quoteVisible ? <div className='quote-container' style={{position: 'absolute'}}>
-          
+        quoteVisible ? <div ref={containerRef} className='quote-container' style={{position: 'fixed', top: '-9999px', left: '-9999px'}}>
+
           {props.renderMessage(quote)}
 
         </div> : null
@@ -732,7 +748,7 @@ class Messages extends React.Component {
       return;
     }
 
-    if (prevProps.layout !== this.props.layout) {
+    if (prevProps.layout !== this.props.layout || prevProps.showAvatars !== this.props.showAvatars) {
       this.cacheMessage = {};
     }
 
@@ -860,9 +876,18 @@ class Messages extends React.Component {
     const target = e.target;
 
     if (target.className.includes('time')) {
-      const input = document.querySelector('.input-container textarea');
-      input.value += '>>' + target.title + ' ';
+      const input = document.querySelector('.input-container .chatInput');
+      if (!input) return;
+      // Input is a contentEditable div (not a textarea): focus, move the caret
+      // to the end, then insert so the send handler (getInputText) picks it up.
       input.focus();
+      const range = document.createRange();
+      range.selectNodeContents(input);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand('insertText', false, '>>' + target.title + ' ');
     }
 
   }
