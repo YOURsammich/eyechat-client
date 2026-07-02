@@ -148,6 +148,12 @@ a {
   cursor: pointer;
 }
 
+/* Mobile-only user list button in the chat header (hidden on desktop). */
+.mobileUsersBtn {
+  display: none;
+  padding: 0 12px;
+}
+
 .topic {
   font-size: 16px;
   font-style: italic;
@@ -390,8 +396,37 @@ a {
 /* ─── Menu Pane ───────────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
+  /* Menu + quickNav hidden by default on mobile. */
   .menuPane {
     display: none !important;
+  }
+
+  /* Hide the header search bar on mobile, show the user-list toggle instead. */
+  .search-input {
+    display: none;
+  }
+  .mobileUsersBtn {
+    display: flex;
+  }
+
+  /* When toggled open, show ONLY the user list as a right-side overlay. */
+  .menuPane.mobileOpen {
+    display: flex !important;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 80%;
+    max-width: 320px;
+    z-index: 20;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.5);
+  }
+  .menuPane.mobileOpen .quickNav {
+    display: none;
+  }
+  /* Force the content panel visible regardless of desktop collapse state. */
+  .menuPane.mobileOpen .menuContent {
+    display: flex;
   }
 }
 

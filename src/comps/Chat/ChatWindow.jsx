@@ -15,6 +15,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [showFluid, setShowFluid] = useState(false);
   const [fluidPalette, setFluidPalette] = useState(0);
   const [showUno, setShowUno] = useState(false);
+  const [mobileUsers, setMobileUsers] = useState(false);
   const [selectedList] = useState('users');
   const [toggles, setToggles] = useState(() => ({
     background: store.get('toggle-background'),
@@ -202,6 +203,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           <div className='topic'>{channelState.topic}</div>
           <div className='topBarBtns'>
             <SearchBar channelName={channelName} />
+            <span
+              className="material-symbols-outlined mobileUsersBtn"
+              onClick={() => setMobileUsers(v => !v)}
+              title='User list'
+            >group</span>
           </div>
         </div>
 
@@ -251,6 +257,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           changeLayout={changeLayout}
           themeColor={channelState.themecolors.menupri}
           sidebarColor={channelState.themecolors.sidebar}
+          mobileOpen={mobileUsers}
+          setMobileOpen={setMobileUsers}
           themecolors={channelState.themecolors}
           channelName={channelName}
           hats={channelState.hats}

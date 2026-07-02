@@ -30,14 +30,14 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, hats, user, themecolors, channelName }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, hats, user, themecolors, channelName, mobileOpen, setMobileOpen }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
   const selected = SUB_MENUS.find(m => m.name === selectedList);
 
   return (
-    <div className={'menuPane' + (menuOpen ? '' : ' collapsed')} style={{ background: themeColor }}>
+    <div className={'menuPane' + (menuOpen ? '' : ' collapsed') + (mobileOpen ? ' mobileOpen' : '')} style={{ background: themeColor }}>
       <ul className={'quickNav' + (navExpanded ? ' expanded' : '')} style={{ background: sidebarColor || undefined }}>
         {SUB_MENUS.map(m => (
           <li className={`navBtn${m.name === selectedList ? ' active' : ''}`} key={m.name} onClick={() => { setSelectedList(m.name); setMenuOpen(true); }}>
@@ -53,7 +53,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
       <div className='menuContent'>
         <div className='menuHeader'>
           <span className='menuHeaderLabel'>{selected?.label}</span>
-          <span className="material-symbols-outlined menuCloseBtn" onClick={() => setMenuOpen(false)} title='Close menu'>close</span>
+          <span className="material-symbols-outlined menuCloseBtn" onClick={() => { setMenuOpen(false); if (setMobileOpen) setMobileOpen(false); }} title='Close menu'>close</span>
         </div>
 
         {selectedList === 'users' && (
