@@ -69,6 +69,12 @@ function App() {
       }
     });
 
+    // After an automatic reconnect, rejoin the channel so the server re-adds us
+    // and resends the userlist + recent history (deduped by count in ChatWindow).
+    socket.onReconnect(() => {
+      socket.emit('joinChannel');
+    });
+
     socket.init({ getActiveChannel: () => 'main' }).then((ok) => {
       if (!ok) return;
       socket.emit('joinChannel');

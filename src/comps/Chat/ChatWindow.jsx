@@ -49,9 +49,13 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     };
     document.addEventListener('visibilitychange', onVisibility);
 
-    socket.onDisconnect((reason) => {
+    const offDisconnect = socket.onDisconnect((reason) => {
       console.log('disconnected', reason);
-      setMessages(prev => [...prev, { message: 'You have been disconnected from the server.', type: 'error' }]);
+      setMessages(prev => [...prev, { message: 'Connection lost. Reconnecting…', type: 'error', count: Math.random() }]);
+    });
+
+    const offReconnect = socket.onReconnect(() => {
+      setMessages(prev => [...prev, { message: 'Reconnected.', type: 'general', count: Math.random() }]);
     });
 
     const offMessage = socket.on('message', (data) => {
@@ -79,7 +83,15 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       if (channelInfo.note) extra.push({ message: channelInfo.note, type: 'note', count: 'note' });
       if (channelInfo.topic) extra.push({ message: 'Topic: ' + channelInfo.topic, type: 'general', count: 'topic' });
 
-      setMessages(prev => [...prev, ...messageLog, ...extra]);
+      // A reconnect re-fetches recent history via joinChannel; drop anything we
+      // already have (by count) so we don't duplicate messages — while still
+      // filling any gap that arrived while we were offline.
+      setMessages(prev => {
+        const seen = new Set();
+        for (const m of prev) if (m.count != null) seen.add(m.count);
+        const incoming = [...messageLog, ...extra].filter(m => m.count == null || !seen.has(m.count));
+        return [...prev, ...incoming];
+      });
 
       // Extract plain string fields before handleStates JSON.parses and possibly
       // converts them to booleans/null (e.g. topic="true" → true, which React won't render)
@@ -117,6 +129,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       offChannelInfo();
       offUserJoin();
       offSetState();
+      offDisconnect();
+      offReconnect();
     };
   }, []);
 
