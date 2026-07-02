@@ -341,6 +341,7 @@ a {
   border-radius: 5px;
   color: white;
   outline: white;
+  border: 1px solid #0C0D0E;
 }
 
 .pretendInput:focus-within {
