@@ -37,7 +37,8 @@ a {
 /* ─── Layout ──────────────────────────────────────────────────────────────── */
 
 #root {
-  height: 100vh;
+  height: 100vh;       /* fallback for browsers without dvh */
+  height: 100dvh;      /* excludes mobile browser UI (address bar) so the header stays on-screen */
   width: 100vw;
   display: flex;
   flex-direction: row;
@@ -424,9 +425,10 @@ a {
   .menuPane.mobileOpen .quickNav {
     display: none;
   }
-  /* Force the content panel visible regardless of desktop collapse state. */
+  /* Force the content panel visible regardless of desktop collapse state
+     (overrides the equal-specificity `.menuPane.collapsed .menuContent` rule). */
   .menuPane.mobileOpen .menuContent {
-    display: flex;
+    display: flex !important;
   }
 }
 
