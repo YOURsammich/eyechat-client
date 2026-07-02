@@ -68,6 +68,15 @@ const COMMANDS = {
       store.setState('color', params.code);
     }
   },
+  font: {
+    params: ['font'],
+    parseMethod: 'leaveSpace',
+    handler (params, {store}) {
+      // Persist a Google Font name (e.g. "Comic Neue") that gets prefixed onto
+      // each message as a $Font| token; "/font none" clears it.
+      store.setState('font', params.font === 'none' ? '' : params.font);
+    }
+  },
   get: {
     params: ['attribute'],
     handler (params, {store, addMessage}) {
@@ -251,7 +260,8 @@ const handleCommand = {
 const handleInput = {
   getStylePrefix (store) {
     return {
-      color: store.get('color') ? ( '#' + store.get('color') ) : ''
+      color: store.get('color') ? ( '#' + store.get('color') ) : '',
+      font: store.get('font') ? ( '$' + store.get('font') + '|' ) : ''
     }
   },
   handle (input, socket, store, channelName, addMessage, user) {
@@ -270,10 +280,10 @@ const handleInput = {
       }
 
     } else {
-      const { color } = this.getStylePrefix(store);
+      const { color, font } = this.getStylePrefix(store);
 
       socket.emit('message', {
-        message: color + input
+        message: font + color + input
       });
     }
   },
