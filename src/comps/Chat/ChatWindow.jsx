@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import Messages from './Messages';
+import Messages, { ParsedContent } from './Messages';
 import InputBar from './InputBar';
 import Menu, { Overlay } from './../Menu';
 import FluidBackground from './FluidBackground';
@@ -7,6 +7,9 @@ import SearchBar from './SearchBar';
 import UnoPanel from './../Uno/UnoPanel';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
+
+// Sound played when your nick is mentioned in a new chat message.
+const mentionAudio = typeof Audio !== 'undefined' ? new Audio('/audio/Bwoop.wav') : null;
 
 function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store }) {
   const [messages, setMessages] = useState([]);
@@ -18,10 +21,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [mobileUsers, setMobileUsers] = useState(false);
   const [selectedList] = useState('users');
   const [toggles, setToggles] = useState(() => ({
-    background: store.get('toggle-background'),
-    avatars:    store.get('toggle-avatars') !== false,
-    bubbles:    store.get('toggle-bubbles'),
-    centermsg:  store.get('toggle-centermsg'),
+    background:    store.get('toggle-background'),
+    avatars:       store.get('toggle-avatars') !== false,
+    bubbles:       store.get('toggle-bubbles'),
+    centermsg:     store.get('toggle-centermsg'),
+    mentionSound:  store.get('toggle-mention-sound') !== false,
   }));
   const [layout, setLayout] = useState(() => store.get('layout') || 'classic');
   const [channelState, setChannelState] = useState({
@@ -36,6 +40,13 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const blurredRef = useRef(false);
   const unreadRef = useRef(0);
   const pendingFetchRef = useRef(false);
+
+  // The message handler is registered once, so read the latest nick / toggle
+  // through refs instead of the stale values captured at mount.
+  const userNickRef = useRef(user?.nick);
+  const mentionSoundRef = useRef(toggles.mentionSound);
+  useEffect(() => { userNickRef.current = user?.nick; }, [user?.nick]);
+  useEffect(() => { mentionSoundRef.current = toggles.mentionSound; }, [toggles.mentionSound]);
 
   useEffect(() => {
     const onVisibility = () => {
@@ -64,6 +75,18 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         unreadRef.current++;
         document.title = `(${unreadRef.current}) Cope.chat - The chat that always copes`;
       }
+
+      // Play the mention sound for a new chat message that names us (but not our
+      // own messages), unless the user toggled it off.
+      const nick = userNickRef.current;
+      if (
+        mentionAudio && mentionSoundRef.current !== false && nick &&
+        data.messageType === 'chat' && data.nick !== nick &&
+        typeof data.message === 'string' && data.message.includes(nick)
+      ) {
+        try { mentionAudio.currentTime = 0; mentionAudio.play().catch(() => {}); } catch { /* autoplay blocked */ }
+      }
+
       setMessages(prev => [...prev, msg]);
     });
 
@@ -198,6 +221,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       store.setState('toggle-avatars', next.avatars);
       store.setState('toggle-bubbles', next.bubbles);
       store.setState('toggle-centermsg', next.centermsg);
+      store.setState('toggle-mention-sound', next.mentionSound);
       return next;
     });
   }
@@ -228,7 +252,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         <div className='chatBox'>
           <div className='messageBackground' style={{ background: showFluid ? '#000' : (toggles.background ? channelState.background : '#000') }}>
             {showFluid ? <FluidBackground palette={fluidPalette} /> : null}
-            {toggles.centermsg ? <div id="center-text">{channelState.centermsg}</div> : null}
+            {toggles.centermsg ? <div id="center-text"><ParsedContent text={channelState.centermsg} emojis={channelState.emojis} /></div> : null}
           </div>
 
           <Messages
@@ -255,6 +279,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           user={user}
           userlist={userlist}
           store={store}
+          channelState={channelState}
           themeColor={channelState.themecolors.inputbar}
         />
       </div>

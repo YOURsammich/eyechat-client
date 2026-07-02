@@ -79,13 +79,38 @@ const COMMANDS = {
   },
   get: {
     params: ['attribute'],
-    handler (params, {store, addMessage}) {
-      const storeValue = store.get(params.attribute);
-      const message = (typeof storeValue == 'string' || typeof storeValue == 'number') ? storeValue : JSON.stringify(storeValue);
-      
+    handler (params, {store, channelState, user, addMessage}) {
+      const attr = params.attribute;
+
+      // An attribute can live in three places depending on its kind: the
+      // current user's state (flair, hat, afk, avatar…), the channel's shared
+      // state (topic, background, themecolors…), or the local client store
+      // (color, font…). Resolve in that order — first owner wins. Only `store`
+      // was consulted before, which is why `/get flair`, `/get topic`, etc.
+      // never resolved.
+      const has = (obj) => obj && Object.prototype.hasOwnProperty.call(obj, attr);
+
+      let value;
+      if (has(user)) value = user[attr];
+      else if (has(channelState)) value = channelState[attr];
+      else value = store.get(attr);
+
+      if (value === undefined || value === '') {
+        addMessage({
+          message: attr + ' is not set.',
+          type: 'info',
+          noparse: true,
+          count: Math.random(),
+        });
+        return;
+      }
+
+      const message = (typeof value === 'string' || typeof value === 'number') ? value : JSON.stringify(value);
+
       addMessage({
-        message: params.attribute + ' is set to ' + message,
+        message: attr + ' is set to ' + message,
         type: 'info',
+        noparse: true,
         count: Math.random(),
       })
     }
@@ -173,7 +198,12 @@ const COMMANDS = {
     params: ['id', 'color']
   },
   msg: {
-    params: ['msg']
+    params: ['msg'],
+    parseMethod: 'leaveSpace'
+  },
+  note: {
+    params: ['note'],
+    parseMethod: 'leaveSpace'
   },
   chatgpt: {
     params: ['message'],
@@ -258,11 +288,14 @@ const handleCommand = {
 const handleInput = {
   getStylePrefix (store) {
     return {
-      color: store.get('color') ? ( '#' + store.get('color') ) : '',
+      // Trailing space delimits the color from the message so a 3-digit color
+      // (e.g. #a9d) doesn't merge with following hex-like text (e.g. "def") and
+      // get misparsed as a 6-digit color. The parser strips this space.
+      color: store.get('color') ? ( '#' + store.get('color') + ' ' ) : '',
       font: store.get('font') ? ( '$' + store.get('font') + '|' ) : ''
     }
   },
-  handle (input, socket, store, channelName, addMessage, user) {
+  handle (input, socket, store, channelName, addMessage, user, channelState) {
     const command = /^\/(\w+) ?([\s\S]*)/.exec(input);
     if (command) {
       const cmdData = handleCommand.handle(command);
@@ -271,6 +304,7 @@ const handleInput = {
           channelName: channelName,
           store: store,
           user: user,
+          channelState: channelState,
           addMessage: addMessage
         });
       } else {

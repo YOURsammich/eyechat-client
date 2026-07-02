@@ -77,6 +77,7 @@ class Store {
       'toggle-background': true,
       'toggle-bubbles': false,
       'toggle-centermsg': true,
+      'toggle-mention-sound': true,
     };
 
     this.altAtt = {colour: 'color', bg: 'background'};

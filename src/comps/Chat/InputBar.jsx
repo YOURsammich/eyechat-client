@@ -26,7 +26,7 @@ function computeGhostText(value, sel, replaceWith) {
   return value.slice(0, wordStart) + replaceWith + value.slice(wordEnd);
 }
 
-function InputBar({ socket, store, channelName, addMessage, user, userlist, emoji, themeColor }) {
+function InputBar({ socket, store, channelName, addMessage, user, userlist, emoji, themeColor, channelState }) {
   const [inputAuto, setInputAuto] = useState(null);
   const [emojis, setEmojis] = useState(null);
   const [ghostText, setGhostText] = useState('');
@@ -182,7 +182,7 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
   // --- end helpers ---
 
   function handleInputFn(text) {
-    return handleInput.handle(text, socket, store, channelName, addMessage, user);
+    return handleInput.handle(text, socket, store, channelName, addMessage, user, channelState);
   }
 
   function replaceSelectedWord(word, sel) {

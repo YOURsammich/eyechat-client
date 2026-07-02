@@ -57,11 +57,32 @@ const messageParser = {
 
     return {index, strdata: '/' + nextCharacter, type: 'style'};
   },
-  getNextLinkComp (str) { 
+  getNextLinkComp (str) {
     const index = str.indexOf('https://');
     if (index == -1) return null;
 
     const nextSpace = str.indexOf(' ', index);
+    const quoteStart = str.indexOf('"', index);
+
+    // Labeled link: https://url"Label" renders as a hyperlink whose visible
+    // text is Label. The opening quote must come before the next space (a URL
+    // can't contain a space, so the label immediately follows the URL), which
+    // keeps a bare link followed by an unrelated quoted word from being
+    // mislabeled. The label itself may contain spaces. `strdata` spans the
+    // whole token so the parser consumes it; `href`/`label` are read at render.
+    if (quoteStart != -1 && (nextSpace == -1 || quoteStart < nextSpace)) {
+      const quoteEnd = str.indexOf('"', quoteStart + 1);
+      if (quoteEnd != -1) {
+        return {
+          index,
+          strdata: str.slice(index, quoteEnd + 1),
+          href: str.slice(index, quoteStart),
+          label: str.slice(quoteStart + 1, quoteEnd),
+          type: 'link'
+        };
+      }
+    }
+
     if (nextSpace == -1) return {index, strdata: str.slice(index), type: 'link'};
     return {index: index, strdata: str.slice(index, nextSpace), type: 'link'};
   },
@@ -128,7 +149,10 @@ const messageParser = {
 
     if (colorIndex.index == -1) return null;
 
-    const hex = str.slice(colorIndex.index).match(/^###([0-9a-f]){6}|^###([0-9a-f]){3}|^#([0-9a-f]){6}|^#([0-9a-f]){3}/i);
+    // Match a 6- or 3-digit hex color (optionally as a ### glow) and swallow one
+    // trailing space (the delimiter added by getStylePrefix) so it doesn't show
+    // in the message and so "#a9d def" parses as color #a9d + "def", not #a9ddef.
+    const hex = str.slice(colorIndex.index).match(/^(###|#)(?:[0-9a-f]{6}|[0-9a-f]{3})\x20?/i);
     if (!hex) return null;
 
     const stopPoint = hex[0].length;
@@ -195,7 +219,7 @@ const messageParser = {
       return prev;
     }, {index: Infinity});
 
-    return {index: nextComp.index, strdata: nextComp.strdata, type: nextComp.type};
+    return {index: nextComp.index, strdata: nextComp.strdata, type: nextComp.type, href: nextComp.href, label: nextComp.label};
   },
   getCurrComp (str, msgStyles) {
     const nextComp = this.getNextComp(str, msgStyles);
@@ -462,7 +486,14 @@ function QuoteMsg (props) {
 
 function LinkMsg (props) {
   const message = props.message;
-  const href = message.data.strdata;
+  const href = message.data.href ?? message.data.strdata;
+  const label = message.data.label;
+
+  // A labeled link (https://url"Label") renders as a plain hyperlink whose
+  // visible text is the label — no inline image or embed treatment.
+  if (label) {
+    return <a href={href} target='_blank' rel="noopener noreferrer">{label}</a>;
+  }
 
   //check if href is an image
   const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
@@ -549,7 +580,45 @@ function NestMessage (props) {
 
 }
 
+// Renders a plain string with the full message styling pipeline — emoji,
+// color, text styles, links — for standalone UI bits (e.g. the center
+// message) that aren't chat-log entries and so don't have the surrounding
+// Messages machinery. The callbacks NestMessage may invoke (image load,
+// overlay, quote render) are safe no-ops here.
+export function ParsedContent ({ text, emojis }) {
+  if (!text) return null;
+  const parsed = messageParser.parse(text, msgStyles);
+  return <NestMessage
+    message={parsed}
+    emojis={emojis}
+    _imageLoaded={() => {}}
+    renderMessage={() => null}
+    setOverlay={() => {}}
+  />;
+}
+
 const fonts = {};
+
+// Inject a Google-Fonts stylesheet for a family once (idempotent). Fonts render
+// with `display=swap`, so text repaints in the real font as soon as it loads.
+export function loadFont (fontFamily) {
+  if (!fontFamily || fonts[fontFamily]) return;
+  fonts[fontFamily] = true;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=' + fontFamily.replaceAll(' ', '+') + '&display=swap';
+  document.head.appendChild(link);
+}
+
+// Preload every font referenced by `$Font|` tokens in a string (e.g. a flair),
+// so the font is available immediately instead of only after a message using it
+// happens to render.
+export function preloadFontsFromText (text) {
+  if (!text) return;
+  const re = /\$([^|]+)\|/g;
+  let m;
+  while ((m = re.exec(text)) !== null) loadFont(m[1]);
+}
 
 function getMsgCss (compName, value) {
   const styles = {
@@ -580,14 +649,7 @@ function getMsgCss (compName, value) {
     return { textShadow: `0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}` };
   } else if (compName == 'font') {
     const fontFamily = value.slice(1, -1);
-    if (!fonts[fontFamily]) {
-      fonts[fontFamily] = true;
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=' + fontFamily.replaceAll(' ', '+') + '&display=swap';
-      document.head.appendChild(link);
-    }
-    
+    loadFont(fontFamily);
     return { fontFamily };
   }
   return styles[value] || {};
@@ -847,6 +909,12 @@ class Messages extends React.Component {
   renderMessageContent (msgData) {
     if (msgData.type === 'weather') {
       return <div className='messageContent'><pre className='weatherBlock' dangerouslySetInnerHTML={{ __html: msgData.message }} /></div>;
+    }
+
+    // `noparse` messages (e.g. /get output) are shown verbatim — no emoji,
+    // color, or text-style parsing. React escapes the string for us.
+    if (msgData.noparse) {
+      return <div className='messageContent'>{msgData.message}</div>;
     }
 
     const message = messageParser.parse(msgData.message,

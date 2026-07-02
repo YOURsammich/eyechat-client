@@ -6,6 +6,7 @@ import socket from './utils/socket';
 
 import ChatWindow from './comps/Chat/ChatWindow';
 import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
+import { preloadFontsFromText } from './comps/Chat/Messages';
 
 const COPE_CLOUD = 'http://localhost:8080/';
 
@@ -31,11 +32,17 @@ function App() {
     // renders immediately instead of waiting on the preconnect + WS handshake.
     socket.on('pong', () => socket.emit('ping'));
 
-    socket.on('userlist', (list) => setUserlist(list));
+    socket.on('userlist', (list) => {
+      // Load any fonts used in flairs up front, so styled nicks don't wait for a
+      // message using that font to render before the font appears.
+      for (const u of list) preloadFontsFromText(u.flair);
+      setUserlist(list);
+    });
 
     socket.on('setID', (id) => setUserID(id));
 
     socket.on('userJoin', (user) => {
+      preloadFontsFromText(user.flair);
       setUserlist(prev => [...prev, user]);
     });
 
@@ -50,6 +57,7 @@ function App() {
     });
 
     socket.on('userStateChange', ({ user, stateChange }) => {
+      if (stateChange.flair) preloadFontsFromText(stateChange.flair);
       setUserlist(prev => {
         const index = prev.findIndex(a => a.id === user.id);
         if (index === -1) return prev;
