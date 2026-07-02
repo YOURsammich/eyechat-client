@@ -250,6 +250,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           layout={layout}
           changeLayout={changeLayout}
           themeColor={channelState.themecolors.menupri}
+          sidebarColor={channelState.themecolors.sidebar}
           themecolors={channelState.themecolors}
           channelName={channelName}
           hats={channelState.hats}

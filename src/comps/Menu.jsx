@@ -4,7 +4,7 @@ import handleInput from '../utils/handleInput';
 import AvatarDisplay from './Chat/AvatarDisplay';
 
 const SUB_MENUS = [
-  { name: 'users',    label: 'Users',    icon: 'group' },
+  { name: 'users',    label: 'User List',    icon: 'group' },
   { name: 'settings', label: 'Settings', icon: 'settings' },
   { name: 'shop',     label: 'Shop',     icon: 'shopping_cart' },
   { name: 'avatar',   label: 'Avatar',   icon: 'face' },
@@ -30,23 +30,30 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, hats, user, themecolors, channelName }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, hats, user, themecolors, channelName }) {
   const [selectedList, setSelectedList] = useState('users');
+  const [navExpanded, setNavExpanded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(true);
   const selected = SUB_MENUS.find(m => m.name === selectedList);
 
   return (
-    <div className='menuPane' style={{ background: themeColor }}>
-      <ul className='quickNav'>
+    <div className={'menuPane' + (menuOpen ? '' : ' collapsed')} style={{ background: themeColor }}>
+      <ul className={'quickNav' + (navExpanded ? ' expanded' : '')} style={{ background: sidebarColor || undefined }}>
         {SUB_MENUS.map(m => (
-          <li className={`navBtn${m.name === selectedList ? ' active' : ''}`} key={m.name} onClick={() => setSelectedList(m.name)}>
+          <li className={`navBtn${m.name === selectedList ? ' active' : ''}`} key={m.name} onClick={() => { setSelectedList(m.name); setMenuOpen(true); }}>
+            <span className='navLabel'>{m.label}</span>
             <span className="material-symbols-outlined">{m.icon}</span>
           </li>
         ))}
+        <li className='navBtn navToggle' onClick={() => setNavExpanded(e => !e)} title={navExpanded ? 'Collapse' : 'Expand'}>
+          <span className="material-symbols-outlined">{navExpanded ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left'}</span>
+        </li>
       </ul>
 
       <div className='menuContent'>
         <div className='menuHeader'>
-          <h4>{selected?.label}</h4>
+          <span className='menuHeaderLabel'>{selected?.label}</span>
+          <span className="material-symbols-outlined menuCloseBtn" onClick={() => setMenuOpen(false)} title='Close menu'>close</span>
         </div>
 
         {selectedList === 'users' && (
@@ -303,6 +310,7 @@ const THEME_KEYS = [
   { key: 'topbarpri', label: 'Top Bar' },
   { key: 'inputbar',  label: 'Input Bar' },
   { key: 'menupri',   label: 'Menu' },
+  { key: 'sidebar',   label: 'Icon Bar' },
   { key: 'bubblebg',  label: 'Bubble BG', alpha: true },
 ];
 

@@ -2,7 +2,7 @@ import * as React from 'react';
 
 const PART_ORDER = ['heads', 'eyes', 'noses', 'mouths', 'hair'];
 
-export default function AvatarDisplay({ avatar, size = 40 }) {
+export default function AvatarDisplay({ avatar, size = 25 }) {
   if (!avatar) return null;
 
   return (

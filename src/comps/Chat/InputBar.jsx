@@ -447,7 +447,7 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
         user={user}
       />
 
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '5px' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '6px 5px' }}>
         <div className='pretendInput'>
           <div style={{ position: 'relative', flex: 1, display: 'flex', overflow: 'hidden' }}>
             {ghostText ? (
