@@ -30,7 +30,7 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, socket, userlist, bridgeNicks, toggles, toggleStateChange, layout, changeLayout, hats, user, themecolors, channelName }) {
+function Menu({ themeColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, hats, user, themecolors, channelName }) {
   const [selectedList, setSelectedList] = useState('users');
   const selected = SUB_MENUS.find(m => m.name === selectedList);
 
@@ -50,7 +50,7 @@ function Menu({ themeColor, socket, userlist, bridgeNicks, toggles, toggleStateC
         </div>
 
         {selectedList === 'users' && (
-          <UserList socket={socket} userlist={userlist} bridgeNicks={bridgeNicks} />
+          <UserList socket={socket} userlist={userlist} />
         )}
         {selectedList === 'settings' && (
           <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} />
@@ -73,7 +73,6 @@ Menu.propTypes = {
   themeColor:        PropTypes.string,
   socket:            PropTypes.object.isRequired,
   userlist:          PropTypes.array.isRequired,
-  bridgeNicks:       PropTypes.array,
   toggles:           PropTypes.object.isRequired,
   toggleStateChange: PropTypes.func.isRequired,
   hats:              PropTypes.array.isRequired,
@@ -81,7 +80,7 @@ Menu.propTypes = {
 
 // ─── UserList ──────────────────────────────────────────────────────────────────
 
-function UserList({ socket, userlist, bridgeNicks }) {
+function UserList({ socket, userlist }) {
   return (
     <div className='userLi'>
       {userlist.map(user => (
@@ -98,14 +97,6 @@ function UserList({ socket, userlist, bridgeNicks }) {
           <div className='userLiAFK'>{user.afk}</div>
         </div>
       ))}
-
-      <i className='bridgeUserHeader'>Bridge Users</i>
-
-      {bridgeNicks?.map(user => (
-        <div className='userLiSpan bridgeUser' key={'bridgeuser-' + user.nick}>
-          {user.nick}
-        </div>
-      ))}
     </div>
   );
 }
@@ -113,7 +104,6 @@ function UserList({ socket, userlist, bridgeNicks }) {
 UserList.propTypes = {
   socket:      PropTypes.object.isRequired,
   userlist:    PropTypes.array.isRequired,
-  bridgeNicks: PropTypes.array,
 };
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

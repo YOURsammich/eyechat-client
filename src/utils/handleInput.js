@@ -181,8 +181,6 @@ const COMMANDS = {
   },
   sidebar: {},
   flipcoin: {},
-  startbridge: {},
-  stopbridge: {},
   avatar: {
     params: ['type', 'id'],
   },

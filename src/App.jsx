@@ -15,7 +15,6 @@ function App() {
   const [userlist, setUserlist] = useState([]);
   const [userID, setUserID] = useState(null);
   const [plugins, setPlugins] = useState([]);
-  const [bridgeNicks, setBridgeNicks] = useState([]);
 
   const storeRef = useRef(null);
   const iframeRef = useRef(null);
@@ -33,8 +32,6 @@ function App() {
     socket.on('pong', () => socket.emit('ping'));
 
     socket.on('userlist', (list) => setUserlist(list));
-
-    socket.on('bridgeNicks', (nicks) => setBridgeNicks(nicks));
 
     socket.on('setID', (id) => setUserID(id));
 
@@ -138,7 +135,6 @@ function App() {
           <ChatWindow
             socket={socket}
             userlist={userlist}
-            bridgeNicks={bridgeNicks}
             channelName='main'
             user={myUser}
             focusOnChat={true}

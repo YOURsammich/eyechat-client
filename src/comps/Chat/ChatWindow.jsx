@@ -8,7 +8,7 @@ import UnoPanel from './../Uno/UnoPanel';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
 
-function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnChat, store }) {
+function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store }) {
   const [messages, setMessages] = useState([]);
   const [showUsers] = useState(true);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -243,7 +243,6 @@ function ChatWindow({ socket, userlist, bridgeNicks, channelName, user, focusOnC
         <Menu
           socket={socket}
           userlist={userlist}
-          bridgeNicks={bridgeNicks}
           toggleOverlay={toggleOverlay}
           activeList={selectedList}
           toggleStateChange={toggleStateChange}

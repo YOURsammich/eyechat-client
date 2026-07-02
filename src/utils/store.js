@@ -75,7 +75,7 @@ class Store {
 
     this.defaultStateValues = {
       'toggle-background': true,
-      'toggle-bubbles': true,
+      'toggle-bubbles': false,
       'toggle-centermsg': true,
     };
 
