@@ -1,61 +1,64 @@
+// The nick / register / login commands all POST to /login and share the same
+// response contract ({ error } on failure, { success, nick } otherwise).
+// Centralize the request so every auth path reports what happened — previously
+// register swallowed its response entirely and success was never surfaced,
+// making failures look like nothing happened at all.
+async function postAuth(type, params, addMessage) {
+  const tell = (message, msgType) =>
+    addMessage({ message, type: msgType, count: Math.random() });
+
+  let res;
+  try {
+    res = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ params, type })
+    });
+  } catch (err) {
+    tell('Could not reach the server. Check your connection and try again.', 'error');
+    return;
+  }
+
+  // Success responses can have an empty body, so guard the JSON parse.
+  let body = {};
+  try {
+    const text = await res.text();
+    if (text) body = JSON.parse(text);
+  } catch (err) {
+    // Non-JSON / empty body — treat as no structured error.
+  }
+
+  if (!res.ok || body.error) {
+    tell(body.error || `Request failed (${res.status}).`, 'error');
+    return;
+  }
+
+  // Positive confirmation. The server also emits a channel notice on a real
+  // login/registration, but an explicit line makes the outcome unambiguous.
+  if (type === 'register') tell(`Registered and logged in as ${params.nick}.`, 'info');
+  else if (type === 'login') tell(`Logged in as ${params.nick}.`, 'info');
+}
+
 const COMMANDS = {
   nick: {
     params: ['nick'],
     handler (params, {channelName, addMessage}) {
-
       params.channelName = channelName;
-
-      fetch('/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ params, type: 'nickAvailable' })
-      })
-        .then(res => res.json())
-        .then(res => {
-          if (res.error) {
-            addMessage({
-              message: res.error,
-              type: 'error',
-              count: Math.random()
-            });
-          }
-        });
+      postAuth('nickAvailable', params, addMessage);
     }
   },
   register: {
     params: ['nick', 'password'],
-    handler (params, {channelName}) {
-
+    handler (params, {channelName, addMessage}) {
       params.channelName = channelName;
-
-      fetch('/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ params, type: 'register' })
-      });
+      postAuth('register', params, addMessage);
     }
   },
   login: {
     params: ['nick', 'password'],
     handler (params, {channelName, addMessage}) {
-
       params.channelName = channelName;
-
-      fetch('/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ params, type: 'login' })
-      })
-        .then(res => res.json())
-        .then(res => {
-          if (res.error) {
-            addMessage({
-              message: res.error,
-              type: 'error',
-              count: Math.random()
-            });
-          }
-      });
+      postAuth('login', params, addMessage);
     }
   },
   gif: {
