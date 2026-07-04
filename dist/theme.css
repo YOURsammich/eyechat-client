@@ -1062,6 +1062,7 @@ a {
   font-weight: bold;
   gap: 10px;
   border: none;
+  justify-content: center;
 }
 
 .stdBtn:disabled {

@@ -30,7 +30,7 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, hats, user, themecolors, channelName, mobileOpen, setMobileOpen }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
@@ -66,7 +66,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
           <Shop hats={hats} />
         )}
         {selectedList === 'avatar' && (
-          <AvatarBuilder user={user} />
+          <AvatarBuilder user={user} emojis={emojis} />
         )}
         {selectedList === 'channel' && (
           <ChannelTheme themecolors={themecolors} channelName={channelName} />
@@ -222,9 +222,15 @@ function JoinNames() {
 
 // ─── AvatarBuilder ────────────────────────────────────────────────────────────
 
-function AvatarBuilder({ user }) {
+// Cap how many emoji tiles we render at once — the room can have thousands, so
+// rendering them all would be slow. Users narrow down with the search box.
+const EMOJI_RENDER_CAP = 60;
+
+function AvatarBuilder({ user, emojis = [] }) {
   const [parts, setParts] = useState({});
   const [selected, setSelected] = useState({});
+  const [tab, setTab] = useState('parts'); // 'parts' | 'emoji'
+  const [search, setSearch] = useState('');
   const [status, setStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
 
   useEffect(() => {
@@ -236,20 +242,44 @@ function AvatarBuilder({ user }) {
       try {
         const parsed = typeof user.avatar === 'string' ? JSON.parse(user.avatar) : user.avatar;
         setSelected(parsed || {});
+        // Open on whichever editor matches the current avatar.
+        if (parsed?.emoji) setTab('emoji');
       } catch {}
     }
   }, []);
 
   function toggle(category, file) {
-    setSelected(prev => ({ ...prev, [category]: prev[category] === file ? null : file }));
+    // Selecting a part switches the avatar to layered parts (drops any emoji).
+    setSelected(prev => {
+      const { emoji, ...parts } = prev;
+      return { ...parts, [category]: parts[category] === file ? null : file };
+    });
+    setStatus(null);
+  }
+
+  function pickEmoji(imageName) {
+    // Choosing a chat emoji replaces the whole avatar; clicking the selected
+    // one again clears it back to no emoji.
+    setSelected(prev => {
+      if (prev.emoji === imageName) {
+        const { emoji, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, emoji: imageName };
+    });
     setStatus(null);
   }
 
   function save() {
     setStatus('saving');
-    const avatar = {};
-    for (const [k, v] of Object.entries(selected)) {
-      if (v) avatar[k] = v;
+    let avatar;
+    if (selected.emoji) {
+      avatar = { emoji: selected.emoji };
+    } else {
+      avatar = {};
+      for (const [k, v] of Object.entries(selected)) {
+        if (v) avatar[k] = v;
+      }
     }
     fetch('/a/avatar', {
       method: 'POST',
@@ -261,41 +291,107 @@ function AvatarBuilder({ user }) {
       .catch(() => setStatus('error'));
   }
 
+  const q = search.trim().toLowerCase();
+  const matchedEmojis = q ? emojis.filter(e => e.id.toLowerCase().includes(q)) : emojis;
+  const shownEmojis = matchedEmojis.slice(0, EMOJI_RENDER_CAP);
+
+  const tabBtn = (id, label) => (
+    <button
+      onClick={() => setTab(id)}
+      style={{
+        flex: 1, padding: '6px 0', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+        background: tab === id ? '#2a2a2a' : 'transparent', color: tab === id ? '#eee' : '#888',
+        border: 'none', borderBottom: tab === id ? '2px solid #39f' : '2px solid transparent',
+      }}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0 12px', flexShrink: 0, borderBottom: '1px solid #333' }}>
         <AvatarDisplay avatar={selected} size={80} />
       </div>
 
+      <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid #333' }}>
+        {tabBtn('parts', 'Parts')}
+        {tabBtn('emoji', 'Emoji')}
+      </div>
+
       <div style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1, minHeight: 0, padding: '8px 10px' }}>
-        {AVATAR_PART_ORDER.map(category => (
-          <div key={category} style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 11, color: '#777', textTransform: 'capitalize', marginBottom: 4 }}>
-              {category}
+        {tab === 'parts' ? (
+          AVATAR_PART_ORDER.map(category => (
+            <div key={category} style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: '#777', textTransform: 'capitalize', marginBottom: 4 }}>
+                {category}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                {(parts[category] || []).map(file => (
+                  <img
+                    key={file}
+                    src={`/images/avatars/${category}/${file}`}
+                    title={file}
+                    onClick={() => toggle(category, file)}
+                    style={{
+                      width: 38, height: 38, cursor: 'pointer', borderRadius: 4,
+                      border: selected[category] === file ? '2px solid #555' : '2px solid transparent',
+                      background: 'white', objectFit: 'contain', boxSizing: 'border-box',
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-              {(parts[category] || []).map(file => (
-                <img
-                  key={file}
-                  src={`/images/avatars/${category}/${file}`}
-                  title={file}
-                  onClick={() => toggle(category, file)}
-                  style={{
-                    width: 38, height: 38, cursor: 'pointer', borderRadius: 4,
-                    border: selected[category] === file ? '2px solid #555' : '2px solid transparent',
-                    background: 'white', objectFit: 'contain', boxSizing: 'border-box',
-                  }}
-                />
-              ))}
-            </div>
+          ))
+        ) : (
+          <div>
+            <input
+              type='text'
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder='Search emojis…'
+              style={{
+                width: '100%', padding: '6px 8px', marginBottom: 8, fontSize: 13,
+                borderRadius: 4, border: '1px solid #444', background: '#222', color: '#eee', boxSizing: 'border-box',
+              }}
+            />
+            {emojis.length === 0 ? (
+              <div style={{ fontSize: 11, color: '#666' }}>No chat emojis uploaded yet.</div>
+            ) : matchedEmojis.length === 0 ? (
+              <div style={{ fontSize: 11, color: '#666' }}>No emojis match “{search.trim()}”.</div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                  {shownEmojis.map(e => (
+                    <img
+                      key={e.id}
+                      src={`/images/emojis/${e.imageName}`}
+                      title={e.id}
+                      loading='lazy'
+                      onClick={() => pickEmoji(e.imageName)}
+                      style={{
+                        width: 38, height: 38, cursor: 'pointer', borderRadius: 4, padding: 2,
+                        border: selected.emoji === e.imageName ? '2px solid #39f' : '2px solid transparent',
+                        objectFit: 'contain', boxSizing: 'border-box',
+                      }}
+                    />
+                  ))}
+                </div>
+                {matchedEmojis.length > shownEmojis.length && (
+                  <div style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
+                    Showing {shownEmojis.length} of {matchedEmojis.length} — keep typing to narrow it down.
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        ))}
+        )}
 
         <button
           className='stdBtn'
           onClick={save}
           disabled={status === 'saving'}
-          style={{ width: '100%', marginTop: 6, padding: '6px 0' }}
+          style={{ width: '100%', marginTop: 12, padding: '6px 0' }}
         >
           {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved!' : status === 'error' ? 'Error — try again' : 'Save Avatar'}
         </button>

@@ -49,7 +49,7 @@ const LABELS = {
   'Wild Draw Four': 'W+4'
 };
 
-const cardImgStyle = { height: '64px', position: 'relative', left: '-2px', top: '-2px' };
+const cardImgStyle = { height: '64px' };
 
 // A single card face: image with graceful text fallback on load error.
 function CardFace({ cardName }) {

@@ -301,6 +301,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           themecolors={channelState.themecolors}
           channelName={channelName}
           hats={channelState.hats}
+          emojis={channelState.emojis}
           user={user}
         />
       ) : null}
