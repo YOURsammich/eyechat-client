@@ -484,6 +484,56 @@ function QuoteMsg (props) {
 
 }
 
+// Ctrl+hover image preview: a single fixed element pinned to the top-right that
+// shows the hovered image at high res (max 80% of the viewport) so users can see
+// chat images without clicking through. Managed as a DOM singleton because
+// previews are triggered from many independently-rendered <img> elements.
+let _previewEl = null;
+
+function getPreviewEl () {
+  if (_previewEl) return _previewEl;
+  const el = document.createElement('img');
+  el.className = 'ctrl-image-preview';
+  Object.assign(el.style, {
+    position: 'fixed',
+    top: '10px',
+    right: '10px',
+    maxWidth: '80vw',
+    maxHeight: '80vh',
+    width: 'auto',
+    height: 'auto',
+    zIndex: '99999',
+    pointerEvents: 'none',
+    borderRadius: '6px',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+    display: 'none',
+  });
+  document.body.appendChild(el);
+  _previewEl = el;
+  return el;
+}
+
+// While a preview is showing, hide it as soon as Ctrl is released.
+function onPreviewKeyUp (e) {
+  if (e.key === 'Control' || !e.ctrlKey) hideImagePreview();
+}
+
+function showImagePreview (src) {
+  const el = getPreviewEl();
+  if (el.dataset.src !== src) {
+    el.src = src;
+    el.dataset.src = src;
+  }
+  el.style.display = 'block';
+  window.addEventListener('keyup', onPreviewKeyUp);
+}
+
+function hideImagePreview () {
+  if (!_previewEl) return;
+  _previewEl.style.display = 'none';
+  window.removeEventListener('keyup', onPreviewKeyUp);
+}
+
 function LinkMsg (props) {
   const message = props.message;
   const href = message.data.href ?? message.data.strdata;
@@ -507,9 +557,16 @@ function LinkMsg (props) {
     imageType ? <div style={{
       display: 'inline-flex',alignItems: 'flex-end',height: 'auto',
     }}>
-      <img src={href} loading='lazy' onLoad={(e) => {
-        props._imageLoaded(e.target)
-      }} />
+      <img src={href} loading='lazy'
+        onLoad={(e) => {
+          props._imageLoaded(e.target)
+        }}
+        // Ctrl+hover shows a large top-right preview. onMouseMove also catches
+        // the case where the user presses Ctrl while already hovering.
+        onMouseEnter={(e) => { if (e.ctrlKey) showImagePreview(href); }}
+        onMouseMove={(e) => { if (e.ctrlKey) showImagePreview(href); else hideImagePreview(); }}
+        onMouseLeave={hideImagePreview}
+      />
     </div> : href
   }</a>
   {' '}
