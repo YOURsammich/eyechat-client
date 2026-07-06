@@ -14,6 +14,12 @@
 
 .bubbleMessage .message {
   background: var(--bubble-bg, rgba(255, 255, 255, 0.05));
+  /* Hug the text so the bubble is a banner behind the message rather than a
+     full-width bar that covers the background image. */
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 8px;
 }
 
 .message img {
