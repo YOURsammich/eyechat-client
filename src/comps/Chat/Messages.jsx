@@ -134,6 +134,9 @@ const messageParser = {
       type: 'glow',
       start: '###',
     }, {
+      type: 'outline',
+      start: '##',
+    }, {
       type: 'color',
       start: '#',
     }]
@@ -152,7 +155,7 @@ const messageParser = {
     // Match a 6- or 3-digit hex color (optionally as a ### glow) and swallow one
     // trailing space (the delimiter added by getStylePrefix) so it doesn't show
     // in the message and so "#a9d def" parses as color #a9d + "def", not #a9ddef.
-    const hex = str.slice(colorIndex.index).match(/^(###|#)(?:[0-9a-f]{6}|[0-9a-f]{3})\x20?/i);
+    const hex = str.slice(colorIndex.index).match(/^(###|##|#)(?:[0-9a-f]{6}|[0-9a-f]{3})\x20?/i);
     if (!hex) return null;
 
     const stopPoint = hex[0].length;
@@ -343,7 +346,7 @@ function Emoji (props) {
 
 
 
-  return emoji ? (<div className='emoji' onClick={() => {
+  return emoji ? (<div className='emoji' title={':' + emoji.id + ':'} onClick={() => {
     const el = document.querySelector('.chatInput');
     if (!el) return;
     const img = document.createElement('img');
@@ -398,6 +401,7 @@ function EmojiMerge(props) {
   return (
     <div
       className='emoji'
+      title={`:${e1.id}:$:${e2.id}:`}
       style={{
         display: 'inline-block',
         width: 64,
@@ -704,6 +708,10 @@ function getMsgCss (compName, value) {
   } else if (compName == 'glow') {
     const color = value.slice(2);
     return { textShadow: `0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}` };
+  } else if (compName == 'outline') {
+    // ##color: paint only the glyph outline, leave the fill transparent.
+    const color = value.slice(1);
+    return { WebkitTextStroke: `1px ${color}`, WebkitTextFillColor: 'transparent' };
   } else if (compName == 'font') {
     const fontFamily = value.slice(1, -1);
     loadFont(fontFamily);

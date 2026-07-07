@@ -17,6 +17,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [showOverlay, setShowOverlay] = useState(false);
   const [showFluid, setShowFluid] = useState(false);
   const [fluidPalette, setFluidPalette] = useState(0);
+  const [fluidColors, setFluidColors] = useState(null);
   const [showUno, setShowUno] = useState(false);
   const [mobileUsers, setMobileUsers] = useState(false);
   const [selectedList] = useState('users');
@@ -161,6 +162,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     const onFluid = (e) => {
       const secs = e.detail?.duration ?? 30;
       setFluidPalette(e.detail?.palette ?? 0);
+      setFluidColors(e.detail?.customColors ?? null);
       setShowFluid(true);
       setTimeout(() => setShowFluid(false), secs * 1000);
     };
@@ -251,7 +253,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
 
         <div className='chatBox'>
           <div className='messageBackground' style={{ background: showFluid ? '#000' : (toggles.background ? channelState.background : '#000') }}>
-            {showFluid ? <FluidBackground palette={fluidPalette} /> : null}
+            {showFluid ? <FluidBackground palette={fluidPalette} customColors={fluidColors} /> : null}
             {toggles.centermsg ? <div id="center-text"><ParsedContent text={channelState.centermsg} emojis={channelState.emojis} /></div> : null}
           </div>
 

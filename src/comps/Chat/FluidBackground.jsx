@@ -13,6 +13,8 @@ uniform float u_time;
 uniform vec2 u_res;
 uniform vec2 u_mouse;
 uniform float u_palette;
+uniform vec3 u_custom[6];
+uniform int u_customCount;
 
 float hash(vec2 p) {
   p = fract(p * vec2(127.1, 311.7));
@@ -81,6 +83,25 @@ vec3 hardPalette(float t) {
   return             mix(vec3(0.5,  1.0,  0.0),  vec3(0.0,  1.0,  0.2),  f);
 }
 
+// Cycle smoothly through the user-supplied colors (1..6), wrapping the last
+// back to the first so the gradient loops seamlessly like the built-in presets.
+vec3 customPalette(float t) {
+  t = fract(t);
+  float scaled = t * float(u_customCount);
+  float f = fract(scaled);
+  f = f * f * (3.0 - 2.0 * f);
+  int i0 = int(floor(scaled));
+  int i1 = i0 + 1;
+  if (i1 >= u_customCount) i1 = 0;
+  vec3 c0 = u_custom[0];
+  vec3 c1 = u_custom[0];
+  for (int i = 0; i < 6; i++) {
+    if (i == i0) c0 = u_custom[i];
+    if (i == i1) c1 = u_custom[i];
+  }
+  return mix(c0, c1, f);
+}
+
 vec3 cosineColor(float t) {
   vec3 a = vec3(0.5);
   vec3 b = vec3(0.5);
@@ -122,6 +143,26 @@ float voronoiVal(vec2 uv) {
   return minDist;
 }
 
+// Domain-warped fbm flow. Returns a color-index ct; also writes the raw
+// final fbm value to f (the hsv palette wants that unshifted).
+float flowField(vec2 uv, out float f) {
+  float t = u_time * 0.055;
+  vec2 q = vec2(
+    fbm(uv * 3.0 + t),
+    fbm(uv * 3.0 + vec2(5.2, 1.3) + t)
+  );
+  vec2 r = vec2(
+    fbm(uv * 3.0 + 7.0 * q + vec2(1.7, 9.2) + 0.15 * t),
+    fbm(uv * 3.0 + 7.0 * q + vec2(8.3, 2.8) + 0.126 * t)
+  );
+  vec2 s = vec2(
+    fbm(uv * 3.0 + 7.0 * r + vec2(3.1, 4.7) + 0.2 * t),
+    fbm(uv * 3.0 + 7.0 * r + vec2(7.2, 6.1) + 0.18 * t)
+  );
+  f = fbm(uv * 3.0 + 7.0 * s);
+  return f + 0.12 * t;
+}
+
 void main() {
   vec2 uv = gl_FragCoord.xy / u_res;
 
@@ -129,30 +170,22 @@ void main() {
   float md = dot(dm, dm);
   uv += dm * 0.06 / (md + 0.03);
 
-  float t = u_time * 0.055;
   vec3 col;
 
-  if (u_palette > 6.5) {
+  if (u_customCount > 0) {
+    float f;
+    float ct = flowField(uv, f);
+    col = customPalette(ct);
+
+  } else if (u_palette > 6.5) {
     col = cosineColor(voronoiVal(uv) + u_time * 0.03);
 
   } else if (u_palette > 5.5) {
     col = cosineColor(plasmaVal(uv));
 
   } else {
-    vec2 q = vec2(
-      fbm(uv * 3.0 + t),
-      fbm(uv * 3.0 + vec2(5.2, 1.3) + t)
-    );
-    vec2 r = vec2(
-      fbm(uv * 3.0 + 7.0 * q + vec2(1.7, 9.2) + 0.15 * t),
-      fbm(uv * 3.0 + 7.0 * q + vec2(8.3, 2.8) + 0.126 * t)
-    );
-    vec2 s = vec2(
-      fbm(uv * 3.0 + 7.0 * r + vec2(3.1, 4.7) + 0.2 * t),
-      fbm(uv * 3.0 + 7.0 * r + vec2(7.2, 6.1) + 0.18 * t)
-    );
-    float f = fbm(uv * 3.0 + 7.0 * s);
-    float ct = f + 0.12 * t;
+    float f;
+    float ct = flowField(uv, f);
 
     if (u_palette < 3.5) {
       col = hardPalette(ct);
@@ -175,13 +208,18 @@ function compileShader(gl, type, src) {
   return shader;
 }
 
-function FluidBackground({ palette = 0 }) {
+function FluidBackground({ palette = 0, customColors = null }) {
   const canvasRef = useRef(null);
   const paletteRef = useRef(palette);
+  const colorsRef = useRef(customColors);
 
   useEffect(() => {
     paletteRef.current = palette;
   }, [palette]);
+
+  useEffect(() => {
+    colorsRef.current = customColors;
+  }, [customColors]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -209,6 +247,8 @@ function FluidBackground({ palette = 0 }) {
     const resLoc     = gl.getUniformLocation(prog, 'u_res');
     const mouseLoc   = gl.getUniformLocation(prog, 'u_mouse');
     const paletteLoc = gl.getUniformLocation(prog, 'u_palette');
+    const customLoc  = gl.getUniformLocation(prog, 'u_custom[0]');
+    const countLoc   = gl.getUniformLocation(prog, 'u_customCount');
 
     let mouseX = 0.5, mouseY = 0.5;
     const onMouseMove = (e) => {
@@ -232,6 +272,20 @@ function FluidBackground({ palette = 0 }) {
       gl.uniform2f(resLoc, canvas.width, canvas.height);
       gl.uniform2f(mouseLoc, mouseX, mouseY);
       gl.uniform1f(paletteLoc, paletteRef.current);
+
+      const colors = colorsRef.current;
+      const count = colors ? Math.min(colors.length, 6) : 0;
+      gl.uniform1i(countLoc, count);
+      if (count > 0) {
+        const flat = new Float32Array(18);
+        for (let i = 0; i < count; i++) {
+          flat[i * 3]     = colors[i][0];
+          flat[i * 3 + 1] = colors[i][1];
+          flat[i * 3 + 2] = colors[i][2];
+        }
+        gl.uniform3fv(customLoc, flat);
+      }
+
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       animId = requestAnimationFrame(draw);
     }

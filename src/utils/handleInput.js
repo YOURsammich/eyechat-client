@@ -1,3 +1,26 @@
+// Parse a single hex color (3- or 6-digit, leading "#" optional) into an
+// [r, g, b] triple normalized to 0..1, or null if it isn't valid hex.
+function hexToRgb(hex) {
+  let h = String(hex).trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{3}$/.test(h)) h = h.split('').map(c => c + c).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  const num = parseInt(h, 16);
+  return [((num >> 16) & 255) / 255, ((num >> 8) & 255) / 255, (num & 255) / 255];
+}
+
+// Parse a comma-separated list of hex colors into up to 6 [r,g,b] triples for a
+// custom /fluid gradient. Returns null when no valid colors are found so the
+// caller can fall back to a named preset.
+function parseFluidColors(str) {
+  if (!str) return null;
+  const colors = [];
+  for (const part of str.split(',')) {
+    const rgb = hexToRgb(part);
+    if (rgb) colors.push(rgb);
+  }
+  return colors.length ? colors.slice(0, 6) : null;
+}
+
 // The nick / register / login commands all POST to /login and share the same
 // response contract ({ error } on failure, { success, nick } otherwise).
 // Centralize the request so every auth path reports what happened — previously
@@ -230,8 +253,11 @@ const COMMANDS = {
     handler(params) {
       const secs = parseInt(params.duration) || 30;
       const palettes = { paint: 0, fire: 1, ocean: 2, acid: 3, cosine: 4, hsv: 5, plasma: 6, voronoi: 7 };
-      const palette = palettes[params.palette] ?? 0;
-      window.dispatchEvent(new CustomEvent('fluid', { detail: { duration: secs, palette } }));
+      // A palette arg of one or more hex colors (e.g. "#f00,#00f" or "f00,0f0,00f")
+      // builds a custom gradient; otherwise fall back to a named preset.
+      const customColors = parseFluidColors(params.palette);
+      const palette = customColors ? 8 : (palettes[params.palette] ?? 0);
+      window.dispatchEvent(new CustomEvent('fluid', { detail: { duration: secs, palette, customColors } }));
     }
   },
   uno: {

@@ -263,6 +263,23 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
       return;
     }
 
+    // While the emoji grid popup is open, arrow keys navigate the grid (which
+    // lays out 4 emojis per row, paginated 12 at a time) instead of moving the
+    // text caret. Left/Right step one cell; Up/Down jump a full row.
+    if (emojis?.length && event.which >= 37 && event.which <= 40) {
+      event.preventDefault();
+      const COLS = 4;
+      const last = emojis.length - 1;
+      let next = inputIndex;
+      if (event.which === 39) next = Math.min(inputIndex + 1, last);        // →
+      else if (event.which === 37) next = Math.max(inputIndex - 1, 0);      // ←
+      else if (event.which === 40) next = Math.min(inputIndex + COLS, last); // ↓
+      else if (event.which === 38) next = Math.max(inputIndex - COLS, 0);   // ↑
+      setInputIndex(next);
+      setGhostText(computeGhostText(getPlainText(), selectionStart, emojis[next].replaceWith));
+      return;
+    }
+
     if (event.which === 13) {
       if (!event.shiftKey) {
         event.preventDefault();
