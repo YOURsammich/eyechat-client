@@ -16,6 +16,9 @@ function App() {
   const [userlist, setUserlist] = useState([]);
   const [userID, setUserID] = useState(null);
   const [plugins, setPlugins] = useState([]);
+  // Set when /preconnect refuses us (ban, rate-limit, whitelist mode); shows a
+  // blocking overlay instead of a silent, never-connecting chat shell.
+  const [rejection, setRejection] = useState(null);
 
   const storeRef = useRef(null);
   const iframeRef = useRef(null);
@@ -83,6 +86,9 @@ function App() {
       socket.emit('joinChannel');
     });
 
+    // Register before init() so a rejection from the in-flight preconnect is caught.
+    socket.onRejected((message) => setRejection(message));
+
     socket.init({ getActiveChannel: () => 'main' }).then((ok) => {
       if (!ok) return;
       socket.emit('joinChannel');
@@ -115,6 +121,25 @@ function App() {
 
   return (
     <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {rejection ? (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0, 0, 0, 0.75)', padding: '1rem'
+        }}>
+          <div style={{
+            maxWidth: '420px', width: '100%', textAlign: 'center',
+            background: '#1e1e24', color: '#f2f2f2', borderRadius: '10px',
+            padding: '1.75rem 1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+              Can’t join the channel
+            </div>
+            <div style={{ opacity: 0.85, lineHeight: 1.4 }}>{rejection}</div>
+          </div>
+        </div>
+      ) : null}
+
       <div id='main-container'>
 
         {showPluginBar ? (

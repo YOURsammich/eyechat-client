@@ -4,6 +4,7 @@ const socket = {
   _pendingEmits: [],
   _disconnectCbs: [],
   _reconnectCbs: [],
+  _rejectionCbs: [],
 
   _connected: false,      // a socket is currently open
   _everConnected: false,  // we have opened at least once
@@ -37,6 +38,8 @@ const socket = {
         return this.initSocket().then(() => true);
       }
       console.log('preconnect', message);
+      // Rejected (ban, rate-limit, whitelist mode…): surface the server's reason.
+      this._fireRejection(message);
       return false;
     });
   },
@@ -86,8 +89,10 @@ const socket = {
         // every failed reconnect attempt.
         if (wasConnected) for (const cb of this._disconnectCbs) cb(e);
 
-        // Code 4003 is a server-side ban/kick; don't hammer it with reconnects.
-        if (e && e.code === 4003) this._shouldReconnect = false;
+        // Server-side rejections we shouldn't hammer with reconnects: 4003 is a
+        // ban/kick, 4004 is whitelist mode. (/preconnect normally blocks these
+        // before a socket opens; this covers a socket closed post-upgrade.)
+        if (e && (e.code === 4003 || e.code === 4004)) this._shouldReconnect = false;
 
         if (this._shouldReconnect) this._scheduleReconnect();
       });
@@ -128,9 +133,10 @@ const socket = {
       .then(res => res.json())
       .then((message) => {
         if (message && message.success) return this.initSocket(true);
-        // Fatal (e.g. banned): stop retrying.
+        // Fatal (e.g. banned or now whitelisted): stop retrying and tell the user.
         this._shouldReconnect = false;
         console.log('reconnect preconnect failed', message);
+        this._fireRejection(message);
       })
       .catch((err) => {
         console.log('reconnect attempt failed', err);
@@ -194,6 +200,21 @@ const socket = {
     return () => {
       const i = this._reconnectCbs.indexOf(callback);
       if (i !== -1) this._reconnectCbs.splice(i, 1);
+    };
+  },
+
+  _fireRejection (message) {
+    const text = (message && message.message) || 'Unable to connect.';
+    for (const cb of this._rejectionCbs) cb(text);
+  },
+
+  // Fires when /preconnect refuses the connection (ban, rate-limit, whitelist)
+  // with the server's human-readable reason. Register before init().
+  onRejected (callback) {
+    this._rejectionCbs.push(callback);
+    return () => {
+      const i = this._rejectionCbs.indexOf(callback);
+      if (i !== -1) this._rejectionCbs.splice(i, 1);
     };
   }
 

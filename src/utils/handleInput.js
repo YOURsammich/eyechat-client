@@ -171,6 +171,9 @@ const COMMANDS = {
   trust: {
     params: ['nick', 'level'],
   },
+  whitelist: {
+    params: ['state'],
+  },
   change_password: {
     params: ['oldpass', 'newpass'],
   },

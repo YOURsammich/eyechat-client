@@ -8,81 +8,13 @@
        here on purpose: its global body/a rules would fight the search chrome,
        and chat-messages.css carries everything message rendering needs. -->
   <link href="/chat-messages.css" rel="stylesheet" />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #111; color: #ccc; font-family: system-ui, sans-serif; }
-    a { color: #6af; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .wrap { max-width: 740px; margin: 0 auto; padding: 40px 16px; }
-
-    header { margin-bottom: 36px; }
-    header h1 { color: #fff; font-size: 1.8rem; margin-bottom: 6px; }
-    header p { color: #888; font-size: 14px; }
-
-    .card { background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
-    .card h2 { color: #eee; font-size: 1rem; margin-bottom: 14px; }
-
-    .row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-    input {
-      background: #252525; border: 1px solid #3a3a3a; color: #ddd;
-      border-radius: 6px; padding: 8px 12px; font-size: 14px; width: 100%;
-      font-family: inherit; outline: none;
-    }
-    input:focus { border-color: #555; }
-
-    .btn {
-      background: #2a2a2a; border: 1px solid #444; color: #ccc;
-      border-radius: 6px; padding: 8px 18px; font-size: 14px;
-      cursor: pointer; font-family: inherit; white-space: nowrap;
-    }
-    .btn:hover { background: #333; border-color: #666; }
-    .btn-primary { background: #1a3a5c; border-color: #2a5a8c; color: #8cf; }
-    .btn-primary:hover { background: #1f4570; }
-
-    .status { padding: 8px 12px; border-radius: 6px; font-size: 13px; margin-top: 10px; }
-    .status.err { background: #3a1a1a; color: #f66; border: 1px solid #5a2a2a; }
-
-    /* View toggle (Cards / Chat) */
-    .viewtoggle { display: flex; gap: 0; margin-bottom: 14px; }
-    .viewtoggle button {
-      background: #1c1c1c; border: 1px solid #333; color: #888;
-      padding: 6px 16px; font-size: 13px; cursor: pointer; font-family: inherit;
-    }
-    .viewtoggle button:first-child { border-radius: 6px 0 0 6px; }
-    .viewtoggle button:last-child { border-radius: 0 6px 6px 0; border-left: none; }
-    .viewtoggle button.active { background: #252525; border-color: #555; color: #eee; }
-
-    /* Sticky result counter, visible while scrolling. */
-    .counter {
-      position: sticky; top: 0; z-index: 10;
-      color: #888; font-size: 13px;
-      background: #111; border-bottom: 1px solid #222;
-      padding: 10px 2px; margin-bottom: 14px;
-    }
-
-    /* Card view */
-    .msg { background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
-    .msg.hit { border-color: #2a5a8c; }
-    .msg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-    .msg-nick { color: #8cf; font-weight: 600; font-size: 14px; }
-    .msg-num {
-      margin-left: auto; font-size: 12px; color: #666; cursor: pointer;
-      background: none; border: 1px solid #333; border-radius: 6px; padding: 1px 8px; font-family: inherit;
-    }
-    .msg-num:hover { border-color: #666; color: #ccc; }
-    .msg-time { font-size: 12px; color: #555; }
-    .msg-body { color: #ccc; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-
-    /* Chat view: reuse the real .message/.nick/.time styles from
-       chat-messages.css; just give the wrapper the chat's dark/white palette. */
-    .chatview { color: #ddd; }
-    .chatview .time { cursor: pointer; }
-    .chatview .message.hit-chat { outline: 1px solid #2a5a8c; border-radius: 4px; }
-
-    .empty { text-align: center; color: #555; padding: 48px; }
-  </style>
-  <script type="module" crossorigin src="/assets/search-CPZFfjAK.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/Messages-bUC-kUFo.js">
+  <!-- Search-page chrome. External (not inline) so the two-entry Vite build
+       never invokes the html-inline-proxy plugin, which intermittently failed
+       with "No matching HTML proxy module found". Lives in public/ so it's a
+       stable runtime asset like theme.css / chat-messages.css. -->
+  <link href="/search.css" rel="stylesheet" />
+  <script type="module" crossorigin src="/assets/search-D9i3faxu.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/Messages-CfdLl226.js">
 </head>
 <body>
   <div id="root"></div>
