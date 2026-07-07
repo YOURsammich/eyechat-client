@@ -709,9 +709,18 @@ function getMsgCss (compName, value) {
     const color = value.slice(2);
     return { textShadow: `0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}` };
   } else if (compName == 'outline') {
-    // ##color: paint only the glyph outline, leave the fill transparent.
+    // ##color: knockout text — paint the glyph in the chat background (a void)
+    // and build a solid colored surround by stamping offset copies of the glyph
+    // via text-shadow. Filling a disc of offsets makes the color hug each
+    // character's shape so the letter reads as a cutout in the color, rather
+    // than a rectangular block behind it.
     const color = value.slice(1);
-    return { WebkitTextStroke: `1px ${color}`, WebkitTextFillColor: 'transparent' };
+    const R = 2;
+    const shadows = [];
+    for (let x = -R; x <= R; x++)
+      for (let y = -R; y <= R; y++)
+        if (x * x + y * y <= R * R && (x || y)) shadows.push(`${x}px ${y}px 0 ${color}`);
+    return { color: '#181818', textShadow: shadows.join(', ') };
   } else if (compName == 'font') {
     const fontFamily = value.slice(1, -1);
     loadFont(fontFamily);
