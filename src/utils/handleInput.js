@@ -267,6 +267,16 @@ const COMMANDS = {
     handler() {
       window.dispatchEvent(new CustomEvent('uno:open'));
     }
+  },
+  whiteboard: {
+    handler() {
+      window.dispatchEvent(new CustomEvent('whiteboard:open'));
+    }
+  },
+  wb: {
+    handler() {
+      window.dispatchEvent(new CustomEvent('whiteboard:open'));
+    }
   }
 }
 

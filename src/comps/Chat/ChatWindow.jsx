@@ -5,6 +5,7 @@ import Menu, { Overlay } from './../Menu';
 import FluidBackground from './FluidBackground';
 import SearchBar from './SearchBar';
 import UnoPanel from './../Uno/UnoPanel';
+import WhiteboardPanel from './../Whiteboard/WhiteboardPanel';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
 
@@ -27,6 +28,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [fluidPalette, setFluidPalette] = useState(0);
   const [fluidColors, setFluidColors] = useState(null);
   const [showUno, setShowUno] = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [mobileUsers, setMobileUsers] = useState(false);
   const [selectedList] = useState('users');
   const [toggles, setToggles] = useState(() => ({
@@ -210,6 +212,17 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     };
   }, []);
 
+  useEffect(() => {
+    const onOpen = () => setShowWhiteboard(true);
+    const onClose = () => setShowWhiteboard(false);
+    window.addEventListener('whiteboard:open', onOpen);
+    window.addEventListener('whiteboard:close', onClose);
+    return () => {
+      window.removeEventListener('whiteboard:open', onOpen);
+      window.removeEventListener('whiteboard:close', onClose);
+    };
+  }, []);
+
   function addMessage(message) {
     if (!Array.isArray(message)) message = [message];
     setMessages(prev => [...prev, ...message]);
@@ -349,6 +362,15 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           socket={socket}
           user={user}
           onClose={() => setShowUno(false)}
+        />
+      ) : null}
+
+      {showWhiteboard ? (
+        <WhiteboardPanel
+          socket={socket}
+          user={user}
+          channelName={channelName}
+          onClose={() => setShowWhiteboard(false)}
         />
       ) : null}
     </div>
