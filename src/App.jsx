@@ -108,16 +108,19 @@ function App() {
     });
   }, []);
 
-  // Persist *our own* nick so /preconnect can re-auth us on refresh. Fires when
-  // our nick first becomes known and whenever it changes.
+  // Persist a *guest* nick so a refresh keeps the same name. Registered users are
+  // re-authed by their loginToken (and /preconnect refreshes their nick cookie
+  // server-side), so we must NOT write their display nick here: a second tab is
+  // renamed on a nick collision, and persisting that random name would clobber
+  // the shared, cross-tab nick cookie and knock the original tab down to guest.
   useEffect(() => {
-    if (!myUser?.nick) return;
+    if (!myUser?.nick || myUser.registered) return;
     fetch('/set-nick', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nick: myUser.nick })
     });
-  }, [myUser?.nick]);
+  }, [myUser?.nick, myUser?.registered]);
 
   return (
     <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>

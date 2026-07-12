@@ -9,7 +9,10 @@ const socket = {
   _connected: false,      // a socket is currently open
   _everConnected: false,  // we have opened at least once
   _shouldReconnect: true, // cleared only on a fatal preconnect rejection (e.g. banned)
-  _reconnecting: false,   // a reconnect timer/attempt is in flight
+  _reconnecting: false,   // a reconnect timer is pending (waiting out the backoff)
+  _reconnectInFlight: false, // a reconnect attempt is actually running (preconnect
+                             // fetch → socket open); spans the async gap so a
+                             // second trigger can't start a parallel reconnect
   _reconnectAttempts: 0,
   _reconnectTimer: null,
 
@@ -49,8 +52,16 @@ const socket = {
 
       const prefix = window.location.protocol === 'https:' ? 'wss' : 'ws';
 
+      // Supersede any previous socket before opening the new one: assign
+      // this._socket first (so the old socket's handlers see themselves as stale
+      // and stop acting), then close it. Overlapping reconnects (e.g. a scheduled
+      // retry racing a foreground/visibility reconnect) could otherwise leave two
+      // live sockets, and since both feed the same event registry every message
+      // was processed twice — the "double messages" bug.
+      const previous = this._socket;
       const ws = new WebSocket(prefix + '://' + location.host);
       this._socket = ws;
+      if (previous && previous !== ws) { try { previous.close(); } catch { /* already closing */ } }
 
       ws.addEventListener('error', (err) => {
         console.log('socket error', err);
@@ -60,6 +71,7 @@ const socket = {
         this._connected = true;
         this._everConnected = true;
         this._reconnectAttempts = 0;
+        this._reconnectInFlight = false;   // attempt succeeded
 
         // Flush any emits queued while the socket was down / still connecting.
         for (const payload of this._pendingEmits) ws.send(payload);
@@ -73,6 +85,9 @@ const socket = {
       });
 
       ws.addEventListener('message', (e) => {
+        // Belt-and-suspenders: ignore a socket we've already superseded so a
+        // briefly-overlapping old connection can't deliver duplicate messages.
+        if (this._socket !== ws) return;
         const data = JSON.parse(e.data);
         this._triggerEvent(data.event, data.data);
       });
@@ -83,6 +98,9 @@ const socket = {
 
         const wasConnected = this._connected;
         this._connected = false;
+        // This attempt's socket is done (dropped, or never opened) — release the
+        // guard so the next scheduled/foreground reconnect can proceed.
+        this._reconnectInFlight = false;
         console.log('socket closed', e && e.code, e && e.reason);
 
         // Only surface a disconnect once, on the live→down transition — not on
@@ -101,7 +119,7 @@ const socket = {
   },
 
   _scheduleReconnect () {
-    if (this._reconnecting) return;
+    if (this._reconnecting || this._reconnectInFlight) return;
     this._reconnecting = true;
 
     const attempt = this._reconnectAttempts++;
@@ -118,6 +136,7 @@ const socket = {
   // Skip the backoff wait and reconnect immediately (e.g. tab back to foreground).
   _reconnectNow () {
     if (this._connected) return;
+    if (this._reconnectInFlight) return;   // an attempt is already running
     if (this._socket && this._socket.readyState === WebSocket.CONNECTING) return;
     if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
     this._reconnecting = false;
@@ -126,6 +145,14 @@ const socket = {
   },
 
   _reconnect () {
+    // Only one attempt at a time: the flag spans the async preconnect fetch (and
+    // stays set until the new socket opens or closes), so a second trigger
+    // (a scheduled retry racing a foreground/visibility reconnect) can't spin up
+    // a parallel connection. Cleared in the socket open/close handlers, and in the
+    // fetch-failure/rejection paths below where no socket ever gets created.
+    if (this._reconnectInFlight) return;
+    this._reconnectInFlight = true;
+
     // Re-run preconnect to refresh the upgrade approval + userID cookie. This
     // also recovers when the server restarted and dropped its in-memory
     // session (approvedForUpgrade), which a bare WS reopen could not.
@@ -134,11 +161,13 @@ const socket = {
       .then((message) => {
         if (message && message.success) return this.initSocket(true);
         // Fatal (e.g. banned or now whitelisted): stop retrying and tell the user.
+        this._reconnectInFlight = false;
         this._shouldReconnect = false;
         console.log('reconnect preconnect failed', message);
         this._fireRejection(message);
       })
       .catch((err) => {
+        this._reconnectInFlight = false;
         console.log('reconnect attempt failed', err);
         if (this._shouldReconnect) this._scheduleReconnect();
       });

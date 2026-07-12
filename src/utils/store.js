@@ -4,7 +4,7 @@ class Store {
     this.saveAttrs = ['color', 'bgcolor', 'glow', 'nick', 'token', 
       'currentProfile', 'cursor', 'flair', 'font',
       'lock', 'menu-order', 'proxy', 'style', 'part', 'hotlink',
-      'bubble', 'block'];
+      'bubble', 'block', 'joinleave'];
 
     this.stateStruct = {
       poll_votes: {
@@ -78,6 +78,8 @@ class Store {
       'toggle-bubbles': false,
       'toggle-centermsg': true,
       'toggle-mention-sound': true,
+      // Which join/leave notices to display: 'all' | 'registered' | 'none'.
+      'joinleave': 'registered',
     };
 
     this.altAtt = {colour: 'color', bg: 'background'};

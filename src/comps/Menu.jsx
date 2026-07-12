@@ -30,7 +30,7 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
@@ -60,7 +60,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
           <UserList socket={socket} userlist={userlist} />
         )}
         {selectedList === 'settings' && (
-          <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} />
+          <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} joinLeave={joinLeave} changeJoinLeave={changeJoinLeave} />
         )}
         {selectedList === 'shop' && (
           <Shop hats={hats} />
@@ -116,23 +116,47 @@ UserList.propTypes = {
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 const LAYOUTS = ['classic', 'cozy'];
+const JOIN_LEAVE_MODES = ['all', 'registered', 'none'];
 
-function Settings({ toggles, toggleStateChange, layout, changeLayout }) {
+// A connected pill of mutually-exclusive options: the selected segment is filled,
+// the rest sit flat/muted. Keeps multi-option rows compact and visually distinct
+// from the single On/Off toggle rows.
+function Segmented({ options, value, onChange }) {
+  return (
+    <div className='segmented'>
+      {options.map(opt => (
+        <button
+          key={opt}
+          className={'segmentBtn' + (value === opt ? ' active' : '')}
+          onClick={() => onChange(opt)}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave }) {
   return (
     <div className='settingsContainer'>
       {Object.entries(toggles).map(([key, value]) => (
-        <label className='settingsLabel' key={key} onClick={() => toggleStateChange(key, !value)}>
+        <label className='settingsLabel' key={key}>
           {key}
-          <button className='stdBtn'>{value ? 'On' : 'Off'}</button>
+          <Segmented
+            options={['On', 'Off']}
+            value={value ? 'On' : 'Off'}
+            onChange={(v) => toggleStateChange(key, v === 'On')}
+          />
         </label>
       ))}
       <label className='settingsLabel'>
         layout
-        <div style={{ display: 'flex', gap: 4 }}>
-          {LAYOUTS.map(l => (
-            <button key={l} className='stdBtn' style={{ opacity: layout === l ? 1 : 0.4 }} onClick={() => changeLayout(l)}>{l}</button>
-          ))}
-        </div>
+        <Segmented options={LAYOUTS} value={layout} onChange={changeLayout} />
+      </label>
+      <label className='settingsLabel'>
+        join/leave
+        <Segmented options={JOIN_LEAVE_MODES} value={joinLeave} onChange={changeJoinLeave} />
       </label>
     </div>
   );
@@ -143,6 +167,8 @@ Settings.propTypes = {
   toggleStateChange: PropTypes.func.isRequired,
   layout:            PropTypes.string.isRequired,
   changeLayout:      PropTypes.func.isRequired,
+  joinLeave:         PropTypes.string.isRequired,
+  changeJoinLeave:   PropTypes.func.isRequired,
 };
 
 // ─── Shop ─────────────────────────────────────────────────────────────────────

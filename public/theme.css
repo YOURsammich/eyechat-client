@@ -899,7 +899,45 @@ a {
 .settingsLabel {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+}
+
+/* Segmented control: one connected pill of mutually-exclusive options. */
+.segmented {
+  display: inline-flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #2a3550;
+  background: #10151f;
+}
+
+.segmentBtn {
+  background: transparent;
+  color: #8a97ad;
+  border: none;
+  border-left: 1px solid #2a3550;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+  flex: 1;
+}
+
+.segmentBtn:first-child {
+  border-left: none;
+}
+
+.segmentBtn:hover {
+  color: #cdd6e4;
+}
+
+.segmentBtn.active {
+  background: #39f;
+  color: #fff;
 }
 
 /* ─── Join Names ──────────────────────────────────────────────────────────── */

@@ -8,6 +8,14 @@ import UnoPanel from './../Uno/UnoPanel';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
 
+// Join/leave display preference (see store 'joinleave'). Decide whether a given
+// user's join/leave notice should be shown for the current mode.
+function showJoinLeave(mode, user) {
+  if (mode === 'none') return false;
+  if (mode === 'registered') return !!user.registered;
+  return true; // 'all'
+}
+
 // Sound played when your nick is mentioned in a new chat message.
 const mentionAudio = typeof Audio !== 'undefined' ? new Audio('/audio/Bwoop.wav') : null;
 
@@ -29,6 +37,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     mentionSound:  store.get('toggle-mention-sound') !== false,
   }));
   const [layout, setLayout] = useState(() => store.get('layout') || 'classic');
+  const [joinLeave, setJoinLeave] = useState(() => store.get('joinleave') || 'registered');
   const [channelState, setChannelState] = useState({
     background: '',
     topic: '',
@@ -46,8 +55,13 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   // through refs instead of the stale values captured at mount.
   const userNickRef = useRef(user?.nick);
   const mentionSoundRef = useRef(toggles.mentionSound);
+  const joinLeaveRef = useRef(joinLeave);
+  // Our own connection id (from setID), used to recognize our own join event so
+  // we can still confirm we connected when the join/leave filter would hide it.
+  const myIdRef = useRef(null);
   useEffect(() => { userNickRef.current = user?.nick; }, [user?.nick]);
   useEffect(() => { mentionSoundRef.current = toggles.mentionSound; }, [toggles.mentionSound]);
+  useEffect(() => { joinLeaveRef.current = joinLeave; }, [joinLeave]);
 
   useEffect(() => {
     const onVisibility = () => {
@@ -127,8 +141,21 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg }));
     });
 
+    const offSetID = socket.on('setID', (id) => { myIdRef.current = id; });
+
     const offUserJoin = socket.on('userJoin', (user) => {
-      setMessages(prev => [...prev, { message: user.nick + ' has joined', type: 'general', count: Math.random() }]);
+      if (showJoinLeave(joinLeaveRef.current, user)) {
+        setMessages(prev => [...prev, { message: user.nick + ' has joined', type: 'general', count: Math.random() }]);
+      } else if (user.id === myIdRef.current) {
+        // Our own join was hidden by the filter — still confirm we connected so
+        // there's feedback that we're in the channel.
+        setMessages(prev => [...prev, { message: 'You have joined as ' + user.nick, type: 'general', count: Math.random() }]);
+      }
+    });
+
+    const offUserLeft = socket.on('userLeft', (user) => {
+      if (!showJoinLeave(joinLeaveRef.current, user)) return;
+      setMessages(prev => [...prev, { message: user.nick + ' has left: ' + (user.part || 'bye.'), type: 'general', count: Math.random() }]);
     });
 
     const offSetState = socket.on('setState', (data) => {
@@ -151,7 +178,9 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       document.removeEventListener('visibilitychange', onVisibility);
       offMessage();
       offChannelInfo();
+      offSetID();
       offUserJoin();
+      offUserLeft();
       offSetState();
       offDisconnect();
       offReconnect();
@@ -214,6 +243,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   function changeLayout(name) {
     setLayout(name);
     store.setState('layout', name);
+  }
+
+  function changeJoinLeave(mode) {
+    setJoinLeave(mode);
+    store.setState('joinleave', mode);
   }
 
   function toggleStateChange(attr, state) {
@@ -296,6 +330,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           toggles={toggles}
           layout={layout}
           changeLayout={changeLayout}
+          joinLeave={joinLeave}
+          changeJoinLeave={changeJoinLeave}
           themeColor={channelState.themecolors.menupri}
           sidebarColor={channelState.themecolors.sidebar}
           mobileOpen={mobileUsers}
