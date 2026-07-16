@@ -961,6 +961,188 @@ a {
   justify-content: space-evenly;
 }
 
+/* ─── Filters (word filters shop) ─────────────────────────────────────────── */
+
+.filtersShop {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 5px;
+  overflow-y: auto;
+}
+
+.filtersHint {
+  font-size: 12px;
+  color: #ccc;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.filtersHint code {
+  background: #00000066;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Full-width "+ Add filter" button that opens the pop-out editor. */
+.filterAddBtn {
+  width: 100%;
+}
+
+.filterAddBtn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.filterList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filterEmpty {
+  color: #8a97ad;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px 0;
+}
+
+/* A small card per filter: the trigger word sits small/muted at the top-left,
+   with the styled result stacked right under it. Delete appears on hover. */
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #000000ab;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.filterRow:hover {
+  background: #000000d9;
+}
+
+.filterRowBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.filterTrigger {
+  font-size: 11px;
+  color: #8a97ad;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filterResult {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.filterDelete {
+  color: #8a97ad;
+  cursor: pointer;
+  font-size: 18px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+.filterRow:hover .filterDelete {
+  opacity: 1;
+}
+
+.filterDelete:hover {
+  color: #ff6b6b;
+}
+
+/* ── Pop-out editor (inside a DraggableWindow) ── */
+
+.filterEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filterFieldLabel {
+  font-size: 12px;
+  color: #8a97ad;
+}
+
+.filterField .stdInput {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filterEditorPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filterPreviewBox {
+  background: #00000066;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 10px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  word-break: break-word;
+}
+
+.filterPreviewEmpty {
+  color: #5a6577;
+  font-style: italic;
+  font-size: 12px;
+}
+
+.filterError {
+  color: #ff6b6b;
+  font-size: 12px;
+}
+
+.filterWarn {
+  color: #e6c14b;
+  font-size: 12px;
+}
+
+.filterEditorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.stdBtn.ghost {
+  background: transparent;
+  border: 1px solid #3a3a3a;
+  color: #bbb;
+}
+
+.stdBtn.ghost:hover {
+  background: #ffffff14;
+}
+
+/* A filtered word rendered in a chat message. The replacement carries its own
+   styling (color/font/etc); this only hints that hovering reveals the original. */
+.filteredWord {
+  cursor: help;
+}
+
 /* ─── Utilities ───────────────────────────────────────────────────────────── */
 
 .noSelect {
@@ -999,7 +1181,7 @@ a {
   border-radius: 5px;
   box-shadow: inset 0px 0px 1px black;
   border: 1px solid;
-  height: 21px;
+  height: 34px;
 }
 
 .uploadEmojiBtn {

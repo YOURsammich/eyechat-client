@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import handleInput from '../utils/handleInput';
 import AvatarDisplay from './Chat/AvatarDisplay';
@@ -6,6 +6,7 @@ import PixelCanvas from './Pixel/PixelCanvas';
 import DrawCanvas from './Pixel/DrawCanvas';
 import DraggableWindow from './DraggableWindow';
 import AvatarComposer from './Avatar/AvatarComposer';
+import { ParsedContent } from './Chat/Messages';
 
 const SUB_MENUS = [
   { name: 'users',    label: 'User List',    icon: 'group' },
@@ -38,13 +39,24 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
+  // Bumped when the already-active nav item is re-clicked; used as a remount key
+  // so a panel with its own internal navigation (e.g. Shop) resets to its root.
+  const [navNonce, setNavNonce] = useState(0);
   const selected = SUB_MENUS.find(m => m.name === selectedList);
+
+  function selectNav(name) {
+    // Re-clicking the current tab has no state change to react to, so force a
+    // reset by bumping the remount key; a real switch just changes the section.
+    if (name === selectedList) setNavNonce(n => n + 1);
+    setSelectedList(name);
+    setMenuOpen(true);
+  }
 
   return (
     <div className={'menuPane' + (menuOpen ? '' : ' collapsed') + (mobileOpen ? ' mobileOpen' : '')} style={{ background: themeColor }}>
       <ul className={'quickNav' + (navExpanded ? ' expanded' : '')} style={{ background: sidebarColor || undefined }}>
         {SUB_MENUS.map(m => (
-          <li className={`navBtn${m.name === selectedList ? ' active' : ''}`} key={m.name} onClick={() => { setSelectedList(m.name); setMenuOpen(true); }}>
+          <li className={`navBtn${m.name === selectedList ? ' active' : ''}`} key={m.name} onClick={() => selectNav(m.name)}>
             <span className='navLabel'>{m.label}</span>
             <span className="material-symbols-outlined">{m.icon}</span>
           </li>
@@ -67,7 +79,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
           <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} joinLeave={joinLeave} changeJoinLeave={changeJoinLeave} />
         )}
         {selectedList === 'shop' && (
-          <Shop hats={hats} />
+          <Shop key={navNonce} hats={hats} emojis={emojis} />
         )}
         {selectedList === 'avatar' && (
           <AvatarBuilder user={user} emojis={emojis} />
@@ -177,7 +189,7 @@ Settings.propTypes = {
 
 // ─── Shop ─────────────────────────────────────────────────────────────────────
 
-function Shop({ hats }) {
+function Shop({ hats, emojis }) {
   const [selectedCat, setSelectedCat] = useState('nav');
 
   function selectCat(name) {
@@ -210,7 +222,7 @@ function Shop({ hats }) {
         </div>
       )}
 
-      {selectedCat === 'filters'    && <div><h3>Filters</h3></div>}
+      {selectedCat === 'filters'    && <FiltersShop emojis={emojis} />}
       {selectedCat === 'mws'        && <div><h3>MWs</h3></div>}
       {selectedCat === 'join names' && <JoinNames />}
     </div>
@@ -218,7 +230,248 @@ function Shop({ hats }) {
 }
 
 Shop.propTypes = {
-  hats: PropTypes.array.isRequired,
+  hats:   PropTypes.array.isRequired,
+  emojis: PropTypes.array,
+};
+
+// ─── FiltersShop ────────────────────────────────────────────────────────────
+
+// Word filters: a word/phrase a user types gets swapped (client-side, at render
+// time) for a styled replacement. `withThis` carries the same message markup the
+// chat renderer uses (colors like #red, fonts like $Font|, styles like /^), so
+// we preview it live with ParsedContent. The narrow side panel only lists
+// filters + an Add button; adding/editing happens in a roomy pop-out
+// (FilterEditor). Any logged-in user can add/remove today; a cope-coin cost is
+// planned.
+function FiltersShop({ emojis = [] }) {
+  const [filters, setFilters] = useState([]);
+  // null when the editor is closed; otherwise { replace, withThis, isNew }.
+  const [editor, setEditor] = useState(null);
+
+  useEffect(() => {
+    fetch('/channel/info/main/filteredWords')
+      .then(res => res.json())
+      .then(data => setFilters(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  // Persist a new/edited filter. `original` is the trigger word being edited (or
+  // null when adding); if a rename changed it, the old row is deleted first so we
+  // don't leave a stale duplicate (POST upserts by the *new* word).
+  function saveFilter(original, replace, withThis) {
+    const renamed = original && original.toLowerCase() !== replace.toLowerCase();
+    const pre = renamed
+      ? fetch('/a/filter', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelName: 'main', replace: original }),
+      })
+      : Promise.resolve();
+
+    return pre
+      .then(() => fetch('/a/filter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelName: 'main', replace, withThis }),
+      }))
+      .then(res => res.json())
+      .then(res => {
+        if (res.error) throw new Error(res.error);
+        setFilters(prev => {
+          const cleaned = prev.filter(f =>
+            f.replace.toLowerCase() !== replace.toLowerCase() &&
+            (!original || f.replace.toLowerCase() !== original.toLowerCase()));
+          return [...cleaned, { replace, withThis }];
+        });
+      });
+  }
+
+  function removeFilter(word) {
+    fetch('/a/filter', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelName: 'main', replace: word }),
+    })
+      .then(() => setFilters(prev => prev.filter(f => f.replace !== word)))
+      .catch(() => {});
+  }
+
+  return (
+    <div className='filtersShop'>
+      <button className='stdBtn filterAddBtn' onClick={(e) => setEditor({ replace: '', withThis: '', isNew: true, y: e.clientY })}>
+        <span className='material-symbols-outlined'>add</span> Add filter
+      </button>
+
+      <div className='filterList'>
+        {filters.length === 0 && <div className='filterEmpty'>No filters yet.</div>}
+        {filters.map(f => (
+          <div
+            className='filterRow'
+            key={f.replace}
+            onClick={(e) => setEditor({ replace: f.replace, withThis: f.withThis, isNew: false, y: e.clientY })}
+            title='Edit filter'
+          >
+            <div className='filterRowBody'>
+              <span className='filterTrigger'>{f.replace}</span>
+              <span className='filterResult'><ParsedContent text={f.withThis} emojis={emojis} /></span>
+            </div>
+            <span
+              className='filterDelete material-symbols-outlined'
+              onClick={(e) => { e.stopPropagation(); removeFilter(f.replace); }}
+              title='Remove filter'
+            >close</span>
+          </div>
+        ))}
+      </div>
+
+      {editor && (
+        <FilterEditor
+          emojis={emojis}
+          initial={editor}
+          existing={filters}
+          onClose={() => setEditor(null)}
+          onSave={(replace, withThis) =>
+            saveFilter(editor.isNew ? null : editor.replace, replace, withThis).then(() => setEditor(null))
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+FiltersShop.propTypes = {
+  emojis: PropTypes.array,
+};
+
+// ─── FilterEditor ───────────────────────────────────────────────────────────
+
+// The roomy add/edit surface for a single word filter, floated in a
+// DraggableWindow so it isn't constrained by the ~250px side panel. Full-width
+// inputs, a large live preview, and space for a styling helper later.
+function FilterEditor({ emojis = [], initial, existing = [], onClose, onSave }) {
+  const [replace, setReplace] = useState(initial.replace);
+  const [withThis, setWithThis] = useState(initial.withThis);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Re-load the editor when a different filter is picked from the list while the
+  // window is open — each pick passes a fresh `initial` object, so this fires on
+  // switch (and on Add, which passes empty fields) without remounting the window.
+  useEffect(() => {
+    setReplace(initial.replace);
+    setWithThis(initial.withThis);
+    setError('');
+    setSaving(false);
+  }, [initial]);
+
+  // X is frozen just left of the side panel (screen right) so the cursor barely
+  // moves; dragging then sticks. Computed once.
+  const leftRef = useRef(null);
+  if (leftRef.current === null) {
+    const w = 340;
+    const menu = document.querySelector('.menuPane');
+    leftRef.current = menu
+      ? Math.max(12, menu.getBoundingClientRect().left - w - 12)
+      : Math.max(12, window.innerWidth - w - 320);
+  }
+
+  // Y follows the click that opened/switched the editor (initial.y), so it lands
+  // next to the row you clicked. Clamped against the window's own height so it
+  // never spills off the top or bottom. Height is measured post-render (below);
+  // 360 is a first-paint estimate.
+  const bodyRef = useRef(null);
+  const [winH, setWinH] = useState(360);
+  useLayoutEffect(() => {
+    if (!bodyRef.current) return;
+    const h = bodyRef.current.offsetHeight + 58; // + title bar & body padding
+    setWinH(prev => (Math.abs(prev - h) > 2 ? h : prev));
+  });
+
+  const margin = 12;
+  const clickY = initial.y ?? window.innerHeight / 2;
+  const top = Math.min(
+    Math.max(margin, clickY - 40),
+    Math.max(margin, window.innerHeight - winH - margin)
+  );
+
+  const word = replace.trim();
+  // Warn (don't block) when adding a trigger that already exists — save overwrites.
+  const dupe = !!word && initial.isNew &&
+    existing.some(f => f.replace.toLowerCase() === word.toLowerCase());
+
+  function save() {
+    if (!word || !withThis || saving) return;
+    setSaving(true);
+    setError('');
+    onSave(word, withThis).catch(err => {
+      setError(err.message || 'Could not save filter.');
+      setSaving(false);
+    });
+  }
+
+  return (
+    <DraggableWindow
+      title={initial.isNew ? 'New filter' : 'Edit filter'}
+      onClose={onClose}
+      width={340}
+      initialLeft={leftRef.current}
+      initialTop={top}
+    >
+      <div className='filterEditor' ref={bodyRef}>
+        <label className='filterField'>
+          <span className='filterFieldLabel'>Replace this word or phrase</span>
+          <input
+            className='stdInput'
+            maxLength={100}
+            value={replace}
+            placeholder='e.g. chad'
+            onChange={e => setReplace(e.target.value)}
+            autoFocus
+          />
+        </label>
+
+        <label className='filterField'>
+          <span className='filterFieldLabel'>With this</span>
+          <input
+            className='stdInput'
+            maxLength={500}
+            value={withThis}
+            placeholder='e.g. #redGIGA CHAD'
+            onChange={e => setWithThis(e.target.value)}
+          />
+        </label>
+
+        <div className='filterEditorPreview'>
+          <span className='filterFieldLabel'>Preview</span>
+          <div className='filterPreviewBox'>
+            {withThis ? <ParsedContent text={withThis} emojis={emojis} /> : <span className='filterPreviewEmpty'>Nothing yet…</span>}
+          </div>
+        </div>
+
+        <p className='filtersHint'>
+          The replacement should be visually distinct
+        </p>
+
+        {dupe && <div className='filterWarn'>A filter for “{word}” already exists — saving overwrites it.</div>}
+        {error && <div className='filterError'>{error}</div>}
+
+        <div className='filterEditorActions'>
+          <button className='stdBtn ghost' onClick={onClose}>Cancel</button>
+          <button className='stdBtn' onClick={save} disabled={!word || !withThis || saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </DraggableWindow>
+  );
+}
+
+FilterEditor.propTypes = {
+  emojis:   PropTypes.array,
+  initial:  PropTypes.object.isRequired,
+  existing: PropTypes.array,
+  onClose:  PropTypes.func.isRequired,
+  onSave:   PropTypes.func.isRequired,
 };
 
 // ─── JoinNames ────────────────────────────────────────────────────────────────

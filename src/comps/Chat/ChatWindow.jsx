@@ -7,7 +7,7 @@ import SearchBar from './SearchBar';
 import UnoPanel from './../Uno/UnoPanel';
 import WhiteboardPanel from './../Whiteboard/WhiteboardPanel';
 
-const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats']);
+const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'filteredWords']);
 
 // Join/leave display preference (see store 'joinleave'). Decide whether a given
 // user's join/leave notice should be shown for the current mode.
@@ -47,6 +47,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     themecolors: {},
     emojis: [],
     hats: [],
+    filteredWords: {},
   });
 
   const blurredRef = useRef(false);
@@ -170,10 +171,22 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         setMessages(prev => [...prev, { message: 'Topic: ' + value, type: 'general', count: Math.random() }]);
       }
 
-      setChannelState(prev => ({
-        ...prev,
-        [key]: typeof value === 'object' ? { ...(prev[key] || {}), ...value } : value
-      }));
+      setChannelState(prev => {
+        // Word filters live-merge: a null value means the filter was removed, so
+        // strip it from the map (a plain object-merge can't delete keys).
+        if (key === 'filteredWords') {
+          const next = { ...(prev.filteredWords || {}) };
+          for (const [word, withThis] of Object.entries(value || {})) {
+            if (withThis === null) delete next[word];
+            else next[word] = withThis;
+          }
+          return { ...prev, filteredWords: next };
+        }
+        return {
+          ...prev,
+          [key]: typeof value === 'object' ? { ...(prev[key] || {}), ...value } : value
+        };
+      });
     });
 
     return () => {
@@ -306,6 +319,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
 
           <Messages
             emojis={channelState.emojis}
+            filters={channelState.filteredWords}
             socket={socket}
             getUserFlair={getUserFlair}
             messages={messages}

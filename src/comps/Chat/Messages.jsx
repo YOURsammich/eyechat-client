@@ -587,10 +587,78 @@ function LinkMsg (props) {
 
 }
 
+// A word/phrase the channel filters replaces on display. The raw message keeps
+// the original text; here we render the styled `withThis` replacement (which may
+// itself carry color/font/style markup and emoji). Filters are NOT re-applied to
+// the replacement, so a replacement that contains its own trigger word (e.g.
+// bruh -> /?bruh|) can't loop. `original` is surfaced on hover.
+function FilteredWord (props) {
+  const parsed = messageParser.parse(props.withThis, msgStyles);
+  return <span className='filteredWord' title={props.original}>
+    <NestMessage
+      message={parsed}
+      emojis={props.emojis}
+      _imageLoaded={() => {}}
+      renderMessage={() => null}
+      setOverlay={() => {}}
+    />
+  </span>;
+}
+
+// Compile a channel's filter map ({ replace: withThis }) into a single
+// case-insensitive whole-word matcher. Longest replace-text first so a phrase
+// wins over a word it contains; one combined regex means an inserted replacement
+// is never re-scanned. Returns null when there are no filters. Also accepts an
+// array of { replace, withThis } for convenience.
+function compileFilters (filters) {
+  const list = Array.isArray(filters)
+    ? filters
+    : Object.entries(filters || {}).map(([replace, withThis]) => ({ replace, withThis }));
+  const words = list.filter(f => f.replace && f.withThis).sort((a, b) => b.replace.length - a.replace.length);
+  if (!words.length) return null;
+  const map = new Map(words.map(f => [f.replace.toLowerCase(), f.withThis]));
+  const alts = words.map(f => f.replace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  return { re: new RegExp(`\\b(?:${alts})\\b`, 'gi'), map };
+}
+
+function spanishChars (text, keySeed) {
+  return text.split('').map((a, i) => (
+    <span style={{ display: 'inline-block' }} key={keySeed + a + i}>{a}</span>
+  ));
+}
+
+// Render a plain-text node, swapping any filtered word/phrase for its styled
+// <FilteredWord>. `spanish` (wavy) mode splits the remaining plain text into
+// per-character spans, same as before. With no matcher it's a passthrough.
+function renderTextNode (text, matcher, emojis, spanish, keySeed) {
+  if (!matcher) return spanish ? spanishChars(text, keySeed) : text;
+
+  matcher.re.lastIndex = 0;
+  const out = [];
+  let last = 0, m, i = 0;
+  while ((m = matcher.re.exec(text)) !== null) {
+    if (m.index > last) {
+      const chunk = text.slice(last, m.index);
+      out.push(spanish ? spanishChars(chunk, keySeed + 't' + i) : chunk);
+    }
+    out.push(
+      <FilteredWord key={keySeed + 'f' + i} withThis={matcher.map.get(m[0].toLowerCase())} original={m[0]} emojis={emojis} />
+    );
+    last = m.index + m[0].length;
+    i++;
+  }
+  if (!out.length) return spanish ? spanishChars(text, keySeed) : text;
+  if (last < text.length) {
+    const chunk = text.slice(last);
+    out.push(spanish ? spanishChars(chunk, keySeed + 't' + i) : chunk);
+  }
+  return out;
+}
+
 function getCompRender (message, props, spanish) {
   switch (true) {
     case typeof message.data == 'string':
-      return spanish ? message.data.split('').map((a,i)=><span style={{display:'inline-block'}} key={message.count+a+i}>{a}</span>) : message.data;
+      return renderTextNode(message.data, props.filterMatcher, props.emojis, spanish, 'k');
     case message.data.type == 'slideshow':
       return <SlideShow message={message.data.strdata} />;
     case message.data.type == 'link':
@@ -627,10 +695,11 @@ function NestMessage (props) {
 
       { getCompRender(message, props, props.spanish) }
       
-      {message.children.length > 0 ? <NestMessage 
+      {message.children.length > 0 ? <NestMessage
         spanish={props.spanish || msgcss.spanish}
-        message={message} 
+        message={message}
         emojis={props.emojis}
+        filterMatcher={props.filterMatcher}
         _imageLoaded={(image) => props._imageLoaded(image)}
         renderMessage={props.renderMessage}
         setOverlay={(id) => props.setOverlay(id)}
@@ -884,7 +953,7 @@ class Messages extends React.Component {
       return;
     }
 
-    if (prevProps.layout !== this.props.layout || prevProps.showAvatars !== this.props.showAvatars) {
+    if (prevProps.layout !== this.props.layout || prevProps.showAvatars !== this.props.showAvatars || prevProps.filters !== this.props.filters) {
       this.cacheMessage = {};
     }
 
@@ -997,13 +1066,25 @@ class Messages extends React.Component {
 
     return <div className='messageContent'>
       <NestMessage
-        message={message} 
+        message={message}
         emojis={this.props.emojis}
+        filterMatcher={msgData.type === 'chat' ? this.getFilterMatcher() : null}
         _imageLoaded={(image) => this._imageLoaded(image)}
         renderMessage={this.renderMessage.bind(this)}
         setOverlay={(id) => this.setState({showOverlay: id})}
       />
     </div>
+  }
+
+  // Compile the channel's word filters once per distinct `filters` prop; a new
+  // object identity (set on every add/remove) invalidates the cache. Word filters
+  // apply only to chat message bodies, not nicks/flair or system messages.
+  getFilterMatcher () {
+    if (this._filtersRef !== this.props.filters) {
+      this._filtersRef = this.props.filters;
+      this._filterMatcher = compileFilters(this.props.filters);
+    }
+    return this._filterMatcher;
   }
 
   renderMessage (message) {
