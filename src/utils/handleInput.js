@@ -211,6 +211,9 @@ const COMMANDS = {
   kick: {
     params: ['nick']
   },
+  scare: {
+    params: ['nick']
+  },
   ban: {
     params: ['nick']
   },
@@ -240,6 +243,30 @@ const COMMANDS = {
   },
   sidebar: {},
   flipcoin: {},
+  ask: {
+    params: ['question'],
+    parseMethod: 'leaveSpace'
+  },
+  addcope: {
+    params: ['answer'],
+    parseMethod: 'leaveSpace'
+  },
+  // /unban has no client handler, so it emits to the server (trust-gated there).
+  unban: {
+    params: ['target']
+  },
+  // banlist / seecope open a client-side management panel (like /uno) — no
+  // server round-trip; the panel fetches its own data over REST.
+  banlist: {
+    handler() {
+      window.dispatchEvent(new CustomEvent('banlist:open'));
+    }
+  },
+  seecope: {
+    handler() {
+      window.dispatchEvent(new CustomEvent('seecope:open'));
+    }
+  },
   avatar: {
     params: ['type', 'id'],
   },

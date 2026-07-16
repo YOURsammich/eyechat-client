@@ -6,6 +6,8 @@ import FluidBackground from './FluidBackground';
 import SearchBar from './SearchBar';
 import UnoPanel from './../Uno/UnoPanel';
 import WhiteboardPanel from './../Whiteboard/WhiteboardPanel';
+import ManagerPanel from './../ManagerPanel';
+import JumpScare from './JumpScare';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'filteredWords']);
 
@@ -29,6 +31,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [fluidColors, setFluidColors] = useState(null);
   const [showUno, setShowUno] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [showBanList, setShowBanList] = useState(false);
+  const [showCope, setShowCope] = useState(false);
   const [mobileUsers, setMobileUsers] = useState(false);
   const [selectedList] = useState('users');
   const [toggles, setToggles] = useState(() => ({
@@ -236,6 +240,17 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     };
   }, []);
 
+  useEffect(() => {
+    const onBanList = () => setShowBanList(true);
+    const onCope = () => setShowCope(true);
+    window.addEventListener('banlist:open', onBanList);
+    window.addEventListener('seecope:open', onCope);
+    return () => {
+      window.removeEventListener('banlist:open', onBanList);
+      window.removeEventListener('seecope:open', onCope);
+    };
+  }, []);
+
   function addMessage(message) {
     if (!Array.isArray(message)) message = [message];
     setMessages(prev => [...prev, ...message]);
@@ -297,6 +312,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
 
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <JumpScare socket={socket} />
       <div className={'chatContainer' + (toggles.bubbles ? ' bubbleMessage' : '')} style={{ '--bubble-bg': channelState.themecolors.bubblebg || '' }}>
 
         <div className="chatHeader" style={{ backgroundColor: channelState.themecolors.topbarpri || '' }}>
@@ -385,6 +401,39 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           user={user}
           channelName={channelName}
           onClose={() => setShowWhiteboard(false)}
+        />
+      ) : null}
+
+      {showBanList ? (
+        <ManagerPanel
+          title='Ban List'
+          onClose={() => setShowBanList(false)}
+          loadUrl='/channel/bans'
+          deleteUrl='/channel/unban'
+          deleteLabel='Unban'
+          emptyText='No active bans.'
+          confirmText={(b) => `Lift the ban on ${b.nick || b.remote_addr || 'this user'}?`}
+          columns={[
+            { label: 'Nick', render: (b) => b.nick || '—' },
+            { label: 'IP', render: (b) => b.remote_addr || 'hidden' },
+            { label: 'Banned by', render: (b) => b.bannedBy || '—' },
+          ]}
+        />
+      ) : null}
+
+      {showCope ? (
+        <ManagerPanel
+          title='Magic Cope Ball — Answers'
+          onClose={() => setShowCope(false)}
+          loadUrl='/channel/cope'
+          deleteUrl='/channel/cope/delete'
+          deleteLabel='Delete'
+          emptyText='No answers submitted yet.'
+          confirmText={() => 'Delete this answer?'}
+          columns={[
+            { label: 'Answer', render: (a) => a.answer },
+            { label: 'By', render: (a) => a.nick || '—' },
+          ]}
         />
       ) : null}
     </div>

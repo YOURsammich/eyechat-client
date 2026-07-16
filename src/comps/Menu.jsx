@@ -10,6 +10,7 @@ import { ParsedContent } from './Chat/Messages';
 
 const SUB_MENUS = [
   { name: 'users',    label: 'User List',    icon: 'group' },
+  { name: 'account',  label: 'Account',  icon: 'account_circle' },
   { name: 'settings', label: 'Settings', icon: 'settings' },
   { name: 'shop',     label: 'Shop',     icon: 'shopping_cart' },
   { name: 'avatar',   label: 'Avatar',   icon: 'face' },
@@ -75,6 +76,9 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
         {selectedList === 'users' && (
           <UserList socket={socket} userlist={userlist} />
         )}
+        {selectedList === 'account' && (
+          <AccountPanel user={user} channelName={channelName} />
+        )}
         {selectedList === 'settings' && (
           <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} joinLeave={joinLeave} changeJoinLeave={changeJoinLeave} />
         )}
@@ -127,6 +131,106 @@ function UserList({ socket, userlist }) {
 UserList.propTypes = {
   socket:      PropTypes.object.isRequired,
   userlist:    PropTypes.array.isRequired,
+};
+
+// ─── AccountPanel ───────────────────────────────────────────────────────────
+
+// Login/register form + a logged-in "welcome" state. Identity is a loginToken
+// cookie (see /login); a successful login makes the server broadcast
+// registered=true live, so the `user` prop flips and this swaps to the welcome
+// view without a reload. Logout clears the token server-side then reloads, which
+// re-runs /preconnect with no token and drops us to a fresh guest.
+function AccountPanel({ user, channelName }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [nick, setNick] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!nick || !password || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: mode, params: { nick, password, channelName } }),
+      });
+      // Success bodies can be empty, so guard the parse.
+      const text = await res.text();
+      const body = text ? JSON.parse(text) : {};
+      if (!res.ok || body.error) {
+        setError(body.error || `Request failed (${res.status}).`);
+        setBusy(false);
+        return;
+      }
+      // Server broadcasts registered=true live; the welcome view takes over on
+      // the next user-state update. Just clear the password.
+      setPassword('');
+    } catch {
+      setError('Could not reach the server. Try again.');
+      setBusy(false);
+    }
+  }
+
+  async function logout() {
+    // Best-effort: even if the request fails, reload to a clean guest state.
+    try { await fetch('/logout', { method: 'POST' }); } catch { /* ignore */ }
+    window.location.reload();
+  }
+
+  if (user?.registered) {
+    return (
+      <div className='accountPanel'>
+        <div className='accountWelcome'>welcome {user.nick} :)</div>
+        <button className='stdBtn' onClick={logout}>Log out</button>
+      </div>
+    );
+  }
+
+  return (
+    <form className='accountPanel' onSubmit={submit}>
+      <div className='segmented accountTabs'>
+        {['login', 'register'].map(m => (
+          <button
+            type='button'
+            key={m}
+            className={'segmentBtn' + (mode === m ? ' active' : '')}
+            onClick={() => { setMode(m); setError(''); }}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <input
+        className='stdInput'
+        placeholder='Nick'
+        maxLength={20}
+        value={nick}
+        autoComplete='username'
+        onChange={e => setNick(e.target.value)}
+      />
+      <input
+        className='stdInput'
+        type='password'
+        placeholder='Password'
+        value={password}
+        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+        onChange={e => setPassword(e.target.value)}
+      />
+      {error && <div className='accountError'>{error}</div>}
+      <button className='stdBtn' type='submit' disabled={!nick || !password || busy}>
+        {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Register'}
+      </button>
+    </form>
+  );
+}
+
+AccountPanel.propTypes = {
+  user:        PropTypes.object,
+  channelName: PropTypes.string,
 };
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
