@@ -28,6 +28,54 @@ const noStyle = {
   noColor: true
 };
 
+// /afk and /part are user-written but they surface as UI chrome — a userlist
+// entry and a leave notice — rather than as chat prose. Emoji, color and font
+// come through (no key for them here: color and font are on unless switched
+// off); text styles are absent from the map, so getNextStyleComp finds nothing;
+// links, quotes and slideshows are switched off. Those three would each drag a
+// chat-sized widget (an image embed, a hover preview, a timer) into a one-line
+// label that has nowhere to put it.
+const inlineStyles = {
+  noLink: true,
+  noQuote: true,
+  noSlideShow: true
+};
+
+// Greentext: a line opening with ">" renders in #859918, imageboard style. ">>"
+// is left alone — that's a message quote (see getNextQuoteComp).
+//
+// This rewrites the line into markup the parser already understands — a color
+// token plus the "|" style breaker — instead of adding a component type. The
+// line therefore keeps its emoji, links and text styles, and the color stops at
+// the newline rather than bleeding into the lines below. "|" pops exactly one
+// style layer, so a /color the sender has set resumes on the next line.
+const GREENTEXT_COLOR = '#859918';
+
+// A line starts at a newline, or at the start of the message. At the start,
+// getStylePrefix may have put the sender's /font and /color tokens ahead of what
+// they actually typed, so step over those to find the ">" they meant to lead
+// with. Anchored, so a lone ">" mid-line is just a greater-than sign.
+const GREENTEXT_LINE = /(^(?:\$[^|\n]*\|)?(?:#{1,3}(?:[0-9a-f]{6}|[0-9a-f]{3}) ?)?|\n)>(?!>)([^\n]*)/gi;
+
+function markGreentext (message) {
+  return message.replace(GREENTEXT_LINE, (match, lineStart, line) => (
+    `${lineStart}${GREENTEXT_COLOR} >${line}|`
+  ));
+}
+
+// An emoji id never contains a space or a colon, and that is what lets a stray
+// colon be told apart from an opening one. Searching for a whole token — rather
+// than pairing the first colon with the next one — means "bob has left: :smile:"
+// and "10:30 :smile:" skip past the stray colon instead of fusing it with the
+// emoji's opening colon and rendering the pair as a literal ": :".
+//
+// Deliberately permissive about the id itself: uploads only allow [a-zA-Z0-9]
+// (see routes/chat.js), but emoji predating that rule have ids with "_" and "-",
+// and an id matching nothing already falls back to plain text in <Emoji>. No /g
+// — these are used with .exec on varying strings, so they must stay stateless.
+const EMOJI_TOKEN = /:[^\s:]+:/;
+const EMOJI_MERGE_TOKEN = /:[^\s:]+:\$:[^\s:]+:/;
+
 const messageParser = {
 
   getTextContent (dataTree, txt = '') {
@@ -57,7 +105,9 @@ const messageParser = {
 
     return {index, strdata: '/' + nextCharacter, type: 'style'};
   },
-  getNextLinkComp (str) {
+  getNextLinkComp (str, msgStyles) {
+    if (msgStyles.noLink) return null;
+
     const index = str.indexOf('https://');
     if (index == -1) return null;
 
@@ -87,38 +137,20 @@ const messageParser = {
     return {index: index, strdata: str.slice(index, nextSpace), type: 'link'};
   },
   getNextEmojiComp (str) {
-    const index = str.indexOf(':');
-    if (index == -1) return null;
+    const match = EMOJI_TOKEN.exec(str);
+    if (!match) return null;
 
-    const nextColon = str.indexOf(':', index+1);
-    if (nextColon == -1) return null;
-
-    if (nextColon - 1 != index) return {index, strdata: str.slice(index, nextColon+1), type: 'emoji'};
-
-    //if (str[nextColon] == ':' && ((nextColon - 1) != index)) return {index: index, strdata: str.slice(index, nextColon + 1), type: 'emoji'};
-
-    return null;
+    return {index: match.index, strdata: match[0], type: 'emoji'};
   },
   getNextEmojiMergeComp (str) {
-    const index = str.indexOf(':');
-    if (index == -1) return null;
+    const match = EMOJI_MERGE_TOKEN.exec(str);
+    if (!match) return null;
 
-    const nextColon = str.indexOf(':', index+1);
-    if (nextColon == -1) return null;
-
-    if (str[nextColon + 1] != '$') return null;
-
-    const nextIndex = str.indexOf(':', nextColon + 2);
-    if (nextIndex == -1) return null;
-
-    const nextEmojiColon = str.indexOf(':', nextIndex + 1);
-    if (nextEmojiColon == -1) return null;
-
-    if (nextColon - 1 != index) return {index, strdata: str.slice(index, nextEmojiColon+1), type: 'emojiMerge'};
-
-    return null;
+    return {index: match.index, strdata: match[0], type: 'emojiMerge'};
   },
-  getNextQuoteComp (str) {
+  getNextQuoteComp (str, msgStyles) {
+    if (msgStyles.noQuote) return null;
+
     const index = str.indexOf('>>');
     if (index == -1) return null;
 
@@ -172,7 +204,8 @@ const messageParser = {
     return {index: index, strdata: str.slice(index, pipeBreak + 1), type: 'font'};
   },
 
-  getSlideShowComp (str) {
+  getSlideShowComp (str, msgStyles) {
+    if (msgStyles.noSlideShow) return null;
 
     const index = str.indexOf('$$');
     if (index == -1) return null;
@@ -713,11 +746,12 @@ function NestMessage (props) {
 // Renders a plain string with the full message styling pipeline — emoji,
 // color, text styles, links — for standalone UI bits (e.g. the center
 // message) that aren't chat-log entries and so don't have the surrounding
-// Messages machinery. The callbacks NestMessage may invoke (image load,
+// Messages machinery. Pass `styles` (e.g. inlineStyles) to render with a
+// narrower set. The callbacks NestMessage may invoke (image load,
 // overlay, quote render) are safe no-ops here.
-export function ParsedContent ({ text, emojis }) {
+export function ParsedContent ({ text, emojis, styles = msgStyles }) {
   if (!text) return null;
-  const parsed = messageParser.parse(text, msgStyles);
+  const parsed = messageParser.parse(text, styles);
   return <NestMessage
     message={parsed}
     emojis={emojis}
@@ -1049,6 +1083,13 @@ class Messages extends React.Component {
     return nickEl;
   }
 
+  // `userText` is a user-written tail on an otherwise system-written line (the
+  // /part reason on a leave notice). It stays a separate field rather than being
+  // concatenated into `message` because the two halves need different parsers:
+  // the system half is a 'general' line, which can't take color at all, while
+  // the tail is meant to carry its author's emoji / color / font — and parsing
+  // the two as one string would let whoever wrote the reason restyle the notice
+  // wrapped around it.
   renderMessageContent (msgData) {
     if (msgData.type === 'weather') {
       return <div className='messageContent'><pre className='weatherBlock' dangerouslySetInnerHTML={{ __html: msgData.message }} /></div>;
@@ -1060,7 +1101,10 @@ class Messages extends React.Component {
       return <div className='messageContent'>{msgData.message}</div>;
     }
 
-    const message = messageParser.parse(msgData.message,
+    // Greentext is a chat-message thing: system lines ('general') can't take
+    // color at all, and the rest aren't user-authored prose.
+    const message = messageParser.parse(
+      msgData.type == 'chat' ? markGreentext(msgData.message) : msgData.message,
       msgData.type == 'general' ? noStyle : msgStyles
     ); //parse the message for links and other things
 
@@ -1073,6 +1117,9 @@ class Messages extends React.Component {
         renderMessage={this.renderMessage.bind(this)}
         setOverlay={(id) => this.setState({showOverlay: id})}
       />
+      { msgData.userText
+        ? <ParsedContent text={msgData.userText} emojis={this.props.emojis} styles={inlineStyles} />
+        : null }
     </div>
   }
 
@@ -1151,4 +1198,4 @@ class Messages extends React.Component {
 }
 
 export default Messages;
-export { NestMessage, messageParser, msgStyles };
+export { NestMessage, messageParser, msgStyles, inlineStyles, markGreentext };

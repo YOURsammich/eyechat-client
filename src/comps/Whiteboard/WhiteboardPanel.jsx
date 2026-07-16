@@ -47,29 +47,39 @@ function WhiteboardPanel({ socket, user, onClose }) {
     const panel = panelRef.current;
     let dragging = false, startX, startY, initX, initY;
 
-    function onMouseDown(e) {
+    let dragId = null;
+
+    // Pointer (not mouse) events so the panel can also be dragged by touch.
+    function onPointerDown(e) {
       if (fullscreenRef.current) return; // fixed to the viewport — nothing to drag
+      if (!e.isPrimary) return;
+      if (e.button !== 0) return; // contact only: mouse left button or pen tip
       if (!e.target.classList || !e.target.classList.contains('wbDragHandle')) return;
       dragging = true;
+      dragId = e.pointerId;
       startX = e.clientX; startY = e.clientY;
       const rect = panel.getBoundingClientRect();
       initX = rect.left; initY = rect.top;
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
     }
     function onMove(e) {
-      if (!dragging) return;
+      if (!dragging || e.pointerId !== dragId) return;
       panel.style.left = (initX + e.clientX - startX) + 'px';
       panel.style.top = (initY + e.clientY - startY) + 'px';
     }
-    function onUp() {
+    function onUp(e) {
+      if (e && dragging && e.pointerId !== dragId) return;
       dragging = false;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      dragId = null;
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
     }
 
-    panel.addEventListener('mousedown', onMouseDown);
-    return () => panel.removeEventListener('mousedown', onMouseDown);
+    panel.addEventListener('pointerdown', onPointerDown);
+    return () => { panel.removeEventListener('pointerdown', onPointerDown); onUp(); };
   }, []);
 
   // ── socket wiring ───────────────────────────────────────────────────────────
@@ -165,6 +175,8 @@ function WhiteboardPanel({ socket, user, onClose }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '6px 10px', cursor: fullscreen ? 'default' : 'move', background: '#1b1b1b', userSelect: 'none',
         borderBottom: '1px solid #333', flexShrink: 0,
+        // While draggable, keep touch from scrolling the page instead of moving the panel.
+        touchAction: fullscreen ? 'auto' : 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
       }}>
         <span className='wbDragHandle' style={{ fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <span className='material-symbols-outlined wbDragHandle' style={{ fontSize: 18 }}>draw</span>

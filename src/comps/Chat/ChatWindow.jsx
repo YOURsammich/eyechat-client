@@ -162,7 +162,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
 
     const offUserLeft = socket.on('userLeft', (user) => {
       if (!showJoinLeave(joinLeaveRef.current, user)) return;
-      setMessages(prev => [...prev, { message: user.nick + ' has left: ' + (user.part || 'bye.'), type: 'general', count: Math.random() }]);
+      setMessages(prev => [...prev, { message: user.nick + ' has left: ', userText: user.part || 'bye.', type: 'general', count: Math.random() }]);
     });
 
     const offSetState = socket.on('setState', (data) => {

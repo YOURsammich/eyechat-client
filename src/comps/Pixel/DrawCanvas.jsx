@@ -34,6 +34,7 @@ const DrawCanvas = forwardRef(function DrawCanvas(
   const cursorRef = useRef(null);     // the brush-size circle that follows the pointer
   const viewportRef = useRef(null);   // the scroll/fit container (measured in responsive mode)
   const drawingRef = useRef(false);
+  const activeIdRef = useRef(null); // pointerId of the stroke in progress (ignore other fingers)
   const lastRef = useRef(null); // last stroke point in bitmap coords
   const pointsRef = useRef([]); // points of the in-progress stroke, in bitmap coords
   const [tool, setTool] = useState('brush'); // 'brush' | 'eraser'
@@ -135,28 +136,51 @@ const DrawCanvas = forwardRef(function DrawCanvas(
     el.style.top = (e.clientY - rect.top) + 'px';
   }
 
-  function onMouseDown(e) {
+  // Pointer events (not mouse events) so touch and stylus draw exactly like a
+  // mouse — a tablet never fires a mousemove drag stream, and `touch-action: none`
+  // below suppresses the synthesized-mouse fallback entirely.
+  function onPointerDown(e) {
     if (readOnly) return;
+    if (!e.isPrimary) return;   // ignore extra fingers mid-stroke
+    // Contact only: a mouse's left button or a pen's tip. Skips right/middle click
+    // and a pen's barrel/eraser button, which report a non-zero `button`.
+    if (e.button !== 0) return;
     e.preventDefault();
+    // Capture so the stroke keeps receiving moves (and a guaranteed pointerup)
+    // even when the pointer wanders outside the canvas.
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    activeIdRef.current = e.pointerId;
     drawingRef.current = true;
     lastRef.current = null;
     pointsRef.current = [];
+    setHovering(true); // touch has no hover, so show the brush circle from contact
+    moveCursor(e);
     strokeTo(pointFromEvent(e));
   }
-  function onMouseMove(e) {
+  function onPointerMove(e) {
+    if (drawingRef.current && e.pointerId !== activeIdRef.current) return;
     moveCursor(e);
     if (!drawingRef.current) return;
     strokeTo(pointFromEvent(e));
   }
-  function onMouseEnter(e) {
+  // A mouse and a pen both hover (a pen while held above the tablet); touch does
+  // not. So hover drives the brush circle for the first two, and contact drives it
+  // for touch. Leaving mid-stroke never ends the stroke — capture owns it until up.
+  function onPointerEnter(e) {
+    if (e.pointerType === 'touch') return;
     setHovering(true);
     moveCursor(e);
   }
-  function onMouseLeave() {
+  function onPointerLeave(e) {
+    if (e.pointerType === 'touch' || drawingRef.current) return;
     setHovering(false);
-    onMouseUp();
   }
-  function onMouseUp() {
+  function onPointerUp(e) {
+    if (e && e.pointerId !== activeIdRef.current) return;
+    // A lifted pen usually still hovers, so keep its circle; pointerleave hides it
+    // when the pen actually leaves range. A lifted finger is simply gone.
+    if (e && e.pointerType === 'touch') setHovering(false);
+    activeIdRef.current = null;
     if (!drawingRef.current) return;
     drawingRef.current = false;
     lastRef.current = null;
@@ -258,12 +282,14 @@ const DrawCanvas = forwardRef(function DrawCanvas(
             ref={canvasRef}
             width={width}
             height={height}
-            onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp}
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
-            style={{ display: 'block', position: 'relative', width: dispW, height: dispH, cursor: readOnly ? 'not-allowed' : 'none', touchAction: 'none' }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onPointerEnter={onPointerEnter}
+            onPointerLeave={onPointerLeave}
+            style={{ display: 'block', position: 'relative', width: dispW, height: dispH, cursor: readOnly ? 'not-allowed' : 'none',
+              touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent' }}
           />
           {/* Brush-size circle cursor — reflects the current pen/eraser diameter
               (screen px = brush × scale). Dashed + red for the eraser. */}

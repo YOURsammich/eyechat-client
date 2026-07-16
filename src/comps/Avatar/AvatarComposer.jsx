@@ -30,6 +30,7 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
   const drawRef = useRef(null);      // freehand layer canvas (backing = EXPORT)
   const dragRef = useRef(null);      // active layer drag/resize/rotate gesture
   const drawingRef = useRef(false);  // brush stroke in progress
+  const drawIdRef = useRef(null);    // pointerId of the stroke in progress
   const strokeRef = useRef(null);    // last brush point
   const drewRef = useRef(false);     // whether the brush layer has any content
 
@@ -40,6 +41,9 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
   const [color, setColor] = useState('#000000');
   const [brush, setBrush] = useState(6);
   const [status, setStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
+
+  // Drop any in-flight gesture listeners if we unmount mid-drag.
+  useEffect(() => endDrag, []);
 
   // Load an existing project to re-edit.
   useEffect(() => {
@@ -73,22 +77,28 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
   }
 
   // ---- layer gestures ----
+  // Pointer (not mouse) events throughout, so parts can be moved/resized/rotated
+  // by touch on a tablet; `touch-action: none` on the grabbable elements keeps the
+  // gesture from being stolen by page scroll.
   function beginDrag(e, mode, layer) {
+    if (!e.isPrimary) return;
+    if (e.button !== 0) return; // contact only: mouse left button or pen tip
     e.preventDefault();
     e.stopPropagation();
     setSelectedId(layer.id);
     const p = stagePoint(e);
     dragRef.current = {
-      mode, id: layer.id, p, start: { ...layer },
+      mode, id: layer.id, p, start: { ...layer }, pointerId: e.pointerId,
       initDist: Math.hypot(p.x - layer.cx, p.y - layer.cy) || 1,
       initAng: Math.atan2(p.y - layer.cy, p.x - layer.cx),
     };
-    document.addEventListener('mousemove', onDragMove);
-    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', endDrag);
+    document.addEventListener('pointercancel', endDrag);
   }
   function onDragMove(e) {
     const d = dragRef.current;
-    if (!d) return;
+    if (!d || e.pointerId !== d.pointerId) return;
     const p = stagePoint(e);
     setLayers(prev => prev.map(l => {
       if (l.id !== d.id) return l;
@@ -103,10 +113,12 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
       return l;
     }));
   }
-  function endDrag() {
+  function endDrag(e) {
+    if (e && dragRef.current && e.pointerId !== dragRef.current.pointerId) return;
     dragRef.current = null;
-    document.removeEventListener('mousemove', onDragMove);
-    document.removeEventListener('mouseup', endDrag);
+    document.removeEventListener('pointermove', onDragMove);
+    document.removeEventListener('pointerup', endDrag);
+    document.removeEventListener('pointercancel', endDrag);
   }
 
   async function addLayer(src) {
@@ -156,9 +168,27 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
     strokeRef.current = { x, y };
     drewRef.current = true;
   }
-  function onDrawDown(e) { e.preventDefault(); drawingRef.current = true; strokeRef.current = null; drawPoint(e); }
-  function onDrawMove(e) { if (drawingRef.current) drawPoint(e); }
-  function onDrawUp() { drawingRef.current = false; strokeRef.current = null; }
+  function onDrawDown(e) {
+    if (!e.isPrimary) return;
+    if (e.button !== 0) return; // contact only: mouse left button or pen tip
+    e.preventDefault();
+    // Capture so the stroke survives the pointer leaving the stage.
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    drawIdRef.current = e.pointerId;
+    drawingRef.current = true;
+    strokeRef.current = null;
+    drawPoint(e);
+  }
+  function onDrawMove(e) {
+    if (!drawingRef.current || e.pointerId !== drawIdRef.current) return;
+    drawPoint(e);
+  }
+  function onDrawUp(e) {
+    if (e && e.pointerId !== drawIdRef.current) return;
+    drawIdRef.current = null;
+    drawingRef.current = false;
+    strokeRef.current = null;
+  }
   function clearDrawing() {
     drawRef.current.getContext('2d').clearRect(0, 0, EXPORT, EXPORT);
     drewRef.current = false;
@@ -259,7 +289,7 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
       {/* Stage */}
       <div
         ref={stageRef}
-        onMouseDown={() => { if (tool === 'select') setSelectedId(null); }}
+        onPointerDown={() => { if (tool === 'select') setSelectedId(null); }}
         style={{
           position: 'relative', width: STAGE, height: STAGE, alignSelf: 'center', maxWidth: '100%',
           borderRadius: 6, border: '1px solid #333', overflow: 'hidden',
@@ -274,8 +304,9 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
             transform: `rotate(${l.rot}rad) scaleX(${l.flip ? -1 : 1})`, transformOrigin: 'center center',
           }}>
             <img src={l.src} draggable={false}
-              onMouseDown={e => tool === 'select' && beginDrag(e, 'move', l)}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: tool === 'select' ? 'move' : 'default', pointerEvents: tool === 'select' ? 'auto' : 'none' }} />
+              onPointerDown={e => tool === 'select' && beginDrag(e, 'move', l)}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: tool === 'select' ? 'move' : 'default', pointerEvents: tool === 'select' ? 'auto' : 'none',
+                touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }} />
           </div>
         ))}
 
@@ -287,14 +318,14 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
             border: '1px dashed #39f', pointerEvents: 'none',
           }}>
             {/* resize handle (bottom-right) */}
-            <div onMouseDown={e => beginDrag(e, 'resize', selectedLayer)} style={{
+            <div onPointerDown={e => beginDrag(e, 'resize', selectedLayer)} style={{
               position: 'absolute', right: -7, bottom: -7, width: 12, height: 12, background: '#39f', borderRadius: 2,
-              cursor: 'nwse-resize', pointerEvents: 'auto',
+              cursor: 'nwse-resize', pointerEvents: 'auto', touchAction: 'none',
             }} />
             {/* rotate handle (top-center) */}
-            <div onMouseDown={e => beginDrag(e, 'rotate', selectedLayer)} style={{
+            <div onPointerDown={e => beginDrag(e, 'rotate', selectedLayer)} style={{
               position: 'absolute', left: '50%', top: -22, width: 12, height: 12, marginLeft: -6, background: '#39f',
-              borderRadius: '50%', cursor: 'grab', pointerEvents: 'auto',
+              borderRadius: '50%', cursor: 'grab', pointerEvents: 'auto', touchAction: 'none',
             }} />
           </div>
         )}
@@ -304,13 +335,14 @@ export default function AvatarComposer({ parts = {}, projectUrl = null, onSaved 
           ref={drawRef}
           width={EXPORT}
           height={EXPORT}
-          onMouseDown={onDrawDown}
-          onMouseMove={onDrawMove}
-          onMouseUp={onDrawUp}
-          onMouseLeave={onDrawUp}
+          onPointerDown={onDrawDown}
+          onPointerMove={onDrawMove}
+          onPointerUp={onDrawUp}
+          onPointerCancel={onDrawUp}
           style={{
             position: 'absolute', inset: 0, width: STAGE, height: STAGE,
-            pointerEvents: tool === 'select' ? 'none' : 'auto', cursor: 'crosshair', touchAction: 'none',
+            pointerEvents: tool === 'select' ? 'none' : 'auto', cursor: 'crosshair',
+            touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent',
           }}
         />
       </div>

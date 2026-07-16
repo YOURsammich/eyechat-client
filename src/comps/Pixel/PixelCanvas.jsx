@@ -39,6 +39,7 @@ const PixelCanvas = forwardRef(function PixelCanvas(
   const canvasRef = useRef(null);
   const bufRef = useRef(new Uint8ClampedArray(width * height * 4));
   const drawingRef = useRef(false);
+  const activeIdRef = useRef(null); // pointerId of the drag in progress (ignore other fingers)
   const [tool, setTool] = useState('pencil');
   const [color, setColor] = useState(palette[0] || '#000000');
   const [zoom, setZoom] = useState(scale);
@@ -138,9 +139,11 @@ const PixelCanvas = forwardRef(function PixelCanvas(
 
   function cellFromEvent(e) {
     const rect = canvasRef.current.getBoundingClientRect();
+    // Measure against the element's on-screen size rather than dividing by `zoom`,
+    // so cells still land correctly if CSS ever clamps the board (narrow screens).
     return {
-      x: Math.floor((e.clientX - rect.left) / zoom),
-      y: Math.floor((e.clientY - rect.top) / zoom),
+      x: Math.floor((e.clientX - rect.left) / rect.width * width),
+      y: Math.floor((e.clientY - rect.top) / rect.height * height),
     };
   }
 
@@ -163,21 +166,32 @@ const PixelCanvas = forwardRef(function PixelCanvas(
     return true;
   }
 
-  function onMouseDown(e) {
+  // Pointer events (not mouse events) so touch and stylus paint like a mouse.
+  function onPointerDown(e) {
+    if (!e.isPrimary) return;   // ignore extra fingers mid-drag
+    // Contact only: mouse left button or pen tip, not right-click / pen barrel.
+    if (e.button !== 0) return;
     e.preventDefault();
+    // Capture so a drag keeps painting past the canvas edge and always gets its pointerup.
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    activeIdRef.current = e.pointerId;
     const { x, y } = cellFromEvent(e);
     // Fill/eyedropper are one-shot; pencil/eraser drag.
     drawingRef.current = tool === 'pencil' || tool === 'eraser';
     if (applyAt(x, y)) repaint();
   }
 
-  function onMouseMove(e) {
-    if (!drawingRef.current) return;
+  function onPointerMove(e) {
+    if (!drawingRef.current || e.pointerId !== activeIdRef.current) return;
     const { x, y } = cellFromEvent(e);
     if (applyAt(x, y)) repaint();
   }
 
-  function onMouseUp() { drawingRef.current = false; }
+  function onPointerUp(e) {
+    if (e && e.pointerId !== activeIdRef.current) return;
+    activeIdRef.current = null;
+    drawingRef.current = false;
+  }
 
   function clear() {
     const buf = bufRef.current;
@@ -278,11 +292,12 @@ const PixelCanvas = forwardRef(function PixelCanvas(
             ref={canvasRef}
             width={width * zoom}
             height={height * zoom}
-            onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp}
-            style={{ display: 'block', position: 'relative', cursor: 'crosshair', touchAction: 'none' }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            style={{ display: 'block', position: 'relative', cursor: 'crosshair',
+              touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent' }}
           />
         </div>
       </div>

@@ -6,7 +6,7 @@ import PixelCanvas from './Pixel/PixelCanvas';
 import DrawCanvas from './Pixel/DrawCanvas';
 import DraggableWindow from './DraggableWindow';
 import AvatarComposer from './Avatar/AvatarComposer';
-import { ParsedContent } from './Chat/Messages';
+import { ParsedContent, inlineStyles } from './Chat/Messages';
 
 const SUB_MENUS = [
   { name: 'users',    label: 'User List',    icon: 'group' },
@@ -74,7 +74,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
         </div>
 
         {selectedList === 'users' && (
-          <UserList socket={socket} userlist={userlist} />
+          <UserList socket={socket} userlist={userlist} emojis={emojis} />
         )}
         {selectedList === 'account' && (
           <AccountPanel user={user} channelName={channelName} />
@@ -107,7 +107,7 @@ Menu.propTypes = {
 
 // ─── UserList ──────────────────────────────────────────────────────────────────
 
-function UserList({ socket, userlist }) {
+function UserList({ socket, userlist, emojis }) {
   return (
     <div className='userLi'>
       {userlist.map(user => (
@@ -121,7 +121,7 @@ function UserList({ socket, userlist }) {
               </button>
             ))}
           </div>
-          <div className='userLiAFK'>{user.afk}</div>
+          <div className='userLiAFK'><ParsedContent text={user.afk} emojis={emojis} styles={inlineStyles} /></div>
         </div>
       ))}
     </div>
@@ -131,6 +131,7 @@ function UserList({ socket, userlist }) {
 UserList.propTypes = {
   socket:      PropTypes.object.isRequired,
   userlist:    PropTypes.array.isRequired,
+  emojis:      PropTypes.array,
 };
 
 // ─── AccountPanel ───────────────────────────────────────────────────────────

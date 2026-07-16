@@ -307,6 +307,18 @@ const COMMANDS = {
   }
 }
 
+// Commonwealth spellings, mapped to the command they stand in for. Each alias
+// gets the same command object, so autocomplete and the param hints pick them
+// up for free; handle() resolves back to the canonical name before anything is
+// emitted, keeping aliases invisible to the server.
+const ALIASES = {
+  colour: 'color'
+};
+
+for (const [alias, target] of Object.entries(ALIASES)) {
+  COMMANDS[alias] = COMMANDS[target];
+}
+
 const handleCommand = {
   parseParamSpaces(params, paramQuantity) {
     const parsedInput = [];
@@ -339,7 +351,8 @@ const handleCommand = {
     return paramObj;
   },
   handle(command) {
-    const [, commandName, params] = command;
+    const [, typedName, params] = command;
+    const commandName = ALIASES[typedName] ?? typedName;
     const cmd = COMMANDS[commandName];
 
     if (!cmd) throw new Error("Invalid Command");

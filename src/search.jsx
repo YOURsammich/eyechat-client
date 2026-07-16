@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { messageParser, NestMessage, msgStyles, preloadFontsFromText } from './comps/Chat/Messages';
+import { messageParser, NestMessage, msgStyles, preloadFontsFromText, markGreentext } from './comps/Chat/Messages';
 import AvatarDisplay from './comps/Chat/AvatarDisplay';
 
 const PAGE_SIZE = 50;
@@ -27,7 +27,7 @@ const noop = () => {};
 function ChatMessage({ m, emojis, highlight, onJump }) {
   const flair = messageParser.parse(m.flair || m.nick || '', msgStyles);
   const textContent = messageParser.getTextContent(flair);
-  const body = messageParser.parse(m.message || '', msgStyles);
+  const body = messageParser.parse(markGreentext(m.message || ''), msgStyles);
 
   let avatar = null;
   try { avatar = m.avatar ? (typeof m.avatar === 'string' ? JSON.parse(m.avatar) : m.avatar) : null; } catch { avatar = null; }
