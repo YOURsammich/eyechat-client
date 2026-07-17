@@ -51,11 +51,40 @@ const inlineStyles = {
 // style layer, so a /color the sender has set resumes on the next line.
 const GREENTEXT_COLOR = '#859918';
 
+// CSS named colors, so "#lightblue example" works alongside "#39f example".
+// Lower-cased; lookups lower-case the token before testing. `transparent` is
+// included since it's a valid CSS color keyword.
+const CSS_COLOR_NAMES = new Set([
+  'aliceblue','antiquewhite','aqua','aquamarine','azure','beige','bisque','black',
+  'blanchedalmond','blue','blueviolet','brown','burlywood','cadetblue','chartreuse',
+  'chocolate','coral','cornflowerblue','cornsilk','crimson','cyan','darkblue',
+  'darkcyan','darkgoldenrod','darkgray','darkgreen','darkgrey','darkkhaki',
+  'darkmagenta','darkolivegreen','darkorange','darkorchid','darkred','darksalmon',
+  'darkseagreen','darkslateblue','darkslategray','darkslategrey','darkturquoise',
+  'darkviolet','deeppink','deepskyblue','dimgray','dimgrey','dodgerblue','firebrick',
+  'floralwhite','forestgreen','fuchsia','gainsboro','ghostwhite','gold','goldenrod',
+  'gray','green','greenyellow','grey','honeydew','hotpink','indianred','indigo',
+  'ivory','khaki','lavender','lavenderblush','lawngreen','lemonchiffon','lightblue',
+  'lightcoral','lightcyan','lightgoldenrodyellow','lightgray','lightgreen','lightgrey',
+  'lightpink','lightsalmon','lightseagreen','lightskyblue','lightslategray',
+  'lightslategrey','lightsteelblue','lightyellow','lime','limegreen','linen','magenta',
+  'maroon','mediumaquamarine','mediumblue','mediumorchid','mediumpurple',
+  'mediumseagreen','mediumslateblue','mediumspringgreen','mediumturquoise',
+  'mediumvioletred','midnightblue','mintcream','mistyrose','moccasin','navajowhite',
+  'navy','oldlace','olive','olivedrab','orange','orangered','orchid','palegoldenrod',
+  'palegreen','paleturquoise','palevioletred','papayawhip','peachpuff','peru','pink',
+  'plum','powderblue','purple','rebeccapurple','red','rosybrown','royalblue',
+  'saddlebrown','salmon','sandybrown','seagreen','seashell','sienna','silver','skyblue',
+  'slateblue','slategray','slategrey','snow','springgreen','steelblue','tan','teal',
+  'thistle','tomato','turquoise','violet','wheat','white','whitesmoke','yellow',
+  'yellowgreen','transparent'
+]);
+
 // A line starts at a newline, or at the start of the message. At the start,
 // getStylePrefix may have put the sender's /font and /color tokens ahead of what
 // they actually typed, so step over those to find the ">" they meant to lead
 // with. Anchored, so a lone ">" mid-line is just a greater-than sign.
-const GREENTEXT_LINE = /(^(?:\$[^|\n]*\|)?(?:#{1,3}(?:[0-9a-f]{6}|[0-9a-f]{3}) ?)?|\n)>(?!>)([^\n]*)/gi;
+const GREENTEXT_LINE = /(^(?:\$[^|\n]*\|)?(?:#{1,3}(?:[0-9a-f]{6}|[0-9a-f]{3}|[a-z]+) ?)?|\n)>(?!>)([^\n]*)/gi;
 
 function markGreentext (message) {
   return message.replace(GREENTEXT_LINE, (match, lineStart, line) => (
@@ -184,15 +213,41 @@ const messageParser = {
 
     if (colorIndex.index == -1) return null;
 
-    // Match a 6- or 3-digit hex color (optionally as a ### glow) and swallow one
-    // trailing space (the delimiter added by getStylePrefix) so it doesn't show
-    // in the message and so "#a9d def" parses as color #a9d + "def", not #a9ddef.
-    const hex = str.slice(colorIndex.index).match(/^(###|##|#)(?:[0-9a-f]{6}|[0-9a-f]{3})\x20?/i);
-    if (!hex) return null;
+    // Match a 6- or 3-digit hex color, or a CSS color name (e.g. #lightblue),
+    // optionally as a ## outline / ### glow, and swallow one trailing space (the
+    // delimiter added by getStylePrefix) so it doesn't show in the message and so
+    // "#a9d def" parses as color #a9d + "def", not #a9ddef.
+    const rest = str.slice(colorIndex.index);
+    let matchLen = null;
 
-    const stopPoint = hex[0].length;
+    const hex = rest.match(/^(###|##|#)(?:[0-9a-f]{6}|[0-9a-f]{3})\x20?/i);
+    if (hex) {
+      matchLen = hex[0].length;
+    } else {
+      const named = rest.match(/^(###|##|#)([a-z]+)/i);
+      if (named) {
+        // A name has no fixed length, so take the longest CSS color name that is
+        // a prefix of the letter run: "#redtest" is color #red + "test", while
+        // "#blueviolet" stays one color (not #blue + "violet"). Names can be
+        // prefixes of other names, hence longest-first.
+        const letters = named[2];
+        let nameLen = 0;
+        for (let i = letters.length; i > 0; i--) {
+          if (CSS_COLOR_NAMES.has(letters.slice(0, i).toLowerCase())) { nameLen = i; break; }
+        }
+        if (nameLen) {
+          matchLen = named[1].length + nameLen;
+          // Swallow the getStylePrefix delimiter space, but only when the name
+          // used the whole run — "#red test" eats the space, "#redtest" leaves
+          // "test" as following text.
+          if (nameLen === letters.length && rest[matchLen] === ' ') matchLen += 1;
+        }
+      }
+    }
 
-    return {index: colorIndex.index, strdata: str.slice(colorIndex.index, stopPoint), type: colorIndex.type};
+    if (matchLen == null) return null;
+
+    return {index: colorIndex.index, strdata: rest.slice(0, matchLen), type: colorIndex.type};
   },
   getFontComp (str) {
     const index = str.indexOf('$');
@@ -784,6 +839,15 @@ export function preloadFontsFromText (text) {
   while ((m = re.exec(text)) !== null) loadFont(m[1]);
 }
 
+// Turn a color token (a single "#" followed by the color body, possibly with the
+// getStylePrefix trailing space) into a valid CSS color. Hex keeps its "#";
+// a CSS color name drops it (`#lightblue` -> `lightblue`).
+function cssColor (token) {
+  const body = token.slice(1).trim();
+  if (/^([0-9a-f]{3}|[0-9a-f]{6})$/i.test(body)) return '#' + body;
+  return body;
+}
+
 function getMsgCss (compName, value) {
   const styles = {
     '/*': { fontWeight: 'bold' },
@@ -806,10 +870,10 @@ function getMsgCss (compName, value) {
   }
   
   if (compName == 'color') {
-    const color = value;
+    const color = cssColor(value);
     return { color };
   } else if (compName == 'glow') {
-    const color = value.slice(2);
+    const color = cssColor(value.slice(2));
     return { textShadow: `0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}, 0px 0px 20px ${color}` };
   } else if (compName == 'outline') {
     // ##color: knockout text — paint the glyph in the chat background (a void)
@@ -817,7 +881,7 @@ function getMsgCss (compName, value) {
     // via text-shadow. Filling a disc of offsets makes the color hug each
     // character's shape so the letter reads as a cutout in the color, rather
     // than a rectangular block behind it.
-    const color = value.slice(1);
+    const color = cssColor(value.slice(1));
     const R = 2;
     const shadows = [];
     for (let x = -R; x <= R; x++)
