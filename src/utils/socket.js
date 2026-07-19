@@ -1,3 +1,14 @@
+// Heartbeat: the browser only fires 'close' on a clean TCP teardown, so a socket
+// that dies silently (laptop sleep, a NAT/router dropping an idle connection, or a
+// crashed origin behind Cloudflare that never propagates the close) keeps reporting
+// OPEN forever. We ping on an interval and, if the matching pong doesn't come back
+// in time, treat the socket as dead and close it ourselves — which runs the normal
+// reconnect path. This is the only liveness check that doesn't depend on a proxy or
+// the network delivering a close.
+const HEARTBEAT_INTERVAL = 15000; // send a ping this often while connected
+const PONG_TIMEOUT = 10000;       // no pong within this long after a ping → socket is dead
+const PRECONNECT_TIMEOUT = 10000; // abort a reconnect /preconnect that hangs this long
+
 const socket = {
 
   _serverEvents: {},
@@ -15,6 +26,8 @@ const socket = {
                              // second trigger can't start a parallel reconnect
   _reconnectAttempts: 0,
   _reconnectTimer: null,
+  _heartbeatTimer: null,  // interval that sends pings while connected
+  _pongTimer: null,       // watchdog armed after a ping; fires if no pong arrives
 
   init ({ getActiveChannel } = {}) {
     this.getActiveChannel = getActiveChannel;
@@ -72,6 +85,7 @@ const socket = {
         this._everConnected = true;
         this._reconnectAttempts = 0;
         this._reconnectInFlight = false;   // attempt succeeded
+        this._startHeartbeat();
 
         // Flush any emits queued while the socket was down / still connecting.
         for (const payload of this._pendingEmits) ws.send(payload);
@@ -89,33 +103,46 @@ const socket = {
         // briefly-overlapping old connection can't deliver duplicate messages.
         if (this._socket !== ws) return;
         const data = JSON.parse(e.data);
+        // Heartbeat reply — clear the watchdog and don't surface it to app listeners.
+        if (data.event === 'pong') { this._onPong(); return; }
         this._triggerEvent(data.event, data.data);
       });
 
       ws.addEventListener('close', (e) => {
-        // Stale close from a socket we've already replaced — ignore.
-        if (this._socket !== ws) return;
-
-        const wasConnected = this._connected;
-        this._connected = false;
-        // This attempt's socket is done (dropped, or never opened) — release the
-        // guard so the next scheduled/foreground reconnect can proceed.
-        this._reconnectInFlight = false;
-        console.log('socket closed', e && e.code, e && e.reason);
-
-        // Only surface a disconnect once, on the live→down transition — not on
-        // every failed reconnect attempt.
-        if (wasConnected) for (const cb of this._disconnectCbs) cb(e);
-
-        // Server-side rejections we shouldn't hammer with reconnects: 4003 is a
-        // ban/kick, 4004 is whitelist mode. (/preconnect normally blocks these
-        // before a socket opens; this covers a socket closed post-upgrade.)
-        if (e && (e.code === 4003 || e.code === 4004)) this._shouldReconnect = false;
-
-        if (this._shouldReconnect) this._scheduleReconnect();
+        this._teardown(ws, e);
       });
 
     });
+  },
+
+  // Bring the connection down and start recovery. Called both by the socket's own
+  // 'close' event and directly by the heartbeat watchdog: a graceful ws.close() on
+  // a silently-dead socket (frozen / half-open server) may not fire 'close' for a
+  // long time, so we can't wait for it. Nulling _socket makes any later, stale
+  // 'close' for the same ws a no-op (guard below), which also stops it from
+  // clobbering a reconnect that's already in flight.
+  _teardown (ws, e) {
+    if (this._socket !== ws) return; // already torn down or superseded
+    this._socket = null;
+
+    const wasConnected = this._connected;
+    this._connected = false;
+    this._stopHeartbeat();
+    // This socket is done — release the guard so the next scheduled/foreground
+    // reconnect can proceed.
+    this._reconnectInFlight = false;
+    console.log('socket down', e && e.code, e && e.reason);
+
+    // Only surface a disconnect once, on the live→down transition — not on every
+    // failed reconnect attempt.
+    if (wasConnected) for (const cb of this._disconnectCbs) cb(e);
+
+    // Server-side rejections we shouldn't hammer with reconnects: 4003 is a
+    // ban/kick, 4004 is whitelist mode. (/preconnect normally blocks these before a
+    // socket opens; this covers a socket closed post-upgrade.)
+    if (e && (e.code === 4003 || e.code === 4004)) this._shouldReconnect = false;
+
+    if (this._shouldReconnect) this._scheduleReconnect();
   },
 
   _scheduleReconnect () {
@@ -156,9 +183,17 @@ const socket = {
     // Re-run preconnect to refresh the upgrade approval + userID cookie. This
     // also recovers when the server restarted and dropped its in-memory
     // session (approvedForUpgrade), which a bare WS reopen could not.
-    fetch('/preconnect', { method: 'POST' })
+    // Guard the fetch with a timeout: a reconnect that reaches a half-dead origin
+    // (accepts the socket but never responds) would otherwise hang forever with no
+    // 'close' and no rejection, wedging _reconnectInFlight permanently. AbortError
+    // lands in .catch below and reschedules like any other failed attempt.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PRECONNECT_TIMEOUT);
+
+    fetch('/preconnect', { method: 'POST', signal: controller.signal })
       .then(res => res.json())
       .then((message) => {
+        clearTimeout(timeout);
         if (message && message.success) return this.initSocket(true);
         // Fatal (e.g. banned or now whitelisted): stop retrying and tell the user.
         this._reconnectInFlight = false;
@@ -167,10 +202,53 @@ const socket = {
         this._fireRejection(message);
       })
       .catch((err) => {
+        clearTimeout(timeout);
         this._reconnectInFlight = false;
         console.log('reconnect attempt failed', err);
         if (this._shouldReconnect) this._scheduleReconnect();
       });
+  },
+
+  // --- heartbeat ---
+  // Started on every socket open, stopped on every close. While running, it pings
+  // on an interval and arms a watchdog; a missing pong closes the socket, which the
+  // 'close' handler then turns into a reconnect. See the note by HEARTBEAT_INTERVAL.
+
+  _startHeartbeat () {
+    this._stopHeartbeat();
+    this._heartbeatTimer = setInterval(() => this._beat(), HEARTBEAT_INTERVAL);
+  },
+
+  _beat () {
+    const ws = this._socket;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    // A watchdog from the previous beat is still pending — don't stack pings.
+    if (this._pongTimer) return;
+
+    this.emit('ping');
+    this._pongTimer = setTimeout(() => {
+      this._pongTimer = null;
+      // Still the current socket and no pong came back in time → it's dead even if
+      // the browser still reports OPEN. Drive the disconnect ourselves: a graceful
+      // ws.close() on a frozen / half-open server may not fire 'close' for a long
+      // time, so we can't wait for it — _teardown runs the disconnect + reconnect
+      // now. We still call ws.close() to release the underlying socket. This is what
+      // catches silent deaths the browser never reported (e.g. Cloudflare holding
+      // the socket open after the origin died).
+      if (this._socket !== ws) return;
+      console.log('heartbeat: no pong in time, treating socket as dead');
+      try { ws.close(); } catch { /* already closing */ }
+      this._teardown(ws);
+    }, PONG_TIMEOUT);
+  },
+
+  _onPong () {
+    if (this._pongTimer) { clearTimeout(this._pongTimer); this._pongTimer = null; }
+  },
+
+  _stopHeartbeat () {
+    if (this._heartbeatTimer) { clearInterval(this._heartbeatTimer); this._heartbeatTimer = null; }
+    if (this._pongTimer) { clearTimeout(this._pongTimer); this._pongTimer = null; }
   },
 
   _triggerEvent (event, data) {

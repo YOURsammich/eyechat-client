@@ -33,8 +33,6 @@ function App() {
     // Register handlers up front (they only fire once events arrive over the
     // socket, which can't happen until it connects), then connect. The shell
     // renders immediately instead of waiting on the preconnect + WS handshake.
-    socket.on('pong', () => socket.emit('ping'));
-
     socket.on('userlist', (list) => {
       // Load any fonts used in flairs up front, so styled nicks don't wait for a
       // message using that font to render before the font appears.
