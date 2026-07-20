@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Messages, { ParsedContent } from './Messages';
 import InputBar from './InputBar';
-import Menu, { Overlay } from './../Menu';
+import Menu, { Overlay, SUB_MENUS } from './../Menu';
 import FluidBackground from './FluidBackground';
 import SearchBar from './SearchBar';
 import UnoPanel from './../Uno/UnoPanel';
@@ -34,6 +35,13 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [showBanList, setShowBanList] = useState(false);
   const [showCope, setShowCope] = useState(false);
   const [mobileUsers, setMobileUsers] = useState(false);
+  // Which menu section the mobile overlay should show, and whether the "more"
+  // dropdown of extra sections is open. Desktop uses the quickNav bar instead.
+  const [mobileSection, setMobileSection] = useState('users');
+  const [mobileMore, setMobileMore] = useState(false);
+  const moreRef = useRef(null); // the ⋮ button (anchor)
+  const moreMenuRef = useRef(null); // the portaled dropdown (rendered in body)
+  const [morePos, setMorePos] = useState({ top: 51, right: 8 });
   const [selectedList] = useState('users');
   const [toggles, setToggles] = useState(() => ({
     background:    store.get('toggle-background'),
@@ -303,6 +311,38 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     });
   }
 
+  // Open the mobile menu overlay to a specific section (from a header button or
+  // the "more" dropdown), closing the dropdown.
+  function openMobileSection(section) {
+    setMobileSection(section);
+    setMobileUsers(true);
+    setMobileMore(false);
+  }
+
+  // Toggle the "more" dropdown, anchoring it just below the ⋮ button. The menu
+  // is portaled to <body>, so its position is measured from the button's rect
+  // (fixed, viewport-relative) rather than inherited from the header.
+  function toggleMore() {
+    if (!mobileMore && moreRef.current) {
+      const r = moreRef.current.getBoundingClientRect();
+      setMorePos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    }
+    setMobileMore(v => !v);
+  }
+
+  // Close the "more" dropdown when clicking outside both the button and the
+  // (portaled) menu.
+  useEffect(() => {
+    if (!mobileMore) return;
+    function onDoc(e) {
+      if (moreRef.current?.contains(e.target)) return;
+      if (moreMenuRef.current?.contains(e.target)) return;
+      setMobileMore(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [mobileMore]);
+
   function getUserFlair(nick) {
     const u = userlist.find(a => a.nick === nick);
     return u ? u.flairColor : '';
@@ -320,10 +360,36 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           <div className='topBarBtns'>
             <SearchBar channelName={channelName} />
             <span
-              className="material-symbols-outlined mobileUsersBtn"
-              onClick={() => setMobileUsers(v => !v)}
+              className="material-symbols-outlined mobileNavBtn"
+              onClick={() => openMobileSection('users')}
               title='User list'
             >group</span>
+            <span
+              className="material-symbols-outlined mobileNavBtn"
+              onClick={() => openMobileSection('settings')}
+              title='Settings'
+            >settings</span>
+            <span
+              className="material-symbols-outlined mobileNavBtn"
+              ref={moreRef}
+              onClick={toggleMore}
+              title='More menus'
+            >more_vert</span>
+            {mobileMore && createPortal(
+              <div
+                className='mobileMoreMenu'
+                ref={moreMenuRef}
+                style={{ top: morePos.top, right: morePos.right }}
+              >
+                {SUB_MENUS.filter(m => m.name !== 'users' && m.name !== 'settings').map(m => (
+                  <div className='mobileMoreItem' key={m.name} onClick={() => openMobileSection(m.name)}>
+                    <span className="material-symbols-outlined">{m.icon}</span>
+                    <span>{m.label}</span>
+                  </div>
+                ))}
+              </div>,
+              document.body
+            )}
           </div>
         </div>
 
@@ -379,6 +445,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           sidebarColor={channelState.themecolors.sidebar}
           mobileOpen={mobileUsers}
           setMobileOpen={setMobileUsers}
+          mobileSection={mobileSection}
           themecolors={channelState.themecolors}
           channelName={channelName}
           hats={channelState.hats}

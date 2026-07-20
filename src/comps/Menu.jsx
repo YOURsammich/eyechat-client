@@ -8,7 +8,7 @@ import DraggableWindow from './DraggableWindow';
 import AvatarComposer from './Avatar/AvatarComposer';
 import { ParsedContent, inlineStyles } from './Chat/Messages';
 
-const SUB_MENUS = [
+export const SUB_MENUS = [
   { name: 'users',    label: 'User List',    icon: 'group' },
   { name: 'account',  label: 'Account',  icon: 'account_circle' },
   { name: 'settings', label: 'Settings', icon: 'settings' },
@@ -36,10 +36,20 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
+
+  // On mobile the quickNav icon bar is hidden, so the section is chosen by the
+  // chat-header buttons (users / settings / the "more" dropdown). Whenever the
+  // mobile overlay is opened for a section, switch this panel to show it.
+  useEffect(() => {
+    if (mobileOpen && mobileSection) {
+      setSelectedList(mobileSection);
+      setMenuOpen(true);
+    }
+  }, [mobileOpen, mobileSection]);
   // Bumped when the already-active nav item is re-clicked; used as a remount key
   // so a panel with its own internal navigation (e.g. Shop) resets to its root.
   const [navNonce, setNavNonce] = useState(0);

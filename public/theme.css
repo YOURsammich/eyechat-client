@@ -149,10 +149,40 @@ a {
   cursor: pointer;
 }
 
-/* Mobile-only user list button in the chat header (hidden on desktop). */
-.mobileUsersBtn {
+/* Mobile-only chat-header nav buttons (users / settings / more) — hidden on
+   desktop, where the quickNav icon bar is used instead. */
+.mobileNavBtn {
   display: none;
-  padding: 0 12px;
+  padding: 0 6px;
+}
+
+/* Dropdown of the remaining menu sections. Portaled to <body> and fixed, with
+   top/right set inline from the ⋮ button's rect, so no ancestor's `overflow`
+   or transform can clip or mis-anchor it. */
+.mobileMoreMenu {
+  position: fixed;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 30;
+  min-width: 170px;
+  overflow: hidden;
+}
+
+.mobileMoreItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #ddd;
+  white-space: nowrap;
+}
+
+.mobileMoreItem:hover {
+  background: #333;
 }
 
 .topic {
@@ -287,7 +317,7 @@ a {
   .search-input {
     display: none;
   }
-  .mobileUsersBtn {
+  .mobileNavBtn {
     display: flex;
   }
 
