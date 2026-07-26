@@ -32,11 +32,20 @@ const noStyle = {
 // entry and a leave notice — rather than as chat prose. Emoji, color and font
 // come through (no key for them here: color and font are on unless switched
 // off); text styles are absent from the map, so getNextStyleComp finds nothing;
-// links, quotes and slideshows are switched off. Those three would each drag a
-// chat-sized widget (an image embed, a hover preview, a timer) into a one-line
-// label that has nowhere to put it.
+// quotes and slideshows are switched off — each would drag a chat-sized widget
+// (a hover preview, a timer) into a one-line label with nowhere to put it.
 const inlineStyles = {
   noLink: true,
+  noQuote: true,
+  noSlideShow: true
+};
+
+// The /part reason, unlike /afk, sits in the message log where there is room
+// across the line — so it keeps links. It renders `compact` (see LinkMsg), which
+// caps an image embed at about one line tall: leave notices arrive in bursts when
+// a connection drops, and full-size embeds would heave the log around.
+// /afk stays on inlineStyles — the userlist sidebar is too narrow for either.
+const partStyles = {
   noQuote: true,
   noSlideShow: true
 };
@@ -626,6 +635,25 @@ function hideImagePreview () {
   window.removeEventListener('keyup', onPreviewKeyUp);
 }
 
+// Does this URL point at a file of one of `types`? The extension is read from the
+// path only — CDNs like Discord append a signed query string (?ex=..&hm=..) after
+// the filename, so testing the whole href would miss them. Some also serve a
+// different format than the path implies (&format=webp on a .jpg); that param is
+// honoured when present, since it's what actually comes back over the wire.
+function hasExtension (href, types) {
+  let path = href, format = null;
+  try {
+    const url = new URL(href);
+    path = url.pathname;
+    format = url.searchParams.get('format');
+  } catch { /* not parseable — fall back to matching the raw string */ }
+
+  if (format && types.includes(format.toLowerCase())) return format.toLowerCase();
+
+  const ext = path.split('.').pop().toLowerCase();
+  return types.includes(ext) ? ext : undefined;
+}
+
 function LinkMsg (props) {
   const message = props.message;
   const href = message.data.href ?? message.data.strdata;
@@ -637,11 +665,9 @@ function LinkMsg (props) {
     return <a href={href} target='_blank' rel="noopener noreferrer">{label}</a>;
   }
 
-  //check if href is an image
-  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-  const imageType = imageTypes.find(type => href.endsWith(type));
+  const imageType = hasExtension(href, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
-  const isMP4 = href.endsWith('mp4');
+  const isMP4 = hasExtension(href, ['mp4']);
   const isYouTube = href.includes('youtube.com/watch') || href.includes('youtu.be/');
 
   return (<>
@@ -650,6 +676,9 @@ function LinkMsg (props) {
       display: 'inline-flex',alignItems: 'flex-end',height: 'auto',
     }}>
       <img src={href} loading='lazy'
+        // Compact (a /part reason): cap the height so the embed stays roughly on
+        // the notice's own line. Ctrl+hover still gives the full-size preview.
+        style={props.compact ? { maxHeight: '2.5em', width: 'auto' } : undefined}
         onLoad={(e) => {
           props._imageLoaded(e.target)
         }}
@@ -750,10 +779,11 @@ function getCompRender (message, props, spanish) {
     case message.data.type == 'slideshow':
       return <SlideShow message={message.data.strdata} />;
     case message.data.type == 'link':
-      return <LinkMsg 
-        message={message} 
-        _imageLoaded={image => props._imageLoaded(image)} 
-        setOverlay={props.setOverlay} 
+      return <LinkMsg
+        message={message}
+        _imageLoaded={image => props._imageLoaded(image)}
+        setOverlay={props.setOverlay}
+        compact={props.compact}
       />;
     case message.data.type == 'emojiMerge':
       return <EmojiMerge message={message} renderMessage={props.renderMessage} emojis={props.emojis} />;
@@ -791,6 +821,7 @@ function NestMessage (props) {
         _imageLoaded={(image) => props._imageLoaded(image)}
         renderMessage={props.renderMessage}
         setOverlay={(id) => props.setOverlay(id)}
+        compact={props.compact}
       /> : null}
     </span>
 
@@ -804,7 +835,7 @@ function NestMessage (props) {
 // Messages machinery. Pass `styles` (e.g. inlineStyles) to render with a
 // narrower set. The callbacks NestMessage may invoke (image load,
 // overlay, quote render) are safe no-ops here.
-export function ParsedContent ({ text, emojis, styles = msgStyles }) {
+export function ParsedContent ({ text, emojis, styles = msgStyles, compact }) {
   if (!text) return null;
   const parsed = messageParser.parse(text, styles);
   return <NestMessage
@@ -813,6 +844,7 @@ export function ParsedContent ({ text, emojis, styles = msgStyles }) {
     _imageLoaded={() => {}}
     renderMessage={() => null}
     setOverlay={() => {}}
+    compact={compact}
   />;
 }
 
@@ -1182,7 +1214,7 @@ class Messages extends React.Component {
         setOverlay={(id) => this.setState({showOverlay: id})}
       />
       { msgData.userText
-        ? <ParsedContent text={msgData.userText} emojis={this.props.emojis} styles={inlineStyles} />
+        ? <ParsedContent text={msgData.userText} emojis={this.props.emojis} styles={partStyles} compact />
         : null }
     </div>
   }
@@ -1262,4 +1294,4 @@ class Messages extends React.Component {
 }
 
 export default Messages;
-export { NestMessage, messageParser, msgStyles, inlineStyles, markGreentext };
+export { NestMessage, messageParser, msgStyles, inlineStyles, partStyles, markGreentext };
