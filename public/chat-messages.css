@@ -36,6 +36,39 @@
   word-break: break-word;
 }
 
+/* ─── Tall messages ────────────────────────────────────────────────────────
+   A message past the height cap is clipped and given a toggle. The toggle sits
+   in .messageBlock, outside the clipped box, so it stays visible and outside
+   the fade; the clip itself is on .message because everything inside a message
+   is display: inline (see above) and so can't take a max-height.
+
+   The fade is a mask rather than a gradient overlay: the chat background is a
+   user-set color or image, so there is no color to fade towards — masking fades
+   the text to transparent over whatever is behind it. */
+
+.msgExpand {
+  display: block;
+  margin: -2px 0 4px 9px;
+  padding: 1px 9px;
+  font-size: 0.75em;
+  color: #ccc;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.msgExpand:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.message.collapsedMsg {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent 100%);
+}
+
 .nick {
   color: rgb(100, 100, 192);
   text-shadow: rgb(0, 0, 0) -1px -1px 0px, rgb(0, 0, 0) 1px -1px 0px, rgb(0, 0, 0) -1px 1px 0px, rgb(0, 0, 0) 1px 1px 0px;

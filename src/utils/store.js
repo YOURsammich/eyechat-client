@@ -4,7 +4,7 @@ class Store {
     this.saveAttrs = ['color', 'bgcolor', 'glow', 'nick', 'token', 
       'currentProfile', 'cursor', 'flair', 'font',
       'lock', 'menu-order', 'proxy', 'style', 'part', 'hotlink',
-      'bubble', 'block', 'joinleave'];
+      'bubble', 'block', 'joinleave', 'stylelimit', 'msgheight'];
 
     this.stateStruct = {
       poll_votes: {

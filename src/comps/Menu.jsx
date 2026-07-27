@@ -3,7 +3,11 @@ import PropTypes from 'prop-types';
 import handleInput from '../utils/handleInput';
 import DraggableWindow from './DraggableWindow';
 import CosmeticsPanel from './Cosmetics/CosmeticsPanel';
-import { ParsedContent, inlineStyles } from './Chat/Messages';
+import {
+  ParsedContent, inlineStyles,
+  STYLE_LIMIT_MIN, STYLE_LIMIT_MAX,
+  MSG_HEIGHT_MIN, MSG_HEIGHT_MAX, MSG_HEIGHT_STEP, MSG_HEIGHT_OFF, effectiveMessageHeight,
+} from './Chat/Messages';
 
 export const SUB_MENUS = [
   { name: 'users',     label: 'User List', icon: 'group' },
@@ -31,7 +35,7 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, styleLimit, changeStyleLimit, channelStyleLimit, msgHeight, changeMsgHeight, channelMsgHeight, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
@@ -111,7 +115,16 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
           />
         )}
         {selectedList === 'channel' && (
-          <ChannelTheme themecolors={themecolors} channelName={channelName} />
+          <ChannelTheme
+            themecolors={themecolors}
+            channelName={channelName}
+            styleLimit={styleLimit}
+            changeStyleLimit={changeStyleLimit}
+            channelStyleLimit={channelStyleLimit}
+            msgHeight={msgHeight}
+            changeMsgHeight={changeMsgHeight}
+            channelMsgHeight={channelMsgHeight}
+          />
         )}
       </div>
     </div>
@@ -125,6 +138,12 @@ Menu.propTypes = {
   toggles:           PropTypes.object.isRequired,
   toggleStateChange: PropTypes.func.isRequired,
   hats:              PropTypes.array.isRequired,
+  styleLimit:        PropTypes.number,
+  changeStyleLimit:  PropTypes.func,
+  channelStyleLimit: PropTypes.number,
+  msgHeight:         PropTypes.number,
+  changeMsgHeight:   PropTypes.func,
+  channelMsgHeight:  PropTypes.number,
 };
 
 // ─── UserList ──────────────────────────────────────────────────────────────────
@@ -674,13 +693,103 @@ function hexAlphaToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function ChannelTheme({ themecolors, channelName }) {
+// One render-cap slider. Every half of both settings (each viewer's own value
+// and the channel's) is the same control, so they all read the same way.
+//
+// `offAtMax` puts the "off" setting — 0, i.e. never clip — one step past the top
+// of the range, so the far right of the slider means "never" rather than a
+// height nobody reaches.
+function RenderSlider({ label, value, min, max, step = 1, offAtMax = false, format, onChange, disabled }) {
+  const sliderMax = offAtMax ? max + step : max;
+  const sliderValue = (offAtMax && value === 0) ? sliderMax : value;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, opacity: disabled ? 0.5 : 1 }}>
+      <span style={{ fontSize: 12, width: 58 }}>{label}</span>
+      <input
+        type="range"
+        min={min} max={sliderMax} step={step}
+        value={sliderValue}
+        disabled={disabled}
+        onChange={e => {
+          const next = parseInt(e.target.value, 10);
+          onChange(offAtMax && next > max ? 0 : next);
+        }}
+        style={{ flex: 1, cursor: disabled ? 'default' : 'pointer' }}
+      />
+      <span style={{ fontSize: 11, color: '#aaa', width: 44, textAlign: 'right' }}>
+        {format ? format(value) : value}
+      </span>
+    </div>
+  );
+}
+
+RenderSlider.propTypes = {
+  label:    PropTypes.string.isRequired,
+  value:    PropTypes.number.isRequired,
+  min:      PropTypes.number.isRequired,
+  max:      PropTypes.number.isRequired,
+  step:     PropTypes.number,
+  offAtMax: PropTypes.bool,
+  format:   PropTypes.func,
+  onChange: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
+};
+
+const formatHeight = h => (h === MSG_HEIGHT_OFF ? 'Off' : h + 'px');
+
+function ChannelTheme({
+  themecolors, channelName,
+  styleLimit, changeStyleLimit, channelStyleLimit,
+  msgHeight, changeMsgHeight, channelMsgHeight,
+}) {
   const [colors, setColors] = useState(themecolors || {});
   const [status, setStatus] = useState(null);
+  // Whether we're a mod, i.e. whether the channel sliders are ours to move. The
+  // server decides — and re-checks on the POST — so this only drives the UI.
+  const [canEditLimits, setCanEditLimits] = useState(false);
+  const [chLimit, setChLimit] = useState(channelStyleLimit);
+  const [chHeight, setChHeight] = useState(channelMsgHeight);
+  const [limitStatus, setLimitStatus] = useState(null);
 
   useEffect(() => {
     setColors(themecolors || {});
   }, [themecolors]);
+
+  // A mod elsewhere moved a channel slider (broadcast as a themecolors row), so
+  // follow it — unless we have unsaved edits of our own in the controls.
+  useEffect(() => {
+    if (limitStatus === 'unsaved') return;
+    setChLimit(channelStyleLimit);
+    setChHeight(channelMsgHeight);
+  }, [channelStyleLimit, channelMsgHeight]);
+
+  useEffect(() => {
+    fetch('/channel/theme')
+      .then(r => r.json())
+      .then(d => setCanEditLimits(!!d.canEdit))
+      .catch(() => setCanEditLimits(false));
+  }, []);
+
+  const limitsDirty = chLimit !== channelStyleLimit || chHeight !== channelMsgHeight;
+
+  function saveLimits() {
+    setLimitStatus('saving');
+    Promise.all([
+      ['stylelimit', chLimit],
+      ['msgheight', chHeight],
+    ].map(([key, value]) =>
+      fetch('/a/rendersetting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelName, key, value }),
+      }).then(r => r.json())
+    ))
+      // A guest gets {message: 'You must be logged in'} rather than an error
+      // key, so treat anything without an explicit success as a failure.
+      .then(results => setLimitStatus(results.every(d => d.success) ? 'saved' : 'error'))
+      .catch(() => setLimitStatus('error'));
+  }
 
   function save() {
     setStatus('saving');
@@ -698,7 +807,7 @@ function ChannelTheme({ themecolors, channelName }) {
   }
 
   return (
-    <div style={{ padding: '12px 10px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <div style={{ padding: '12px 10px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <div style={{ fontSize: 11, color: '#777', marginBottom: 12 }}>Theme Colors</div>
       {THEME_KEYS.map(({ key, label, alpha: hasAlpha }) => {
         if (hasAlpha) {
@@ -748,9 +857,74 @@ function ChannelTheme({ themecolors, channelName }) {
       >
         {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved!' : status === 'error' ? 'Error — try again' : 'Save Colors'}
       </button>
+
+      <div style={{ fontSize: 11, color: '#777', margin: '22px 0 4px' }}>Style Limit</div>
+      <div style={{ fontSize: 11, color: '#777', marginBottom: 10, lineHeight: 1.4 }}>
+        How many styles a message may stack (/*, /^, …). Past the limit the rest of
+        the message is shown as plain text.
+      </div>
+
+      <RenderSlider
+        label='Yours' value={styleLimit} onChange={changeStyleLimit}
+        min={STYLE_LIMIT_MIN} max={STYLE_LIMIT_MAX}
+      />
+      <RenderSlider
+        label='Channel' value={chLimit} disabled={!canEditLimits}
+        min={STYLE_LIMIT_MIN} max={STYLE_LIMIT_MAX}
+        onChange={v => { setChLimit(v); setLimitStatus('unsaved'); }}
+      />
+
+      <div style={{ fontSize: 11, color: '#777', margin: '18px 0 4px' }}>Message Height</div>
+      <div style={{ fontSize: 11, color: '#777', marginBottom: 10, lineHeight: 1.4 }}>
+        How tall a message may get before it is cut off behind a “Show more”
+        button. Far right is off — never cut anything off.
+      </div>
+
+      <RenderSlider
+        label='Yours' value={msgHeight} onChange={changeMsgHeight}
+        min={MSG_HEIGHT_MIN} max={MSG_HEIGHT_MAX} step={MSG_HEIGHT_STEP}
+        offAtMax format={formatHeight}
+      />
+      <RenderSlider
+        label='Channel' value={chHeight} disabled={!canEditLimits}
+        min={MSG_HEIGHT_MIN} max={MSG_HEIGHT_MAX} step={MSG_HEIGHT_STEP}
+        offAtMax format={formatHeight}
+        onChange={v => { setChHeight(v); setLimitStatus('unsaved'); }}
+      />
+
+      {canEditLimits ? (
+        <button
+          className='stdBtn'
+          onClick={saveLimits}
+          disabled={limitStatus === 'saving' || !limitsDirty}
+          style={{ width: '100%', marginTop: 4, padding: '6px 0' }}
+        >
+          {limitStatus === 'saving' ? 'Saving…' : limitStatus === 'saved' ? 'Saved!' : limitStatus === 'error' ? 'Error — try again' : 'Save Channel Limits'}
+        </button>
+      ) : (
+        <div style={{ fontSize: 11, color: '#777' }}>Channel limits are set by moderators.</div>
+      )}
+
+      {/* Whichever cap is lower is the one messages actually render at, so say
+          so — otherwise setting your own slider past the channel's looks broken. */}
+      <div style={{ fontSize: 11, color: '#aaa', margin: '10px 0 4px' }}>
+        Rendering at {Math.min(styleLimit, channelStyleLimit)} styles,{' '}
+        {formatHeight(effectiveMessageHeight(msgHeight, channelMsgHeight))} tall.
+      </div>
     </div>
   );
 }
+
+ChannelTheme.propTypes = {
+  themecolors:       PropTypes.object,
+  channelName:       PropTypes.string,
+  styleLimit:        PropTypes.number.isRequired,
+  changeStyleLimit:  PropTypes.func.isRequired,
+  channelStyleLimit: PropTypes.number.isRequired,
+  msgHeight:         PropTypes.number.isRequired,
+  changeMsgHeight:   PropTypes.func.isRequired,
+  channelMsgHeight:  PropTypes.number.isRequired,
+};
 
 // ─── Overlay ──────────────────────────────────────────────────────────────────
 

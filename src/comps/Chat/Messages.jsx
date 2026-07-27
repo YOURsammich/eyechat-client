@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import AvatarDisplay from './AvatarDisplay.jsx';
 
 
@@ -33,6 +33,93 @@ const msgStyles = {
   '?': 'cursed'
 
 };
+
+// How many style tokens (/*, /^, …) a message may nest before the parser stops
+// reading it. Past the cap the rest of the string is emitted as a single text
+// node: it keeps the styles already open, but nothing left in it is parsed —
+// no further tokens, colors, links or emoji.
+//
+// Adjustable from the Channel panel, in two halves: a mod-set per-channel cap
+// (the `stylelimit` themecolors row) and each user's own preference, resolved to
+// the lower of the pair by ChatWindow. A module singleton rather than a parse()
+// argument because every render path — chat messages, flair, filtered words, the
+// search page — parses through this one object, so a parameter would have to be
+// threaded through all of them to say the same thing.
+export const STYLE_LIMIT_DEFAULT = 10;
+export const STYLE_LIMIT_MIN = 1;
+export const STYLE_LIMIT_MAX = 20;
+
+let styleLimit = STYLE_LIMIT_DEFAULT;
+
+// Coerce a stored/typed limit into range. Anything unparseable — a missing
+// themecolors row, a hand-edited localStorage value — falls back rather than
+// clamping, so an absent setting means "the default", not "the minimum".
+export function clampStyleLimit(value, fallback = STYLE_LIMIT_DEFAULT) {
+  const n = parseInt(value, 10);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(STYLE_LIMIT_MAX, Math.max(STYLE_LIMIT_MIN, n));
+}
+
+export function setStyleLimit(value) {
+  styleLimit = clampStyleLimit(value);
+}
+
+export function getStyleLimit() {
+  return styleLimit;
+}
+
+// How tall a single message may render before it is clipped and given a "Show
+// more" toggle (see CollapsibleMessage), in pixels. Same two-half arrangement as
+// the style limit: a mod-set per-channel cap (the `msgheight` themecolors row)
+// and each viewer's own preference, resolved to the lower of the pair.
+//
+// MSG_HEIGHT_OFF is the "never clip" setting. It reads as 0 so it can't be
+// confused with a real height, and effectiveMessageHeight treats it as infinite
+// so that combining it with a real cap gives the cap, not "off".
+export const MSG_HEIGHT_DEFAULT = 400;
+export const MSG_HEIGHT_MIN = 100;
+export const MSG_HEIGHT_MAX = 1000;
+export const MSG_HEIGHT_STEP = 50;
+export const MSG_HEIGHT_OFF = 0;
+
+export function clampMessageHeight(value, fallback = MSG_HEIGHT_DEFAULT) {
+  const n = parseInt(value, 10);
+  if (Number.isNaN(n)) return fallback;
+  if (n <= 0) return MSG_HEIGHT_OFF;
+  return Math.min(MSG_HEIGHT_MAX, Math.max(MSG_HEIGHT_MIN, n));
+}
+
+export function effectiveMessageHeight(a, b) {
+  const height = Math.min(
+    a === MSG_HEIGHT_OFF ? Infinity : a,
+    b === MSG_HEIGHT_OFF ? Infinity : b
+  );
+  return height === Infinity ? MSG_HEIGHT_OFF : height;
+}
+
+// Unlike the style limit, this can't be a plain module variable that callers
+// read: rendered messages are cached as React elements (see cacheMessage in the
+// Messages class), so a change can't reach them through props or through a
+// re-render of their parent. Each collapsible message subscribes instead, and a
+// change re-renders exactly those.
+let messageMaxHeight = MSG_HEIGHT_DEFAULT;
+const messageHeightSubs = new Set();
+
+export function setMessageMaxHeight(value) {
+  const height = clampMessageHeight(value);
+  if (height === messageMaxHeight) return;
+  messageMaxHeight = height;
+  for (const notify of messageHeightSubs) notify();
+}
+
+export function getMessageMaxHeight() {
+  return messageMaxHeight;
+}
+
+function subscribeMessageMaxHeight(notify) {
+  messageHeightSubs.add(notify);
+  return () => messageHeightSubs.delete(notify);
+}
 
 const noStyle = {
   noColor: true
@@ -394,7 +481,9 @@ const messageParser = {
     }
 
 
-    if (depth > 5) {
+    // `depth` counts style tokens opened so far (see styleLimit); a "|" breaker
+    // pops one, handing the budget back.
+    if (depth >= styleLimit) {
       tracker.children.push({
         data: str,
         parent: tracker,
@@ -1068,6 +1157,63 @@ function EmbedOverlay (props) {
   </Draggable>;
 }
 
+// A message that clips itself once it's taller than the cap, with a toggle to
+// show the rest. The wrapper exists because the toggle has to sit outside the
+// clipped box; `.message div { display: inline }` rules out clipping anything
+// inside the message, so the message element itself is what gets a max-height.
+//
+// The state is the component's own rather than the log's: the Messages class
+// caches rendered messages as elements, so anything it held about a particular
+// message would not reach it again after the first render.
+function CollapsibleMessage({ className, children }) {
+  const maxHeight = useSyncExternalStore(subscribeMessageMaxHeight, getMessageMaxHeight, getMessageMaxHeight);
+  const [tall, setTall] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const ref = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (maxHeight === MSG_HEIGHT_OFF) { setTall(false); return; }
+
+    // scrollHeight is the full content height even while the box is clipped, so
+    // this stays right after the message has already collapsed — which is what
+    // lets the cap be lowered live without re-mounting the log.
+    //
+    // A few pixels of slack: clipping a message to hide two pixels of it would
+    // cost a whole toggle row, which is worse than just showing them.
+    const measure = () => setTall(el.scrollHeight > maxHeight + 8);
+    measure();
+
+    // Embeds (images, GIFs) and Google fonts land after mount and can push a
+    // message past the cap later. While the message is clipped its own box stops
+    // changing size, but by then it is collapsed and stays that way.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [maxHeight, children]);
+
+  const collapsed = tall && !expanded;
+
+  return (
+    <div className='messageBlock'>
+      <div
+        ref={ref}
+        className={className + (collapsed ? ' collapsedMsg' : '')}
+        style={collapsed ? { maxHeight } : undefined}
+      >
+        {children}
+      </div>
+      {tall ? (
+        <button className='msgExpand' onClick={() => setExpanded(prev => !prev)}>
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 class Messages extends React.Component {
   constructor () {
     super();
@@ -1315,12 +1461,15 @@ class Messages extends React.Component {
     // number, so it can't be mistaken for something just said in the room.
     const found = message.foundBy;
 
-    return <div className={'message' + (message.type ? ' ' + message.type : '') + (found ? ' foundMessage' : '')} key={'message-' + message.count}>
+    return <CollapsibleMessage
+      className={'message' + (message.type ? ' ' + message.type : '') + (found ? ' foundMessage' : '')}
+      key={'message-' + message.count}
+    >
       { found ? <div className='foundBy'>{'findmsg by ' + found}</div> : null }
       { found ? this.renderMsgNum(message) : this.renderTimeStamp(message) }
       { message.type == 'chat' ? this.renderNick(message) : null }
       { this.renderMessageContent(message) }
-    </div>
+    </CollapsibleMessage>
   }
 
   handleClick (e) {
@@ -1379,4 +1528,4 @@ class Messages extends React.Component {
 }
 
 export default Messages;
-export { NestMessage, messageParser, msgStyles, inlineStyles, partStyles, markGreentext };
+export { NestMessage, messageParser, msgStyles, inlineStyles, partStyles, markGreentext, CollapsibleMessage };

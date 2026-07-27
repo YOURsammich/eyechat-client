@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import Messages, { ParsedContent, mentionsNick } from './Messages';
+import Messages, {
+  ParsedContent, mentionsNick,
+  clampStyleLimit, setStyleLimit,
+  clampMessageHeight, effectiveMessageHeight, setMessageMaxHeight,
+} from './Messages';
 import InputBar from './InputBar';
 import Menu, { Overlay, SUB_MENUS } from './../Menu';
 import FluidBackground from './FluidBackground';
@@ -69,6 +73,13 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   }));
   const [layout, setLayout] = useState(() => store.get('layout') || 'classic');
   const [joinLeave, setJoinLeave] = useState(() => store.get('joinleave') || 'registered');
+  // This viewer's own style-nesting cap. The channel sets one too (below); the
+  // parser gets whichever is lower, so a user can only tighten what the channel
+  // allows, never loosen it.
+  const [styleLimit, setStyleLimitPref] = useState(() => clampStyleLimit(store.get('stylelimit')));
+  // Same arrangement for how tall a message may render before it's clipped
+  // behind a "Show more" toggle (0 = never clip).
+  const [msgHeight, setMsgHeightPref] = useState(() => clampMessageHeight(store.get('msgheight')));
   const [channelState, setChannelState] = useState({
     background: '',
     topic: '',
@@ -286,6 +297,20 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     };
   }, []);
 
+  // The channel's render caps, as stored (themecolors rows, so they arrive as
+  // strings and are absent until a mod sets one), and what we actually render
+  // at — the lower of the channel's cap and this viewer's own.
+  const channelStyleLimit = clampStyleLimit(channelState.themecolors.stylelimit);
+  const channelMsgHeight = clampMessageHeight(channelState.themecolors.msgheight);
+  const effectiveMsgHeight = effectiveMessageHeight(msgHeight, channelMsgHeight);
+
+  // Pushed from an effect rather than during render: collapsible messages
+  // subscribe to this value (they are cached elements, out of reach of props),
+  // and notifying them mid-render would be updating other components while
+  // this one renders. The style limit below is read during render instead, so
+  // it has to be set the other way round.
+  useEffect(() => { setMessageMaxHeight(effectiveMsgHeight); }, [effectiveMsgHeight]);
+
   function addMessage(message) {
     if (!Array.isArray(message)) message = [message];
     setMessages(prev => [...prev, ...message]);
@@ -324,6 +349,18 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   function changeJoinLeave(mode) {
     setJoinLeave(mode);
     store.setState('joinleave', mode);
+  }
+
+  function changeStyleLimit(value) {
+    const limit = clampStyleLimit(value);
+    setStyleLimitPref(limit);
+    store.setState('stylelimit', limit);
+  }
+
+  function changeMsgHeight(value) {
+    const height = clampMessageHeight(value);
+    setMsgHeightPref(height);
+    store.setState('msgheight', height);
   }
 
   function toggleStateChange(attr, state) {
@@ -384,6 +421,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   }
 
   if (!focusOnChat) return null;
+
+  // Pushed during render, not from an effect: the parser reads this singleton
+  // while the children below render, which happens before an effect would run —
+  // so a change would otherwise show one frame at the previous cap.
+  setStyleLimit(Math.min(styleLimit, channelStyleLimit));
 
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -477,6 +519,12 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           changeLayout={changeLayout}
           joinLeave={joinLeave}
           changeJoinLeave={changeJoinLeave}
+          styleLimit={styleLimit}
+          changeStyleLimit={changeStyleLimit}
+          channelStyleLimit={channelStyleLimit}
+          msgHeight={msgHeight}
+          changeMsgHeight={changeMsgHeight}
+          channelMsgHeight={channelMsgHeight}
           themeColor={channelState.themecolors.menupri}
           sidebarColor={channelState.themecolors.sidebar}
           mobileOpen={mobileUsers}
