@@ -35,9 +35,10 @@ const msgStyles = {
 };
 
 // How many style tokens (/*, /^, …) a message may nest before the parser stops
-// reading it. Past the cap the rest of the string is emitted as a single text
-// node: it keeps the styles already open, but nothing left in it is parsed —
-// no further tokens, colors, links or emoji.
+// reading it. Past the cap the text keeps the styles already open but is no
+// longer parsed — no further tokens, colors, links or emoji. The exception is
+// "|", which still closes a style (see parsePastLimit): without it, a message
+// that opened too many styles could never close them again.
 //
 // Adjustable from the Channel panel, in two halves: a mod-set per-channel cap
 // (the `stylelimit` themecolors row) and each user's own preference, resolved to
@@ -459,6 +460,42 @@ const messageParser = {
 
     return null;
   },
+  // Everything from the style limit onwards is plain text — with one exception:
+  // "|" still closes a style. A message that opened more styles than the limit
+  // allows would otherwise have no way to close them again, so the styles it did
+  // apply would run to the end of the message no matter what was typed after.
+  //
+  // Closing one hands a layer back, which drops us under the limit, and normal
+  // parsing resumes from there — so a run of breakers unwinds the whole stack.
+  parsePastLimit (str, msgStyles, tracker, depth) {
+    const asText = (text) => {
+      if (text.length > 0) tracker.children.push({data: text, parent: tracker, children: []});
+      return tracker;
+    };
+
+    // Scan for the first "|" that is really a breaker, stepping over any raw
+    // span that opens ahead of it: a "|" inside /`…/` is part of the verbatim
+    // text like everything else in one, and must not end a style.
+    let from = 0;
+    let breaker = str.indexOf('|');
+    while (breaker !== -1) {
+      const raw = this.getRawComp(str.slice(from));
+      if (!raw || from + raw.index > breaker) break;
+
+      from += raw.index + raw.strdata.length;
+      breaker = str.indexOf('|', from);
+    }
+
+    if (breaker === -1) return asText(str);
+
+    asText(str.slice(0, breaker));
+
+    const styleParent = this.getStyleParent(tracker);
+    const styleLayer = (styleParent?.parent) || tracker;
+    this.parse(str.slice(breaker + 1), msgStyles, styleLayer, depth - 1);
+
+    return tracker;
+  },
   getStyleParent (dataTree) {
 
     if (!dataTree.parent) return dataTree;
@@ -484,12 +521,7 @@ const messageParser = {
     // `depth` counts style tokens opened so far (see styleLimit); a "|" breaker
     // pops one, handing the budget back.
     if (depth >= styleLimit) {
-      tracker.children.push({
-        data: str,
-        parent: tracker,
-        children: []
-      });
-      return tracker;
+      return this.parsePastLimit(str, msgStyles, tracker, depth);
     }
 
     const currComp = this.getCurrComp(str, msgStyles);
