@@ -4,3 +4,8 @@ dist/images/emojis/*
 dist/images/hats/*
 dist/images/avatars/*
 dist/assets/*
+node_modules
+
+package.json
+bun.lock
+proxy.ts

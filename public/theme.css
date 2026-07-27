@@ -1208,6 +1208,130 @@ a {
   cursor: help;
 }
 
+/* ─── MWs (curse shop) ────────────────────────────────────────────────────── */
+
+.mwShop {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 5px;
+  overflow-y: auto;
+}
+
+.mwSectionLabel {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #8a97ad;
+  margin-top: 4px;
+}
+
+.mwSectionLabel:first-child {
+  margin-top: 0;
+}
+
+.mwTargetRow {
+  display: flex;
+}
+
+.mwTargetInput {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mwCatalogList,
+.mwActiveList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mwEmpty {
+  color: #8a97ad;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.mwError {
+  color: #ff6b6b;
+  font-size: 12px;
+}
+
+/* A single MW on offer in the catalog: name/description on the left, an
+   apply-for-cost button on the right — same card shape as .filterRow. */
+.mwCatalogRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #000000ab;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.mwCatalogBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mwCatalogName {
+  font-size: 14px;
+}
+
+.mwCatalogDesc {
+  font-size: 12px;
+  color: #ccc;
+  margin: 0;
+}
+
+.mwApplyBtn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  color: gold;
+}
+
+/* A currently-active curse on you: name + who cast it, with a dismiss icon. */
+.mwActiveRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #000000ab;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.mwActiveBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mwActiveName {
+  font-size: 14px;
+}
+
+.mwActiveMeta {
+  font-size: 11px;
+  color: #8a97ad;
+}
+
+.mwActiveRemoveBtn {
+  color: #8a97ad;
+  cursor: pointer;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.mwActiveRemoveBtn:hover {
+  color: #ff6b6b;
+}
+
 /* ─── Utilities ───────────────────────────────────────────────────────────── */
 
 .noSelect {

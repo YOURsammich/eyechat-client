@@ -103,7 +103,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
           <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} joinLeave={joinLeave} changeJoinLeave={changeJoinLeave} />
         )}
         {selectedList === 'shop' && (
-          <Shop key={navNonce} hats={hats} emojis={emojis} />
+          <Shop key={navNonce} hats={hats} emojis={emojis} user={user} channelName={channelName} userlist={userlist} />
         )}
         {selectedList === 'cosmetics' && (
           <CosmeticsPanel
@@ -335,7 +335,7 @@ Settings.propTypes = {
 
 // ─── Shop ─────────────────────────────────────────────────────────────────────
 
-function Shop({ hats, emojis }) {
+function Shop({ hats, emojis, user, channelName, userlist }) {
   const [selectedCat, setSelectedCat] = useState('nav');
 
   function selectCat(name) {
@@ -369,15 +369,159 @@ function Shop({ hats, emojis }) {
       )}
 
       {selectedCat === 'filters'    && <FiltersShop emojis={emojis} />}
-      {selectedCat === 'mws'        && <div><h3>MWs</h3></div>}
+      {selectedCat === 'mws'        && <MwsShop user={user} channelName={channelName} userlist={userlist} />}
       {selectedCat === 'join names' && <JoinNames />}
     </div>
   );
 }
 
 Shop.propTypes = {
-  hats:   PropTypes.array.isRequired,
-  emojis: PropTypes.array,
+  hats:        PropTypes.array.isRequired,
+  emojis:      PropTypes.array,
+  user:        PropTypes.object,
+  channelName: PropTypes.string,
+  userlist:    PropTypes.array,
+};
+
+// ─── MwsShop ────────────────────────────────────────────────────────────────
+
+// Middlewares: server-defined transform functions (shrek, uwu, etc) that run
+// against a *target user's* message text when they send it — this is a curse
+// you pay coins to inflict on someone else, not something you equip on
+// yourself. `/mw <nick> <mwId>` is the chat-command equivalent; this panel is
+// the GUI version: pick a target, pick an MW, pay the cost.
+//
+// `user.middlewares` here is the list of MWs currently cursing *you* (placed
+// on you by other people), each `{ id, appliedBy }`, pushed live by the
+// server the same way `registered` flips post-login. It's read-only from
+// your side aside from an optional "shake it off" removal.
+function MwsShop({ user, channelName, userlist = [] }) {
+  const [catalog, setCatalog] = useState([]);
+  const [active, setActive] = useState([]); // [{ id, appliedBy }] currently affecting you
+  const [target, setTarget] = useState('');
+  const [applyingId, setApplyingId] = useState(null);
+  const [removingId, setRemovingId] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/channel/info/main/middlewares')
+      .then(res => res.json())
+      .then(data => setCatalog(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setActive(Array.isArray(user?.middlewares) ? user.middlewares : []);
+  }, [user?.middlewares]);
+
+  const byId = new Map(catalog.map(mw => [mw.id, mw]));
+  const coins = user?.coins ?? 0;
+  const nick = target.trim();
+
+  function apply(mw) {
+    if (applyingId) return;
+    if (!nick) { setError('Pick who to target first.'); return; }
+    if (coins < mw.cost) { setError(`Not enough coins for ${mw.name}.`); return; }
+    setApplyingId(mw.id);
+    setError('');
+    fetch('/a/middleware/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelName, targetNick: nick, id: mw.id }),
+    })
+      .then(res => res.json())
+      .then(res => { if (res.error) setError(res.error); })
+      .catch(() => setError('Could not reach the server.'))
+      .finally(() => setApplyingId(null));
+  }
+
+  function clear(id) {
+    if (removingId) return;
+    setRemovingId(id);
+    setError('');
+    fetch('/a/middleware/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelName, id }),
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res.error) { setError(res.error); return; }
+        setActive(prev => prev.filter(a => a.id !== id));
+      })
+      .catch(() => setError('Could not reach the server.'))
+      .finally(() => setRemovingId(null));
+  }
+
+  return (
+    <div className='mwShop'>
+      {error && <div className='mwError'>{error}</div>}
+
+      <div className='mwSectionLabel'>Apply a MW to someone</div>
+      <div className='mwTargetRow'>
+        <input
+          className='stdInput mwTargetInput'
+          list='mwUserlist'
+          placeholder='Target nick'
+          value={target}
+          onChange={e => { setTarget(e.target.value); setError(''); }}
+        />
+        <datalist id='mwUserlist'>
+          {userlist.filter(u => u.nick).map(u => <option key={u.id} value={u.nick} />)}
+        </datalist>
+      </div>
+
+      <div className='mwCatalogList'>
+        {catalog.length === 0 && <div className='mwEmpty'>No MWs available yet.</div>}
+        {catalog.map(mw => (
+          <div className='mwCatalogRow' key={mw.id}>
+            <div className='mwCatalogBody'>
+              <div className='mwCatalogName'>{mw.name}</div>
+              <p className='mwCatalogDesc'>{mw.description}</p>
+            </div>
+            <button
+              className='stdBtn mwApplyBtn'
+              onClick={() => apply(mw)}
+              disabled={applyingId === mw.id || !nick || coins < mw.cost}
+              title={!nick ? 'Pick a target first' : coins < mw.cost ? 'Not enough coins' : `Apply to ${nick}`}
+            >
+              {applyingId === mw.id ? '…' : `₵${mw.cost}`}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {active.length > 0 && (
+        <>
+          <div className='mwSectionLabel'>Currently affecting you</div>
+          <div className='mwActiveList'>
+            {active.map(a => {
+              const mw = byId.get(a.id);
+              return (
+                <div className='mwActiveRow' key={a.id}>
+                  <div className='mwActiveBody'>
+                    <span className='mwActiveName'>{mw?.name || a.id}</span>
+                    {a.appliedBy && <span className='mwActiveMeta'>from {a.appliedBy}</span>}
+                  </div>
+                  <span
+                    className='mwActiveRemoveBtn material-symbols-outlined'
+                    onClick={() => clear(a.id)}
+                    title='Shake it off'
+                  >close</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+MwsShop.propTypes = {
+  user:        PropTypes.object,
+  channelName: PropTypes.string,
+  userlist:    PropTypes.array,
 };
 
 // ─── FiltersShop ────────────────────────────────────────────────────────────
