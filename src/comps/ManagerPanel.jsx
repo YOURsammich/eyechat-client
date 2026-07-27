@@ -10,10 +10,22 @@ import DraggableWindow from './DraggableWindow';
 // Contract:
 //   - loadUrl GET returns { items: [...], canDelete: boolean }; each item needs
 //     a unique `id`. `canDelete` decides whether the remove column is shown
-//     (the server still enforces permission on delete regardless).
+//     (the server still enforces permission on delete regardless). It may also
+//     return `subtitle` (a line above the table, for context the client can't
+//     know — e.g. the IP /deepfind resolved) and `error` (a refusal to show
+//     instead of an empty table).
+//   - omit deleteUrl for a read-only view; the server just returns canDelete
+//     false.
 //   - deleteUrl POST receives { id } and returns { success } or { error }.
-//   - columns: [{ label, render(item) }] describes each data column.
+//   - columns: [{ label, render(item, helpers) }] describes each data column.
+//     `helpers` is what lets a column be interactive rather than just text:
+//     `data` is the raw load response (for flags only the server knows, e.g.
+//     whether this user may edit), `patch(id, fields)` merges a saved change
+//     back into a row, and `setError` surfaces a failure in the panel's own
+//     error slot instead of each column inventing its own.
 //   - confirmText(item) optionally returns a string to confirm before removing.
+//   - header is optional JSX pinned above the table (e.g. a search box). A
+//     caller that changes loadUrl from it gets a refetch for free.
 export default function ManagerPanel({
   title,
   onClose,
@@ -24,10 +36,13 @@ export default function ManagerPanel({
   confirmText,
   emptyText = 'Nothing here.',
   width = 460,
+  header = null,
 }) {
   const [items, setItems] = useState(null); // null = still loading
   const [canDelete, setCanDelete] = useState(false);
+  const [subtitle, setSubtitle] = useState('');
   const [error, setError] = useState('');
+  const [response, setResponse] = useState({}); // the raw load body, for columns
 
   const load = useCallback(async () => {
     setError('');
@@ -36,6 +51,9 @@ export default function ManagerPanel({
       const data = await res.json();
       setItems(Array.isArray(data.items) ? data.items : []);
       setCanDelete(!!data.canDelete);
+      setSubtitle(typeof data.subtitle === 'string' ? data.subtitle : '');
+      setResponse(data && typeof data === 'object' ? data : {});
+      if (data.error) setError(data.error);
     } catch {
       setError('Could not load.');
       setItems([]);
@@ -43,6 +61,14 @@ export default function ManagerPanel({
   }, [loadUrl]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Merge a saved change into one row, so an editable column can reflect what
+  // the server stored without reloading the whole list.
+  const patch = useCallback((id, fields) => {
+    setItems(prev => prev.map(i => (i.id === id ? { ...i, ...fields } : i)));
+  }, []);
+
+  const helpers = { data: response, patch, setError };
 
   async function remove(item) {
     if (confirmText && !window.confirm(confirmText(item))) return;
@@ -66,7 +92,13 @@ export default function ManagerPanel({
 
   return (
     <DraggableWindow title={title} onClose={onClose} width={width}>
+      {header ? <div style={{ marginBottom: 8 }}>{header}</div> : null}
+
       {error ? <div style={{ color: '#f66', marginBottom: 8, fontSize: 13 }}>{error}</div> : null}
+
+      {subtitle ? (
+        <div style={{ color: '#aaa', marginBottom: 8, fontSize: 12, wordBreak: 'break-word' }}>{subtitle}</div>
+      ) : null}
 
       {items === null ? (
         <div style={{ color: '#888', padding: '12px 0' }}>Loading…</div>
@@ -95,7 +127,7 @@ export default function ManagerPanel({
                     key={c.label}
                     style={{ padding: '5px 8px', borderBottom: '1px solid #232323', wordBreak: 'break-word' }}
                   >
-                    {c.render(item)}
+                    {c.render(item, helpers)}
                   </td>
                 ))}
                 {canDelete ? (

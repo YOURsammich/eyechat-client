@@ -1,3 +1,5 @@
+import { composeTextStyle, pickTextStyle } from './textstyle';
+
 // Parse a single hex color (3- or 6-digit, leading "#" optional) into an
 // [r, g, b] triple normalized to 0..1, or null if it isn't valid hex.
 function hexToRgb(hex) {
@@ -62,6 +64,47 @@ async function postAuth(type, params, addMessage) {
   else if (type === 'login') tell(`Logged in as ${params.nick}.`, 'info');
 }
 
+// --- text style ---
+//
+// See utils/textstyle.js for how the four properties compose into markup.
+//
+// A registered user's message text style lives on their account as four columns
+// (color, glow, font, style — see src/textstyle.js), which is what the cosmetics
+// menu edits and what style profiles snapshot. /color and /font are the chat
+// shorthand for two of those properties, so they write there too; otherwise a
+// color set from the input bar would be invisible to the menu and to profiles.
+//
+// Guests have no account row, and /a/* is login-only, so they keep the older
+// localStorage path: styling that lasts the session and is applied by prefixing
+// the outgoing message (see getStylePrefix).
+
+// /a/textstyle replaces all four properties, so the ones we aren't changing are
+// sent back alongside the patch. The live user updates via userStateChange, so
+// there's nothing to set locally.
+function saveTextStyle(user, patch, addMessage) {
+  const tell = (message, type) =>
+    addMessage?.({ message, type, noparse: true, count: Math.random() });
+
+  fetch('/a/textstyle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...pickTextStyle(user), ...patch }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error || !data.success) {
+        tell(data.error || data.message || 'Could not save your text style.', 'error');
+        return;
+      }
+      // The server drops a property it can't accept, so report anything that
+      // didn't stick rather than letting it look applied.
+      for (const [key, value] of Object.entries(patch)) {
+        if (value && data[key] == null) tell(`"${value}" isn't a valid ${key}.`, 'error');
+      }
+    })
+    .catch(() => tell('Could not reach the server.', 'error'));
+}
+
 const COMMANDS = {
   nick: {
     params: ['nick'],
@@ -90,17 +133,20 @@ const COMMANDS = {
   },
   color: {
     params: ['code'],
-    handler (params, {channelName, store}) {
-      store.setState('color', params.code);
+    handler (params, {store, user, addMessage}) {
+      const color = params.code === 'none' ? null : params.code;
+      if (user?.registered) saveTextStyle(user, { color }, addMessage);
+      else store.setState('color', color ?? '');
     }
   },
   font: {
     params: ['font'],
     parseMethod: 'leaveSpace',
-    handler (params, {store}) {
-      // Persist a Google Font name (e.g. "Comic Neue") that gets prefixed onto
-      // each message as a $Font| token; "/font none" clears it.
-      store.setState('font', params.font === 'none' ? '' : params.font);
+    handler (params, {store, user, addMessage}) {
+      // A Google Font name (e.g. "Comic Neue"); "/font none" clears it.
+      const font = params.font === 'none' ? null : params.font;
+      if (user?.registered) saveTextStyle(user, { font }, addMessage);
+      else store.setState('font', font ?? '');
     }
   },
   get: {
@@ -114,14 +160,20 @@ const COMMANDS = {
       // (color, font…). Resolve in that order — first owner wins. Only `store`
       // was consulted before, which is why `/get flair`, `/get topic`, etc.
       // never resolved.
-      const has = (obj) => obj && Object.prototype.hasOwnProperty.call(obj, attr);
+      // An owner must hold an actual *value*, not just the key: clientInfo carries
+      // every cosmetic field whether or not it's set, so a bare hasOwnProperty
+      // check would stop at `user` and report "color is set to null". It also has
+      // to fall through for a guest, whose color and font are still local-only.
+      const isSet = (v) =>
+        v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
+      const has = (obj) => obj && Object.prototype.hasOwnProperty.call(obj, attr) && isSet(obj[attr]);
 
       let value;
       if (has(user)) value = user[attr];
       else if (has(channelState)) value = channelState[attr];
       else value = store.get(attr);
 
-      if (value === undefined || value === '') {
+      if (!isSet(value)) {
         addMessage({
           message: attr + ' is not set.',
           type: 'info',
@@ -141,18 +193,51 @@ const COMMANDS = {
       })
     }
   },
+  // Renders a chat line locally and sends nothing — a preview of how a message
+  // will look once styled, without putting it in the room or the log. The fields
+  // mirror what the server attaches to a real 'message' event (see the message
+  // branch of handleConnection), since each one feeds the rendered line: the
+  // nick/flair/hat/avatar row, the timestamp, and the 'chat'-only parsing
+  // (greentext, word filters) in Messages.
   echo: {
     params: ['message'],
     parseMethod: 'leaveSpace',
-    handler (params, {addMessage, user}) {
+    handler (params, {addMessage, store, user}) {
+      if (!params?.message) {
+        addMessage({
+          message: 'Usage: /echo <message>',
+          type: 'error',
+          noparse: true,
+          count: Math.random()
+        });
+        return;
+      }
+
+      // Prepend the sender's /color and /font exactly as an outgoing message
+      // would (see handle() below) — otherwise the preview drops the styling the
+      // real message is about to carry. Contributes nothing for a registered
+      // user, whose style the renderer applies from their own state instead.
+      const { color, font } = handleInput.getStylePrefix(store, user);
 
       addMessage({
-        message: params.message,
+        message: font + color + params.message,
         type: 'chat',
-        count: Math.random(),
-        nick: user.nick
-      })
-
+        nick: user?.nick,
+        flair: user?.flair ?? null,
+        hat: user?.hat ?? null,
+        avatar: user?.avatar ?? null,
+        // A registered user's text style isn't in the prefix above (the server
+        // applies it), so it has to ride along the way a real message's snapshot
+        // does — otherwise this preview under-styles what's about to be sent.
+        textstyle: composeTextStyle(pickTextStyle(user)),
+        emojiNick: '',
+        flairOverRide: 0,
+        nostyle: 0,
+        time: Date.now(),
+        // Local-only, so there's no message number to quote; a random count
+        // still gives the render cache and React key something unique.
+        count: Math.random()
+      });
     }
   },
   block: {
@@ -267,12 +352,58 @@ const COMMANDS = {
       window.dispatchEvent(new CustomEvent('seecope:open'));
     }
   },
+  // The command list panel — like /banlist, client-side only; it fetches the
+  // levels itself and the server gates who may change them.
+  commands: {
+    handler() {
+      window.dispatchEvent(new CustomEvent('commands:open'));
+    }
+  },
+  // The user role panel. Same shape: the server gates both viewing (trust 2)
+  // and changing (trust 1).
+  roles: {
+    handler() {
+      window.dispatchEvent(new CustomEvent('roles:open'));
+    }
+  },
+  // No client handler, so it emits to the server, which is where the trust
+  // check and the write live.
+  lock_command: {
+    params: ['command', 'level']
+  },
   avatar: {
     params: ['type', 'id'],
   },
   weather: {
     params: ['location'],
     parseMethod: 'leaveSpace'
+  },
+  // /find takes a nick or an IP; no client handler, so it emits to the server
+  // (trust-gated there).
+  find: {
+    params: ['target']
+  },
+  // Takes the >>N message number that clicking a timestamp inserts.
+  whosaid: {
+    params: ['msgnum']
+  },
+  // Like /banlist, /deepfind opens a client-side panel that fetches its own
+  // data; the server gates the fetch at trust 0 and resolves the nick-or-IP.
+  deepfind: {
+    params: ['target'],
+    handler (params, {addMessage}) {
+      const target = params?.target;
+      if (!target) {
+        addMessage({
+          message: 'Usage: /deepfind <nick or IP>',
+          type: 'error',
+          noparse: true,
+          count: Math.random()
+        });
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('deepfind:open', { detail: { target } }));
+    }
   },
   findmsg: {
     params: ['text'],
@@ -368,7 +499,17 @@ const handleCommand = {
 }
 
 const handleInput = {
-  getStylePrefix (store) {
+  // The guest text-style path: prefix the outgoing message with the localStorage
+  // color and font.
+  //
+  // A registered user's style is applied by the server instead — composed from
+  // their four columns and snapshotted onto the message (see
+  // User.textStyleMarkup), then prepended at render time. Prefixing here as well
+  // would stack the two, with the inline copy winning. So this contributes
+  // nothing once you're logged in.
+  getStylePrefix (store, user) {
+    if (user?.registered) return { color: '', font: '' };
+
     return {
       // Trailing space delimits the color from the message so a 3-digit color
       // (e.g. #a9d) doesn't merge with following hex-like text (e.g. "def") and
@@ -394,7 +535,7 @@ const handleInput = {
       }
 
     } else {
-      const { color, font } = this.getStylePrefix(store);
+      const { color, font } = this.getStylePrefix(store, user);
 
       socket.emit('message', {
         message: font + color + input

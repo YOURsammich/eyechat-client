@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import Messages, { ParsedContent } from './Messages';
+import Messages, { ParsedContent, mentionsNick } from './Messages';
 import InputBar from './InputBar';
 import Menu, { Overlay, SUB_MENUS } from './../Menu';
 import FluidBackground from './FluidBackground';
@@ -8,6 +8,8 @@ import SearchBar from './SearchBar';
 import UnoPanel from './../Uno/UnoPanel';
 import WhiteboardPanel from './../Whiteboard/WhiteboardPanel';
 import ManagerPanel from './../ManagerPanel';
+import CommandsPanel from './../CommandsPanel';
+import UsersPanel from './../UsersPanel';
 import JumpScare from './JumpScare';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'filteredWords']);
@@ -18,6 +20,13 @@ function showJoinLeave(mode, user) {
   if (mode === 'none') return false;
   if (mode === 'registered') return !!user.registered;
   return true; // 'all'
+}
+
+// Epoch-ms timestamp for the /deepfind panel; blank for a nick that never
+// posted from the IP (an account only matched by its registration address).
+function formatSeen(ms) {
+  if (!ms) return '—';
+  return new Date(Number(ms)).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
 }
 
 // Sound played when your nick is mentioned in a new chat message.
@@ -33,11 +42,19 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [showUno, setShowUno] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [showBanList, setShowBanList] = useState(false);
+  // { target } while the /deepfind panel is open, else null. The target is
+  // resolved to an IP server-side (clients are never sent IPs).
+  const [deepFind, setDeepFind] = useState(null);
   const [showCope, setShowCope] = useState(false);
+  const [showCommands, setShowCommands] = useState(false);
+  const [showRoles, setShowRoles] = useState(false);
   const [mobileUsers, setMobileUsers] = useState(false);
   // Which menu section the mobile overlay should show, and whether the "more"
   // dropdown of extra sections is open. Desktop uses the quickNav bar instead.
   const [mobileSection, setMobileSection] = useState('users');
+  // A request from outside the side menu to show one of its sections. See
+  // openMenuSection / Menu's requestSection prop.
+  const [menuRequest, setMenuRequest] = useState({ section: null, nonce: 0 });
   const [mobileMore, setMobileMore] = useState(false);
   const moreRef = useRef(null); // the ⋮ button (anchor)
   const moreMenuRef = useRef(null); // the portaled dropdown (rendered in body)
@@ -111,8 +128,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       const nick = userNickRef.current;
       if (
         mentionAudio && mentionSoundRef.current !== false && nick &&
-        data.messageType === 'chat' && data.nick !== nick &&
-        typeof data.message === 'string' && data.message.includes(nick)
+        data.messageType === 'chat' && data.nick?.toLowerCase() !== nick.toLowerCase() &&
+        mentionsNick(data.message, nick)
       ) {
         try { mentionAudio.currentTime = 0; mentionAudio.play().catch(() => {}); } catch { /* autoplay blocked */ }
       }
@@ -129,6 +146,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         flair: a.flair,
         hat: a.hat,
         avatar: a.avatar ?? null,
+        textstyle: a.textstyle ?? null,
         time: a.time ? Number(a.time) : undefined
       }));
 
@@ -251,11 +269,20 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   useEffect(() => {
     const onBanList = () => setShowBanList(true);
     const onCope = () => setShowCope(true);
+    const onDeepFind = (e) => setDeepFind({ target: e.detail?.target ?? '' });
+    const onCommands = () => setShowCommands(true);
+    const onRoles = () => setShowRoles(true);
     window.addEventListener('banlist:open', onBanList);
     window.addEventListener('seecope:open', onCope);
+    window.addEventListener('deepfind:open', onDeepFind);
+    window.addEventListener('commands:open', onCommands);
+    window.addEventListener('roles:open', onRoles);
     return () => {
       window.removeEventListener('banlist:open', onBanList);
       window.removeEventListener('seecope:open', onCope);
+      window.removeEventListener('deepfind:open', onDeepFind);
+      window.removeEventListener('commands:open', onCommands);
+      window.removeEventListener('roles:open', onRoles);
     };
   }, []);
 
@@ -317,6 +344,14 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     setMobileSection(section);
     setMobileUsers(true);
     setMobileMore(false);
+  }
+
+  // Switch the side menu to a section from outside it (the input bar's profile
+  // switcher hands off to Cosmetics this way). The nonce makes a repeat request
+  // for the section already showing still register, which is what re-opens the
+  // panel after it was closed.
+  function openMenuSection(section) {
+    setMenuRequest(prev => ({ section, nonce: prev.nonce + 1 }));
   }
 
   // Toggle the "more" dropdown, anchoring it just below the ⋮ button. The menu
@@ -426,6 +461,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           store={store}
           channelState={channelState}
           themeColor={channelState.themecolors.inputbar}
+          openMenuSection={openMenuSection}
         />
       </div>
 
@@ -446,6 +482,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           mobileOpen={mobileUsers}
           setMobileOpen={setMobileUsers}
           mobileSection={mobileSection}
+          requestSection={menuRequest}
           themecolors={channelState.themecolors}
           channelName={channelName}
           hats={channelState.hats}
@@ -488,6 +525,23 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         />
       ) : null}
 
+      {deepFind ? (
+        <ManagerPanel
+          title={`Deep Find — ${deepFind.target}`}
+          onClose={() => setDeepFind(null)}
+          loadUrl={'/channel/deepfind?target=' + encodeURIComponent(deepFind.target)}
+          emptyText='Nothing in the log from this IP.'
+          width={560}
+          columns={[
+            { label: 'Nick', render: (r) => r.nick },
+            { label: 'Account', render: (r) => (r.registered ? 'registered' : 'guest') },
+            { label: 'Msgs', render: (r) => r.messages },
+            { label: 'First seen', render: (r) => formatSeen(r.firstSeen) },
+            { label: 'Last seen', render: (r) => formatSeen(r.lastSeen) },
+          ]}
+        />
+      ) : null}
+
       {showCope ? (
         <ManagerPanel
           title='Magic Cope Ball — Answers'
@@ -503,6 +557,10 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           ]}
         />
       ) : null}
+
+      {showCommands ? <CommandsPanel onClose={() => setShowCommands(false)} /> : null}
+
+      {showRoles ? <UsersPanel onClose={() => setShowRoles(false)} /> : null}
     </div>
   );
 }

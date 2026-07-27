@@ -1069,6 +1069,10 @@ a {
   padding: 10px 0;
 }
 
+.filterError {
+  color: #e06c6c;
+}
+
 /* A small card per filter: the trigger word sits small/muted at the top-left,
    with the styled result stacked right under it. Delete appears on hover. */
 .filterRow {
@@ -1772,4 +1776,17 @@ a {
   padding-left: 46px;
   width: 100%;
 }
+/* ── /findmsg credit line inside the flex layouts ─────────────────────────
+   Both layouts above lay a message's parts out along one line, so the credit
+   needs to claim a full row of its own; cozy also has to be allowed to wrap for
+   that row to exist at all. Outside these layouts .foundBy is simply a block. */
+#message-container.layout-cozy .message.foundMessage {
+  flex-wrap: wrap;
+}
+#message-container.layout-cozy .message.foundMessage .foundBy,
+#message-container.layout-discord .message.chat.foundMessage .foundBy {
+  width: 100%;
+  order: -1;
+}
+
 .search-input::placeholder { color: black; opacity: 1; }

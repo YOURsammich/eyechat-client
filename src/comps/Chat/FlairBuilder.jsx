@@ -109,67 +109,26 @@ function getCharDisplayStyle(cs) {
   return style;
 }
 
-function FlairBuilder({ open, onClose, onApply, emojis, user }) {
+// The flair aspect editor for the cosmetics side panel. Named style profiles
+// used to live in here; they now cover every cosmetic aspect and so are owned by
+// CosmeticsPanel's header, which leaves this as purely "style the characters of
+// your nick". It renders inline (the panel provides the surface) and persists via
+// onApply, which fires /flair.
+function FlairBuilder({ onApply, emojis, user }) {
   const nick = user?.nick ?? '';
   const [charStyles, setCharStyles] = useState(() => parseFlair(user?.flair, nick));
   const [font, setFont] = useState(() => extractFont(user?.flair));
   const [selection, setSelection] = useState(null);
   const dragStart = useRef(null);
-  const [profiles, setProfiles] = useState([]);
-  const [profileName, setProfileName] = useState('');
 
+  // Reload the editor whenever the flair we're editing changes underneath us —
+  // on mount, on a nick change, and when activating a style profile rewrites
+  // user.flair (which arrives as a live userStateChange).
   useEffect(() => {
-    setCharStyles(Array.from({ length: nick.length }, emptyChar));
+    setCharStyles(parseFlair(user?.flair, nick));
+    setFont(extractFont(user?.flair));
     setSelection(null);
-  }, [nick]);
-
-  useEffect(() => {
-    if (open) {
-      setCharStyles(parseFlair(user?.flair, nick));
-      setFont(extractFont(user?.flair));
-      setSelection(null);
-      fetch('/a/profiles')
-        .then(r => r.json())
-        .then(data => { if (Array.isArray(data)) setProfiles(data); })
-        .catch(() => {});
-    }
-  }, [open]);
-
-  function handleSaveProfile() {
-    const name = profileName.trim();
-    if (!name || !flairStr) return;
-    fetch('/a/profiles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, flair: flairStr })
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          setProfiles(prev => {
-            const idx = prev.findIndex(p => p.name === name);
-            if (idx !== -1) {
-              const updated = [...prev];
-              updated[idx] = { name, flair: flairStr };
-              return updated;
-            }
-            return [...prev, { name, flair: flairStr }];
-          });
-        }
-      });
-  }
-
-  function handleLoadProfile(profile) {
-    const parsed = parseFlair(profile.flair, nick);
-    setCharStyles(parsed);
-    setFont(extractFont(profile.flair));
-    setSelection(null);
-  }
-
-  function handleDeleteProfile(name) {
-    fetch(`/a/profiles/${encodeURIComponent(name)}`, { method: 'DELETE' })
-      .then(() => setProfiles(prev => prev.filter(p => p.name !== name)));
-  }
+  }, [user?.flair, nick]);
 
   const selRange = selection
     ? Array.from({ length: selection.end - selection.start }, (_, i) => selection.start + i)
@@ -228,13 +187,12 @@ function FlairBuilder({ open, onClose, onApply, emojis, user }) {
   const curGlow = getUniformProp('glow');
 
   return (
-    <div className={`flairBuilder${open ? ' open' : ''}`}>
+    <div className='flairBuilder embedded'>
       <div className='fb-header'>
-        <span className='fb-title'>Flair Builder</span>
+        <span className='fb-title'>Nick flair</span>
         <button className='fb-sel-all' onClick={() => setSelection({ start: 0, end: nick.length })}>
           Select All
         </button>
-        <div className='fb-close' onClick={onClose}>✕</div>
       </div>
 
       <div className='fb-nick-display' onMouseUp={onMouseUp} onMouseLeave={onMouseUp}>
@@ -297,43 +255,6 @@ function FlairBuilder({ open, onClose, onApply, emojis, user }) {
         <div className='fb-select-hint'>Click or drag to select characters</div>
       )}
 
-      <div className='fb-profiles'>
-        <div className='fb-section-label'>Profiles</div>
-        <div className='fb-profile-save'>
-          <input
-            className='fb-profile-input'
-            placeholder='Profile name...'
-            maxLength={40}
-            value={profileName}
-            onChange={e => setProfileName(e.target.value)}
-          />
-          <button
-            className='fb-profile-save-btn stdBtn'
-            onClick={handleSaveProfile}
-            disabled={!flairStr || !profileName.trim()}
-          >Save</button>
-        </div>
-        {profiles.length > 0 && (
-          <div className='fb-profile-list'>
-            {profiles.map(p => (
-              <div key={p.name} className='fb-profile-item'>
-                <div className='fb-profile-preview' onClick={() => handleLoadProfile(p)}>
-                  <NestMessage
-                    message={messageParser.parse(p.flair, msgStyles)}
-                    emojis={emojis || []}
-                    _imageLoaded={() => {}}
-                    renderMessage={() => null}
-                    setOverlay={() => {}}
-                  />
-                  <span className='fb-profile-label'>{p.name}</span>
-                </div>
-                <span className='fb-profile-delete' onClick={() => handleDeleteProfile(p.name)}>✕</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       <div className='fb-footer'>
         <div className='fb-preview'>
           <NestMessage
@@ -347,7 +268,7 @@ function FlairBuilder({ open, onClose, onApply, emojis, user }) {
         <div className='fb-raw'>{flairStr}</div>
         <button
           className='fb-apply stdBtn'
-          onClick={() => { onApply(flairStr); onClose(); }}
+          onClick={() => onApply(flairStr)}
           disabled={!flairStr}
         >
           Apply Flair

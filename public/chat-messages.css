@@ -69,6 +69,29 @@
   max-height: 64px !important;
 }
 
+/* /findmsg results — a real message lifted back out of the log. Framed so it
+   reads as a lookup rather than as something just said in the room, and
+   credited to whoever ran the command. */
+
+.foundMessage {
+  border-left: 2px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.foundBy {
+  /* Beats `.message div { display: inline }` so the credit sits on its own line
+     above the message rather than running into the number beside it. */
+  display: block !important;
+  font-size: 0.7em;
+  color: #8a8a8a;
+  text-shadow: none;
+  font-style: italic;
+}
+
+.msgNum {
+  color: #7a7a99;
+}
+
 /* message types */
 
 .action .messageContent:before,
@@ -104,6 +127,27 @@
 .private {
   color: rgb(124, 89, 207);
   font-weight: bold;
+}
+
+/* raw spans (/`…/`) — message syntax shown as text so it can be copied. Marked
+   out from the prose around it and stripped of the message text-shadow, since
+   the point is reading punctuation exactly. */
+
+.rawText {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.92em;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  padding: 0 3px;
+  text-shadow: none;
+  white-space: pre-wrap;
+  /* Clicking selects the whole span (see selectRawText). */
+  cursor: pointer;
+}
+
+.rawText:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 /* quotes */

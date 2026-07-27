@@ -3,6 +3,16 @@ import { useEffect } from 'react';
 import AvatarDisplay from './AvatarDisplay.jsx';
 
 
+// Does this message name `nick`? Case-insensitive: people type each other's
+// names however they land — "bob", "Bob", "BOB" — and a mention that only counts
+// when the capitalization matches exactly is a mention the target never hears.
+// Shared by the yellow timestamp highlight below and the mention sound in
+// ChatWindow so the two always agree on what a mention is.
+export function mentionsNick (message, nick) {
+  if (!nick || typeof message !== 'string') return false;
+  return message.toLowerCase().includes(nick.toLowerCase());
+}
+
 const msgStyles = {
   '*': 'bold',
   '%': 'italic',
@@ -95,9 +105,25 @@ const CSS_COLOR_NAMES = new Set([
 // with. Anchored, so a lone ">" mid-line is just a greater-than sign.
 const GREENTEXT_LINE = /(^(?:\$[^|\n]*\|)?(?:#{1,3}(?:[0-9a-f]{6}|[0-9a-f]{3}|[a-z]+) ?)?|\n)>(?!>)([^\n]*)/gi;
 
+// Raw span: /`…/` prints its contents exactly as typed instead of parsing them,
+// so message syntax can be posted as text — handing someone a flair to copy, or
+// helping them fix one, without it rendering on the way. An unclosed span runs
+// to the end of the message. Nothing inside is parsed, which includes emoji,
+// word filters and greentext.
+//
+// No /g — also used with .exec on varying strings, so it must stay stateless.
+const RAW_SPAN = /\/`([\s\S]*?)(?:\/`|$)/;
+
+// Raw spans are matched first so a ">" inside one is consumed as part of the
+// span and never rewritten — greentext markup injected into a raw span would
+// show up as literal color tokens in text that is meant to be verbatim. The
+// alternation keeps this a single left-to-right pass, so "^" still anchors to
+// the real start of the message rather than to the start of a fragment.
+const GREENTEXT_OR_RAW = new RegExp(RAW_SPAN.source + '|' + GREENTEXT_LINE.source, 'gi');
+
 function markGreentext (message) {
-  return message.replace(GREENTEXT_LINE, (match, lineStart, line) => (
-    `${lineStart}${GREENTEXT_COLOR} >${line}|`
+  return message.replace(GREENTEXT_OR_RAW, (match, raw, lineStart, line) => (
+    raw === undefined ? `${lineStart}${GREENTEXT_COLOR} >${line}|` : match
   ));
 }
 
@@ -120,6 +146,10 @@ const messageParser = {
     dataTree.children.reduce((prev, curr) => {
       if (typeof curr.data == 'string') {
         txt += curr.data;
+      } else if (curr.data.type == 'raw') {
+        // A raw span's contents are visible text, so they count towards the
+        // flair/nick match in renderNick like any other characters would.
+        txt += curr.data.text;
       };
       return txt;
     }, '');
@@ -173,6 +203,14 @@ const messageParser = {
 
     if (nextSpace == -1) return {index, strdata: str.slice(index), type: 'link'};
     return {index: index, strdata: str.slice(index, nextSpace), type: 'link'};
+  },
+  // A raw span consumes its whole contents in one component, so no other
+  // component is ever looked for inside it — that is what makes it verbatim.
+  getRawComp (str) {
+    const match = RAW_SPAN.exec(str);
+    if (!match) return null;
+
+    return {index: match.index, strdata: match[0], text: match[1], type: 'raw'};
   },
   getNextEmojiComp (str) {
     const match = EMOJI_TOKEN.exec(str);
@@ -291,6 +329,7 @@ const messageParser = {
   },
 
   getNextComp (str, msgStyles) {
+    const nextRawComp = this.getRawComp(str);
     const nextStyleBreaker = this.getStyleBreaker(str);
     const nextStyleComp = this.getNextStyleComp(str, msgStyles);
     const nextLinkComp = this.getNextLinkComp(str, msgStyles);
@@ -302,8 +341,11 @@ const messageParser = {
     const nextSlideShowComp = this.getSlideShowComp(str, msgStyles);
 
     const comps = [
+      // First in the list, so a raw span wins any tie on index: whatever it
+      // opens on is text, not markup.
+      nextRawComp,
       nextSlideShowComp,
-      nextStyleBreaker, 
+      nextStyleBreaker,
       nextQuoteComp, 
       nextFontComp, 
       nextStyleComp, 
@@ -319,7 +361,7 @@ const messageParser = {
       return prev;
     }, {index: Infinity});
 
-    return {index: nextComp.index, strdata: nextComp.strdata, type: nextComp.type, href: nextComp.href, label: nextComp.label};
+    return {index: nextComp.index, strdata: nextComp.strdata, type: nextComp.type, href: nextComp.href, label: nextComp.label, text: nextComp.text};
   },
   getCurrComp (str, msgStyles) {
     const nextComp = this.getNextComp(str, msgStyles);
@@ -772,10 +814,29 @@ function renderTextNode (text, matcher, emojis, spanish, keySeed) {
   return out;
 }
 
+// Click a raw span to select all of it — these exist to be copied, and dragging
+// across punctuation-heavy syntax without overshooting an edge is fiddly.
+// Skipped when the selection isn't collapsed, which is the case for the click
+// that ends a drag or follows a double-click: a deliberate partial selection
+// stays as the user made it.
+function selectRawText (e) {
+  const sel = window.getSelection();
+  if (!sel || !sel.isCollapsed) return;
+
+  const range = document.createRange();
+  range.selectNodeContents(e.currentTarget);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 function getCompRender (message, props, spanish) {
   switch (true) {
     case typeof message.data == 'string':
       return renderTextNode(message.data, props.filterMatcher, props.emojis, spanish, 'k');
+    case message.data.type == 'raw':
+      // Verbatim by definition, so it skips renderTextNode: no word filters, no
+      // per-character wavy split. React escapes the string for us.
+      return <code className='rawText' onClick={selectRawText}>{message.data.text}</code>;
     case message.data.type == 'slideshow':
       return <SlideShow message={message.data.strdata} />;
     case message.data.type == 'link':
@@ -1151,14 +1212,22 @@ class Messages extends React.Component {
       timeStyle: "short"
     });
 
-    const nameMentioned = this.props.user?.nick ? 
-      (msgData.type == 'chat' && msgData.message.includes(this.props.user.nick))
-    : false;
+    const nameMentioned = msgData.type == 'chat' && mentionsNick(msgData.message, this.props.user?.nick);
 
     return <div className='time' title={msgData.count} style={{
       color: nameMentioned ? 'yellow' : ''
     }}>
       {shortTime.format(msgData.time || Date.now()) + ' '}
+    </div>
+  }
+
+  // A /findmsg hit stands where the timestamp would: it is an old message being
+  // requoted, so its original number says more about it than the time it was
+  // dredged up. Keeps the 'time' class, which is what makes clicking it insert a
+  // >>N quote (see handleClick) — here pointing at the message it came from.
+  renderMsgNum (msgData) {
+    return <div className='time msgNum' title={msgData.msgNum}>
+      {'#' + msgData.msgNum + ' '}
     </div>
   }
 
@@ -1199,8 +1268,18 @@ class Messages extends React.Component {
 
     // Greentext is a chat-message thing: system lines ('general') can't take
     // color at all, and the rest aren't user-authored prose.
+    //
+    // `textstyle` is the author's persistent style (a markup prefix snapshotted
+    // onto the message when it was sent). It is prepended to the parser input
+    // rather than stored in the message body, so the logged text stays clean for
+    // search / wordstats — and because it goes on *outside* the message's own
+    // markup, anything the author typed inline still wins. Applied after
+    // markGreentext so that still sees a leading '>'.
+    let body = msgData.type == 'chat' ? markGreentext(msgData.message) : msgData.message;
+    if (msgData.type == 'chat' && msgData.textstyle) body = msgData.textstyle + body;
+
     const message = messageParser.parse(
-      msgData.type == 'chat' ? markGreentext(msgData.message) : msgData.message,
+      body,
       msgData.type == 'general' ? noStyle : msgStyles
     ); //parse the message for links and other things
 
@@ -1231,8 +1310,14 @@ class Messages extends React.Component {
   }
 
   renderMessage (message) {
-    return <div className={'message' + (message.type ? ' ' + message.type : '')} key={'message-' + message.count}>
-      { this.renderTimeStamp(message) }
+    // `foundBy` marks a /findmsg result: a real message pulled back out of the
+    // log. It is labelled with who dug it up and shown under its original
+    // number, so it can't be mistaken for something just said in the room.
+    const found = message.foundBy;
+
+    return <div className={'message' + (message.type ? ' ' + message.type : '') + (found ? ' foundMessage' : '')} key={'message-' + message.count}>
+      { found ? <div className='foundBy'>{'findmsg by ' + found}</div> : null }
+      { found ? this.renderMsgNum(message) : this.renderTimeStamp(message) }
       { message.type == 'chat' ? this.renderNick(message) : null }
       { this.renderMessageContent(message) }
     </div>

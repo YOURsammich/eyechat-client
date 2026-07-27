@@ -1,0 +1,759 @@
+/* ─── Cosmetics menu ──────────────────────────────────────────────────────────
+   The side-menu section gathering every user cosmetic (nick flair, avatar, hat,
+   message text style, leave message) under one selected style profile, plus the
+   style-profile switcher on the input bar. Widths match the other menu panels
+   (.shopContainer in theme.css) since they share the pane. */
+
+.cosPanel {
+  color: #f7f9f5;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 250px;
+}
+
+/* ─── Profile header ──────────────────────────────────────────────────────── */
+
+.cosProfile {
+  flex-shrink: 0;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cosProfileTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cosProfileEyebrow {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #777;
+}
+
+/* Your live look differs from the profile you have selected. Profiles are
+   snapshots rather than a live binding, so this is expected state and not an
+   error — hence amber, not red. */
+.cosProfileDirty {
+  font-size: 10px;
+  color: #e2a63b;
+  border: 1px solid #6b4f16;
+  background: #e2a63b1a;
+  border-radius: 8px;
+  padding: 1px 6px;
+  cursor: help;
+}
+
+.cosProfileCurrent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  background: #000000ab;
+  border: 1px solid #2f2f2f;
+  border-radius: 6px;
+  color: #eee;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+
+.cosProfileCurrent:hover { border-color: #454545; }
+
+.cosProfileName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Profile preview ─────────────────────────────────────────────────────────
+   How a profile looks, which is what identifies it in the lists — the stored name
+   is a generated id, so it's the hover title instead of visible text. Rows are
+   click targets, so the preview never captures pointer events itself. */
+
+.cosPrev {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  line-height: 1.4;
+}
+
+.cosPrevEmpty {
+  color: #888;
+  font-size: 12px;
+}
+
+.cosPrevAvatar {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* The nick is the anchor for the hat, which sits above it. The chat renderer's
+   `.nick .hat` can't be reused — it's built on large negative margins tuned to a
+   full message row, which would drag this out of a 250px panel. */
+.cosPrevNick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.cosPrevHat {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 14px;
+  background-size: contain;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* The message text style, sampled. Separated from the nick so the two styles read
+   as the different things they are. */
+.cosPrevText {
+  flex-shrink: 0;
+  font-size: 11px;
+  opacity: 0.9;
+  padding-left: 6px;
+  border-left: 1px solid #ffffff1f;
+}
+
+/* A hat needs headroom above the nick, which the flex rows above don't otherwise
+   leave. */
+.cosProfileCurrent .cosPrev,
+.cosProfileItemBody .cosPrev,
+.psItem .cosPrev {
+  padding-top: 7px;
+}
+
+.cosProfileList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.cosProfileItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 5px;
+  padding: 5px 6px;
+  background: #ffffff08;
+}
+
+.cosProfileItem:hover { background: #ffffff14; }
+.cosProfileItem.active { box-shadow: inset 0 0 0 1px #39f; }
+
+.cosProfileItemBody {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.cosProfileAspects {
+  font-size: 10px;
+  color: #777;
+}
+
+.cosProfileDelete {
+  font-size: 15px;
+  color: #666;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cosProfileDelete:hover { color: #e06c6c; }
+
+.cosProfileActions {
+  display: flex;
+  gap: 5px;
+}
+
+.cosProfileActions .stdBtn {
+  flex: 1;
+  font-size: 12px;
+  font-weight: normal;
+  padding: 4px 6px;
+}
+
+.cosProfileNew {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cosProfileNew .stdBtn { font-size: 12px; }
+
+.cosProfileGuest {
+  font-size: 11px;
+  color: #999;
+  line-height: 1.45;
+}
+
+/* ─── Aspect nav ──────────────────────────────────────────────────────────── */
+
+.cosNav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 5px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.cosNavItem {
+  background-color: #000000ab;
+  border-radius: 6px;
+  margin: 0 5px;
+  padding: 10px;
+  box-shadow: 0 0 4px #3d3d3d;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cosNavItem:hover { box-shadow: 0 0 4px #5a5a5a; }
+
+.cosNavText { flex: 1; min-width: 0; }
+.cosNavLabel { font-size: 13px; }
+
+.cosNavText p {
+  font-size: 11px;
+  color: #ccc;
+  margin: 2px 0 0;
+  line-height: 1.35;
+}
+
+.cosNavChevron {
+  font-size: 18px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+/* ─── A single aspect editor ──────────────────────────────────────────────── */
+
+.cosAspect {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.cosAspectHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid #2a2a2a;
+  flex-shrink: 0;
+}
+
+.cosBack {
+  font-size: 19px;
+  color: #999;
+  cursor: pointer;
+}
+
+.cosBack:hover { color: white; }
+
+.cosAspectTitle { font-size: 13px; }
+
+.cosAspectBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ─── Shared aspect-editor bits ───────────────────────────────────────────── */
+
+.cosHint {
+  font-size: 11px;
+  color: #777;
+  line-height: 1.4;
+}
+
+.cosError {
+  font-size: 11px;
+  color: #e06c6c;
+}
+
+.cosField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cosFieldLabel {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #777;
+}
+
+.cosActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.cosActions .stdBtn { flex: 1; font-size: 12px; }
+
+.cosFullBtn {
+  width: 100%;
+  padding: 6px 0;
+}
+
+/* The markup a style compiles to. Shown so a hand-written value the controls
+   can't represent is never silently hidden. */
+.cosRaw {
+  font-size: 10px;
+  color: #666;
+  word-break: break-all;
+  background: #0000005c;
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+
+.cosPreviewBox {
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 8px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+/* ─── Text style + leave message editors ──────────────────────────────────── */
+
+.cosText,
+.cosPart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 10px;
+}
+
+.cosText code,
+.cosPart code {
+  background: #0000005c;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.cosTextPreview {
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 10px 8px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+
+.cosTokenRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cosTokenBtn {
+  background: transparent;
+  border: 1px solid #333;
+  color: #999;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  min-width: 28px;
+  padding: 4px 6px;
+}
+
+.cosTokenBtn:hover { border-color: #555; color: #ddd; }
+
+.cosTokenBtn.on {
+  background: #2a2a2a;
+  border-color: #39f;
+  color: #eee;
+}
+
+.cosColorRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cosColorPick {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cosHex {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+}
+
+.cosClear {
+  color: #666;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.cosClear:hover { color: white; }
+
+.cosPartNotice { color: #888; font-size: 12px; }
+
+/* ─── Hat picker ──────────────────────────────────────────────────────────── */
+
+.cosHat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 10px;
+}
+
+.cosHatPreview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid #2a2a2a;
+  min-height: 60px;
+  justify-content: center;
+}
+
+.cosHatWorn {
+  width: 48px;
+  height: 48px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.cosHatWornName { font-size: 11px; color: #aaa; }
+
+.cosHatGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.cosHatTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 3px;
+  border: 1px solid #2a2a2a;
+  border-radius: 5px;
+  cursor: pointer;
+  background: #00000059;
+}
+
+.cosHatTile:hover { border-color: #4a4a4a; }
+.cosHatTile.selected { border-color: #39f; }
+
+.cosHatTile img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+
+.cosHatTile span {
+  font-size: 9px;
+  color: #999;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Avatar builder ──────────────────────────────────────────────────────────
+   Moved here from the old standalone Avatar sub-menu; these replace the inline
+   styles it carried when it lived in Menu.jsx. */
+
+.cosAvatar {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.cosAvatarPreview {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #333;
+}
+
+.cosAvatarBody {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cosAvatarOpenBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+}
+
+.cosAvatarOpenBtn .material-symbols-outlined { font-size: 18px; }
+
+.cosEmojiSearch {
+  width: 100%;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.cosEmojiGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.cosEmojiTile {
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px;
+  border: 2px solid transparent;
+  object-fit: contain;
+  box-sizing: border-box;
+}
+
+.cosEmojiTile.selected { border-color: #39f; }
+
+.cosBuilderWin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cosSegRow { display: flex; gap: 4px; }
+.cosSegRow.wrap { flex-wrap: wrap; }
+
+.cosSegBtn {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background: transparent;
+  color: #888;
+  border: 1px solid #333;
+}
+
+.cosSegBtn.small {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.cosSegBtn.capitalize { text-transform: capitalize; }
+
+.cosSegBtn.active {
+  background: #2a2a2a;
+  color: #eee;
+  border-color: #39f;
+}
+
+.cosDrawOpts {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cosPartGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-height: 92px;
+  overflow-y: auto;
+}
+
+.cosPartTile {
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 2px solid #3a3a3a;
+  background: white;
+  object-fit: contain;
+  box-sizing: border-box;
+}
+
+/* ─── Flair builder, embedded ─────────────────────────────────────────────────
+   The flair builder used to be a floating popout anchored to the input bar. It
+   now lives inside the cosmetics panel as the flair aspect, so it drops the fixed
+   size, positioning and chrome (see .flairBuilder in theme.css) and just fills
+   the aspect body. */
+
+.flairBuilder.embedded {
+  display: flex;
+  position: static;
+  width: auto;
+  bottom: auto;
+  right: auto;
+  box-shadow: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+/* ─── Style profile switcher (input bar) ──────────────────────────────────────
+   Switching your whole look is the one cosmetic action worth reaching without
+   leaving the conversation, so it keeps the input bar's palette button. Anything
+   that edits is a handoff to the Cosmetics side menu. Positioned like the flair
+   builder it replaced. */
+
+.profileSwitcher {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  bottom: 78px;
+  right: 26px;
+  width: 260px;
+  background: #181818;
+  border-radius: 4px;
+  box-shadow: 0 0 6px 2px #000;
+  z-index: 10;
+  color: white;
+  overflow: hidden;
+}
+
+.psHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 9px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.psTitle {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #999;
+}
+
+.psClose {
+  font-size: 16px;
+  color: #777;
+  cursor: pointer;
+}
+
+.psClose:hover { color: white; }
+
+.psEmpty {
+  font-size: 11px;
+  color: #888;
+  padding: 12px 10px;
+  line-height: 1.45;
+}
+
+.psList {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 5px;
+  gap: 3px;
+}
+
+.psItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  background: #ffffff08;
+}
+
+.psItem:hover { background: #ffffff17; }
+.psItem.active { box-shadow: inset 0 0 0 1px #39f; }
+
+/* The look fills the row, with only the active/modified chip trailing it — the
+   side menu's aspect list is omitted here, since at this width it crowds out the
+   preview you're picking by. */
+.psItem .cosPrev { flex: 1; }
+
+.psItemState {
+  font-size: 9px;
+  color: #888;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.psMore {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 10px;
+  background: #0000005c;
+  border: none;
+  border-top: 1px solid #2a2a2a;
+  color: #bbb;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.psMore:hover { background: #ffffff0f; color: #eee; }
+.psMore .material-symbols-outlined { font-size: 17px; }
+.psMoreChevron { margin-left: auto; }

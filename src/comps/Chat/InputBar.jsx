@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import handleInput from '../../utils/handleInput';
 import { PM } from './PM_Client.jsx';
 import EmojiMini from './Emojis';
-import FlairBuilder from './FlairBuilder';
+import ProfileSwitcher from '../Cosmetics/ProfileSwitcher';
 import GifPicker from './GifPicker';
 
 function getParamGhost(input) {
@@ -26,7 +26,7 @@ function computeGhostText(value, sel, replaceWith) {
   return value.slice(0, wordStart) + replaceWith + value.slice(wordEnd);
 }
 
-function InputBar({ socket, store, channelName, addMessage, user, userlist, emoji, themeColor, channelState }) {
+function InputBar({ socket, store, channelName, addMessage, user, userlist, emoji, themeColor, channelState, openMenuSection }) {
   const [inputAuto, setInputAuto] = useState(null);
   const [emojis, setEmojis] = useState(null);
   const [ghostText, setGhostText] = useState('');
@@ -456,13 +456,12 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
         }}
         onClose={() => { setShowGif(false); setGifInitialQuery(null); }}
       /> : null}
-      <FlairBuilder
-        open={showStyle}
-        onClose={() => setShowStyle(false)}
-        onApply={(flair) => handleInputFn('/flair ' + flair)}
-        emojis={emoji}
+      {showStyle ? <ProfileSwitcher
         user={user}
-      />
+        emojis={emoji}
+        onClose={() => setShowStyle(false)}
+        onOpenCosmetics={() => openMenuSection?.('cosmetics')}
+      /> : null}
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '6px 5px' }}>
         <div className='pretendInput'>
@@ -510,7 +509,11 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
         </div>
 
         <div className='inputBarBtns'>
-          <div className='inputBarBtn' onClick={() => setShowStyle(s => !s)}>
+          <div
+            className={'inputBarBtn' + (showStyle ? ' inputBarBtn--active' : '')}
+            title='Switch style profile'
+            onClick={() => setShowStyle(s => !s)}
+          >
             <span style={{ fontSize: '20px' }} className="material-symbols-outlined">palette</span>
           </div>
           <div

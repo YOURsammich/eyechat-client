@@ -1,23 +1,18 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import handleInput from '../utils/handleInput';
-import AvatarDisplay from './Chat/AvatarDisplay';
-import PixelCanvas from './Pixel/PixelCanvas';
-import DrawCanvas from './Pixel/DrawCanvas';
 import DraggableWindow from './DraggableWindow';
-import AvatarComposer from './Avatar/AvatarComposer';
+import CosmeticsPanel from './Cosmetics/CosmeticsPanel';
 import { ParsedContent, inlineStyles } from './Chat/Messages';
 
 export const SUB_MENUS = [
-  { name: 'users',    label: 'User List',    icon: 'group' },
-  { name: 'account',  label: 'Account',  icon: 'account_circle' },
-  { name: 'settings', label: 'Settings', icon: 'settings' },
-  { name: 'shop',     label: 'Shop',     icon: 'shopping_cart' },
-  { name: 'avatar',   label: 'Avatar',   icon: 'face' },
-  { name: 'channel',  label: 'Channel',  icon: 'palette' },
+  { name: 'users',     label: 'User List', icon: 'group' },
+  { name: 'account',   label: 'Account',   icon: 'account_circle' },
+  { name: 'settings',  label: 'Settings',  icon: 'settings' },
+  { name: 'shop',      label: 'Shop',      icon: 'shopping_cart' },
+  { name: 'cosmetics', label: 'Cosmetics', icon: 'face' },
+  { name: 'channel',   label: 'Channel',   icon: 'palette' },
 ];
-
-const AVATAR_PART_ORDER = ['heads', 'eyes', 'noses', 'mouths', 'hair'];
 
 const STORE_CATS = [
   { name: 'filters',    label: 'Filters',    description: 'One word becomes another',    icon: 'find_replace' },
@@ -36,7 +31,7 @@ function getUserActions(nick, socket) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
@@ -50,6 +45,17 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
       setMenuOpen(true);
     }
   }, [mobileOpen, mobileSection]);
+
+  // Something outside the menu asked for a section (the input bar's profile
+  // switcher handing off to Cosmetics). The nonce, not the name, is the trigger,
+  // so asking for the section that's already selected still re-opens the panel.
+  useEffect(() => {
+    if (!requestSection?.nonce || !requestSection.section) return;
+    setSelectedList(requestSection.section);
+    setMenuOpen(true);
+    if (setMobileOpen) setMobileOpen(true);
+  }, [requestSection?.nonce]);
+
   // Bumped when the already-active nav item is re-clicked; used as a remount key
   // so a panel with its own internal navigation (e.g. Shop) resets to its root.
   const [navNonce, setNavNonce] = useState(0);
@@ -95,8 +101,14 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
         {selectedList === 'shop' && (
           <Shop key={navNonce} hats={hats} emojis={emojis} />
         )}
-        {selectedList === 'avatar' && (
-          <AvatarBuilder user={user} emojis={emojis} />
+        {selectedList === 'cosmetics' && (
+          <CosmeticsPanel
+            key={navNonce}
+            user={user}
+            emojis={emojis}
+            hats={hats}
+            handleInput={(text) => handleInput.handle(text, socket)}
+          />
         )}
         {selectedList === 'channel' && (
           <ChannelTheme themecolors={themecolors} channelName={channelName} />
@@ -362,6 +374,8 @@ function FiltersShop({ emojis = [] }) {
   const [filters, setFilters] = useState([]);
   // null when the editor is closed; otherwise { replace, withThis, isNew }.
   const [editor, setEditor] = useState(null);
+  // Errors from the list itself (a refused delete); the editor shows its own.
+  const [listError, setListError] = useState('');
 
   useEffect(() => {
     fetch('/channel/info/main/filteredWords')
@@ -370,16 +384,25 @@ function FiltersShop({ emojis = [] }) {
       .catch(() => {});
   }, []);
 
+  function deleteFilter(word) {
+    return fetch('/a/filter', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelName: 'main', replace: word }),
+    }).then(res => res.json());
+  }
+
   // Persist a new/edited filter. `original` is the trigger word being edited (or
   // null when adding); if a rename changed it, the old row is deleted first so we
   // don't leave a stale duplicate (POST upserts by the *new* word).
   function saveFilter(original, replace, withThis) {
     const renamed = original && original.toLowerCase() !== replace.toLowerCase();
+    // A rename is a delete plus an add, so it needs the delete permission. Abort
+    // before the POST if the server refuses — otherwise the new word is created
+    // while the old row survives, leaving the duplicate this step exists to avoid.
     const pre = renamed
-      ? fetch('/a/filter', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelName: 'main', replace: original }),
+      ? deleteFilter(original).then(res => {
+        if (res.error) throw new Error(res.error);
       })
       : Promise.resolve();
 
@@ -401,14 +424,17 @@ function FiltersShop({ emojis = [] }) {
       });
   }
 
+  // Removing is moderator-only server-side, so drop the row from the list only
+  // once the server confirms it. Optimistically removing here would show the
+  // filter as gone to a user who isn't allowed to remove it, until they reload.
   function removeFilter(word) {
-    fetch('/a/filter', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelName: 'main', replace: word }),
-    })
-      .then(() => setFilters(prev => prev.filter(f => f.replace !== word)))
-      .catch(() => {});
+    setListError('');
+    deleteFilter(word)
+      .then(res => {
+        if (res.error) { setListError(res.error); return; }
+        setFilters(prev => prev.filter(f => f.replace !== word));
+      })
+      .catch(() => setListError('Could not remove filter.'));
   }
 
   return (
@@ -416,6 +442,8 @@ function FiltersShop({ emojis = [] }) {
       <button className='stdBtn filterAddBtn' onClick={(e) => setEditor({ replace: '', withThis: '', isNew: true, y: e.clientY })}>
         <span className='material-symbols-outlined'>add</span> Add filter
       </button>
+
+      {listError && <div className='filterEmpty filterError'>{listError}</div>}
 
       <div className='filterList'>
         {filters.length === 0 && <div className='filterEmpty'>No filters yet.</div>}
@@ -614,295 +642,6 @@ function JoinNames() {
         <b>Nouns</b>
         <b>Adjectives</b>
       </div>
-    </div>
-  );
-}
-
-// ─── AvatarBuilder ────────────────────────────────────────────────────────────
-
-// Cap how many emoji tiles we render at once — the room can have thousands, so
-// rendering them all would be slow. Users narrow down with the search box.
-const EMOJI_RENDER_CAP = 60;
-
-function AvatarBuilder({ user, emojis = [] }) {
-  const [parts, setParts] = useState({}); // the single part library, grouped by type
-  const [selected, setSelected] = useState({});
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
-  const [builderOpen, setBuilderOpen] = useState(false); // pop-out avatar builder visible
-  const [builderMode, setBuilderMode] = useState('build'); // 'build' (compose) | 'part' (draw a part)
-  const [drawSlot, setDrawSlot] = useState('hair'); // which slot a drawn part is published under
-  const [drawMode, setDrawMode] = useState('brush'); // 'brush' (freehand) | 'pixel'
-  const [partStatus, setPartStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
-  const pixelRef = useRef(null);
-
-  function refreshParts() {
-    return fetch('/channel/getAvatarParts')
-      .then(r => r.json())
-      .then(data => setParts(data || {}))
-      .catch(() => {});
-  }
-
-  useEffect(() => {
-    refreshParts();
-
-    if (user?.avatar) {
-      try {
-        const parsed = typeof user.avatar === 'string' ? JSON.parse(user.avatar) : user.avatar;
-        setSelected(parsed || {});
-      } catch {}
-    }
-  }, []);
-
-  function pickEmoji(imageName) {
-    // Choosing a chat emoji replaces the whole avatar; clicking the selected
-    // one again clears it.
-    setSelected(prev => (prev.emoji === imageName ? {} : { emoji: imageName }));
-    setStatus(null);
-  }
-
-  function persist(avatar) {
-    setStatus('saving');
-    return fetch('/a/avatar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ avatar }),
-    })
-      .then(r => r.json())
-      .then(d => { setStatus(d.error ? 'error' : 'saved'); return d; })
-      .catch(() => setStatus('error'));
-  }
-
-  function save() {
-    // Persists the current selection — used by the emoji quick-pick and to
-    // re-save a built avatar. Legacy layered selections are dropped now that
-    // parts are composed in the builder.
-    const avatar = selected.emoji ? { emoji: selected.emoji } : selected.whole ? { whole: selected.whole } : {};
-    persist(avatar);
-  }
-
-  // The composer already uploaded the flattened image + project; store its ref
-  // as our avatar so it renders and propagates live.
-  function onBuiltAvatarSaved(avatar) {
-    setSelected(avatar);
-    persist(avatar);
-  }
-
-  // Publish a painted part into its type folder so anyone can import it in the
-  // builder. Does not change your avatar (you compose in Build mode).
-  async function publishPart() {
-    if (!pixelRef.current) return;
-    setPartStatus('saving');
-    try {
-      const blob = await pixelRef.current.exportPNGBlob();
-      const formData = new FormData();
-      formData.append('image', blob, 'part.png');
-      formData.append('slot', drawSlot);
-      const res = await fetch('/a/upload/avatarPart', { method: 'POST', body: formData }).then(r => r.json());
-      if (res.error || !res.ref) { setPartStatus('error'); return; }
-      await refreshParts();
-      setPartStatus('saved');
-    } catch {
-      setPartStatus('error');
-    }
-  }
-
-  const q = search.trim().toLowerCase();
-  const matchedEmojis = q ? emojis.filter(e => e.id.toLowerCase().includes(q)) : emojis;
-  const shownEmojis = matchedEmojis.slice(0, EMOJI_RENDER_CAP);
-
-  // If the current avatar is a built one, its re-edit project sits beside the PNG.
-  const projectUrl = selected.whole ? `/images/avatars/whole/${selected.whole.replace(/\.png$/, '.json')}` : null;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0 12px', flexShrink: 0, borderBottom: '1px solid #333' }}>
-        <AvatarDisplay avatar={selected} size={80} />
-      </div>
-
-      <div style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1, minHeight: 0, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <button
-          className='stdBtn'
-          onClick={() => setBuilderOpen(true)}
-          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 14px' }}
-        >
-          <span className='material-symbols-outlined' style={{ fontSize: 18 }}>draw</span>
-          {builderOpen ? 'Avatar builder open' : 'Open Avatar Builder'}
-        </button>
-
-        <div>
-          <div style={{ fontSize: 11, color: '#777', marginBottom: 6 }}>Or quick-pick an emoji as your avatar</div>
-          <input
-            type='text'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder='Search emojis…'
-            style={{
-              width: '100%', padding: '6px 8px', marginBottom: 8, fontSize: 13,
-              borderRadius: 4, border: '1px solid #444', background: '#222', color: '#eee', boxSizing: 'border-box',
-            }}
-          />
-          {emojis.length === 0 ? (
-            <div style={{ fontSize: 11, color: '#666' }}>No chat emojis uploaded yet.</div>
-          ) : matchedEmojis.length === 0 ? (
-            <div style={{ fontSize: 11, color: '#666' }}>No emojis match “{search.trim()}”.</div>
-          ) : (
-            <>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                {shownEmojis.map(e => (
-                  <img
-                    key={e.id}
-                    src={`/images/emojis/${e.imageName}`}
-                    title={e.id}
-                    loading='lazy'
-                    onClick={() => pickEmoji(e.imageName)}
-                    style={{
-                      width: 38, height: 38, cursor: 'pointer', borderRadius: 4, padding: 2,
-                      border: selected.emoji === e.imageName ? '2px solid #39f' : '2px solid transparent',
-                      objectFit: 'contain', boxSizing: 'border-box',
-                    }}
-                  />
-                ))}
-              </div>
-              {matchedEmojis.length > shownEmojis.length && (
-                <div style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
-                  Showing {shownEmojis.length} of {matchedEmojis.length} — keep typing to narrow it down.
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <button
-          className='stdBtn'
-          onClick={save}
-          disabled={status === 'saving'}
-          style={{ width: '100%', padding: '6px 0' }}
-        >
-          {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved!' : status === 'error' ? 'Error — try again' : 'Save Avatar'}
-        </button>
-      </div>
-
-      {builderOpen && (
-        <DraggableWindow title='Avatar Builder' width={520} onClose={() => { setBuilderOpen(false); setPartStatus(null); }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {[['build', 'Build Avatar'], ['part', 'Draw Part']].map(([id, label]) => (
-                <button
-                  key={id}
-                  onClick={() => setBuilderMode(id)}
-                  style={{
-                    flex: 1, padding: '6px 0', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-                    borderRadius: 4, boxSizing: 'border-box',
-                    background: builderMode === id ? '#2a2a2a' : 'transparent',
-                    color: builderMode === id ? '#eee' : '#888',
-                    border: builderMode === id ? '1px solid #39f' : '1px solid #333',
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {builderMode === 'build' ? (
-              <AvatarComposer
-                key={selected.whole || 'new'}
-                parts={parts}
-                projectUrl={projectUrl}
-                onSaved={onBuiltAvatarSaved}
-              />
-            ) : (
-              <>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Publish under slot</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {AVATAR_PART_ORDER.map(slot => (
-                        <button
-                          key={slot}
-                          onClick={() => { setDrawSlot(slot); setPartStatus(null); }}
-                          style={{
-                            padding: '4px 8px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
-                            textTransform: 'capitalize', borderRadius: 4, boxSizing: 'border-box',
-                            background: drawSlot === slot ? '#2a2a2a' : 'transparent',
-                            color: drawSlot === slot ? '#eee' : '#888',
-                            border: drawSlot === slot ? '1px solid #39f' : '1px solid #333',
-                          }}
-                        >
-                          {slot}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Style</div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {[['brush', 'Brush'], ['pixel', 'Pixel']].map(([id, label]) => (
-                        <button
-                          key={id}
-                          onClick={() => setDrawMode(id)}
-                          style={{
-                            padding: '4px 8px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
-                            borderRadius: 4, boxSizing: 'border-box',
-                            background: drawMode === id ? '#2a2a2a' : 'transparent',
-                            color: drawMode === id ? '#eee' : '#888',
-                            border: drawMode === id ? '1px solid #39f' : '1px solid #333',
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {drawMode === 'pixel' ? (
-                  <PixelCanvas key='pixel' ref={pixelRef} width={32} height={32} scale={14} maxViewport={520} />
-                ) : (
-                  <DrawCanvas key='brush' ref={pixelRef} width={128} height={128} scale={3.5} maxViewport={520} />
-                )}
-
-                <button
-                  className='stdBtn'
-                  onClick={publishPart}
-                  disabled={partStatus === 'saving'}
-                  style={{ width: '100%', padding: '6px 0' }}
-                >
-                  {partStatus === 'saving'
-                    ? 'Publishing…'
-                    : partStatus === 'saved'
-                      ? `Published to ${drawSlot} — import it in Build`
-                      : partStatus === 'error'
-                        ? 'Error — try again'
-                        : `Publish to ${drawSlot} library`}
-                </button>
-
-                {(parts[drawSlot] || []).length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>
-                      Load a {drawSlot} to edit or trace
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, maxHeight: 92, overflowY: 'auto' }}>
-                      {(parts[drawSlot] || []).map(file => (
-                        <img
-                          key={file}
-                          src={`/images/avatars/${drawSlot}/${file}`}
-                          title='Load into canvas to edit'
-                          onClick={() => { pixelRef.current?.loadImage(`/images/avatars/${drawSlot}/${file}`); setPartStatus(null); }}
-                          style={{
-                            width: 38, height: 38, cursor: 'pointer', borderRadius: 4,
-                            border: '2px solid #3a3a3a', background: 'white', objectFit: 'contain', boxSizing: 'border-box',
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </DraggableWindow>
-      )}
     </div>
   );
 }

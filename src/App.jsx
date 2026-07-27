@@ -6,7 +6,7 @@ import socket from './utils/socket';
 
 import ChatWindow from './comps/Chat/ChatWindow';
 import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
-import { preloadFontsFromText } from './comps/Chat/Messages';
+import { preloadFontsFromText, loadFont } from './comps/Chat/Messages';
 
 const COPE_CLOUD = 'http://localhost:8080/';
 
@@ -58,7 +58,12 @@ function App() {
     });
 
     socket.on('userStateChange', ({ user, stateChange }) => {
+      // Both a flair and a message text style can name a font, so pull either in
+      // before something rendered with it appears. A flair carries its font as a
+      // "$Family|" token inside the markup; the text style's is a bare family
+      // name in its own field, so it loads directly.
       if (stateChange.flair) preloadFontsFromText(stateChange.flair);
+      if (stateChange.font) loadFont(stateChange.font);
       setUserlist(prev => {
         const index = prev.findIndex(a => a.id === user.id);
         if (index === -1) return prev;
@@ -119,6 +124,43 @@ function App() {
       body: JSON.stringify({ nick: myUser.nick })
     });
   }, [myUser?.nick, myUser?.registered]);
+
+  // One-time hand-off of an old localStorage text style onto the account.
+  //
+  // /color and /font used to persist to the browser only, which meant the value
+  // was invisible to the cosmetics menu and couldn't be captured by a style
+  // profile. They now write to the account, but anyone who set a color before
+  // that still has it sitting in localStorage — this adopts it on next load and
+  // clears it, so the browser copy can't linger and be re-adopted.
+  //
+  // Only runs when the account has no text style of its own, so it can never
+  // overwrite something set deliberately from the menu.
+  const styleAdopted = useRef(false);
+  useEffect(() => {
+    if (styleAdopted.current || !myUser?.registered) return;
+    if (myUser.color || myUser.glow || myUser.font || myUser.style?.length) return;
+
+    const store = storeRef.current;
+    const color = store.get('color') || null;
+    const font = store.get('font') || null;
+    if (!color && !font) return;
+
+    // Latched before the request, not after: the effect re-runs on every user
+    // state change, and two in-flight adoptions would race.
+    styleAdopted.current = true;
+    fetch('/a/textstyle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ color, font, glow: null, style: null }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data?.success) return;
+        store.setState('color', '');
+        store.setState('font', '');
+      })
+      .catch(() => { styleAdopted.current = false; });
+  }, [myUser?.registered, myUser?.color, myUser?.font, myUser?.glow, myUser?.style]);
 
   return (
     <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>
