@@ -2,6 +2,22 @@ import { useState } from 'react';
 import ManagerPanel from './ManagerPanel';
 import { TRUST_LEVELS, trustLabel } from './trustLevels';
 
+// What the row gates. A command is shown in the form you'd type it; an action
+// (a word filter add/remove, and anything else gated without being a command)
+// has no typed form, so it gets its server-supplied label in italics — the same
+// name /lock_command takes is the row's `name`, shown alongside so an admin can
+// still reach it from chat.
+function NameCell({ command }) {
+  if (command.kind !== 'action') return '/' + command.name;
+
+  return (
+    <span style={{ fontStyle: 'italic' }}>
+      {command.label}
+      <span style={{ color: '#777', fontStyle: 'normal', fontSize: 11 }}> ({command.name})</span>
+    </span>
+  );
+}
+
 // The level a command currently requires. An admin gets a picker; everyone else
 // gets the same value as text — the point of the list for a normal user is
 // knowing what to ask to be trusted for, not changing it.
@@ -65,9 +81,10 @@ function TrustCell({ command, helpers }) {
   );
 }
 
-// Every command and the trust level it requires, in the same draggable shell as
-// the ban list. Admins can retune a level in place; the same change is available
-// as /lock_command <command> <level>.
+// Every command — plus the non-command actions gated the same way, such as
+// adding and removing word filters — and the trust level each requires, in the
+// same draggable shell as the ban list. Admins can retune a level in place; the
+// same change is available as /lock_command <name> <level>.
 export default function CommandsPanel({ onClose }) {
   return (
     <ManagerPanel
@@ -77,7 +94,7 @@ export default function CommandsPanel({ onClose }) {
       emptyText='No commands.'
       width={520}
       columns={[
-        { label: 'Command', render: (c) => '/' + c.name },
+        { label: 'Command', render: (c) => <NameCell command={c} /> },
         { label: 'Requires', render: (c, helpers) => <TrustCell command={c} helpers={helpers} /> },
       ]}
     />

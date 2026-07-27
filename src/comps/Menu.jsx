@@ -387,8 +387,10 @@ Shop.propTypes = {
 // chat renderer uses (colors like #red, fonts like $Font|, styles like /^), so
 // we preview it live with ParsedContent. The narrow side panel only lists
 // filters + an Add button; adding/editing happens in a roomy pop-out
-// (FilterEditor). Any logged-in user can add/remove today; a cope-coin cost is
-// planned.
+// (FilterEditor). Who may add and who may remove are both trust levels an admin
+// sets from the commands panel (filter:add / filter:remove) — the server is the
+// one that decides, so the buttons are always offered and a refusal comes back
+// as the error the panel shows. A cope-coin cost is planned.
 function FiltersShop({ emojis = [] }) {
   const [filters, setFilters] = useState([]);
   // null when the editor is closed; otherwise { replace, withThis, isNew }.
