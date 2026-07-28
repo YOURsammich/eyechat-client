@@ -514,6 +514,29 @@ a {
   word-break: break-all;
 }
 
+/* Someone this viewer has blocked: their row is dimmed and marked, so it's
+   obvious why they've gone quiet — and where to go to undo it. */
+
+.userLiBlocked .userLiName {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.userLiBlockMark {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  font-size: 14px;
+  color: #b55;
+  opacity: 0.8;
+  cursor: help;
+}
+
+.userLiBlocked .userLiName,
+.userLiBlocked .userLiAFK {
+  padding-left: 14px;
+}
+
 /* bridge users */
 
 .bridgeUserHeader {

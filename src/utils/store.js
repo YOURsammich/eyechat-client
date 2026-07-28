@@ -4,7 +4,7 @@ class Store {
     this.saveAttrs = ['color', 'bgcolor', 'glow', 'nick', 'token', 
       'currentProfile', 'cursor', 'flair', 'font',
       'lock', 'menu-order', 'proxy', 'style', 'part', 'hotlink',
-      'bubble', 'block', 'joinleave', 'stylelimit', 'msgheight'];
+      'bubble', 'joinleave', 'stylelimit', 'msgheight'];
 
     this.stateStruct = {
       poll_votes: {
@@ -254,7 +254,9 @@ class Store {
 
   handleStates (states) {
     const toggles = ['channelTgl-filteredWords', 'channeltglcentermsg', 'channelTgl-logMessages'];
-    const assignToState = ['themecolors', 'filteredWords', 'emojiss', 'polls', 'poll_votes', 'joinnick', 'roles', 'pms', 'plugins', 'plugin_opt', 'messages', 'keyframes', 'pinned', 'block', 'user_inventory'];
+    // Block lists are not in here: they belong to the account, not the browser,
+    // and arrive as channelInfo.blocks / the `blocks` event (see ChatWindow).
+    const assignToState = ['themecolors', 'filteredWords', 'emojiss', 'polls', 'poll_votes', 'joinnick', 'roles', 'pms', 'plugins', 'plugin_opt', 'messages', 'keyframes', 'pinned', 'user_inventory'];
     
     const formattedStates = {};
 

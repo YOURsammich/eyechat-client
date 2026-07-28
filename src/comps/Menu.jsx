@@ -24,18 +24,30 @@ const STORE_CATS = [
   { name: 'join names', label: 'Join Names', description: 'Modify default join names',   icon: 'wand_stars' },
 ];
 
-function getUserActions(nick, socket) {
+function getUserActions(nick, socket, blocked) {
   return [
     { name: 'PM',    callback: () => {} },
     { name: 'whois', callback: () => handleInput.handle('/whois ' + nick, socket) },
-    { name: 'block', callback: () => {} },
+    // Blocking asks for a duration, so it opens the box (the same one a
+    // moderator's /separate raises); unblocking has nothing to ask, so it just
+    // goes straight to the server.
+    blocked
+      ? { name: 'unblock', callback: () => handleInput.handle('/unblock ' + nick, socket) }
+      : { name: 'block', callback: () => window.dispatchEvent(new CustomEvent('block:open', { detail: { nick } })) },
     { name: 'MOD',   callback: () => {} },
   ];
 }
 
+// When a timed block lapses, for the indicator's tooltip. A block with no expiry
+// runs until the user lifts it.
+function blockedUntil(expires) {
+  if (expires == null) return 'Blocked until you unblock them';
+  return 'Blocked until ' + new Date(Number(expires)).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+}
+
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, styleLimit, changeStyleLimit, channelStyleLimit, msgHeight, changeMsgHeight, channelMsgHeight, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, styleLimit, changeStyleLimit, channelStyleLimit, msgHeight, changeMsgHeight, channelMsgHeight, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection, blocks }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
@@ -94,7 +106,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
         </div>
 
         {selectedList === 'users' && (
-          <UserList socket={socket} userlist={userlist} emojis={emojis} />
+          <UserList socket={socket} userlist={userlist} emojis={emojis} blocks={blocks} />
         )}
         {selectedList === 'account' && (
           <AccountPanel user={user} channelName={channelName} />
@@ -144,27 +156,41 @@ Menu.propTypes = {
   msgHeight:         PropTypes.number,
   changeMsgHeight:   PropTypes.func,
   channelMsgHeight:  PropTypes.number,
+  blocks:            PropTypes.array,
 };
 
 // ─── UserList ──────────────────────────────────────────────────────────────────
 
-function UserList({ socket, userlist, emojis }) {
+function UserList({ socket, userlist, emojis, blocks = [] }) {
+  // Keyed lowercase: nicks are matched case-insensitively everywhere else, and
+  // the list is small enough that rebuilding this per render costs nothing.
+  const blocked = new Map(blocks.map(b => [String(b.nick).toLowerCase(), b.expires]));
+
   return (
     <div className='userLi'>
-      {userlist.map(user => (
-        <div className='userLiSpan' key={user.id}>
-          <span className='userLiName'>{user.nick}</span>
-          <span className='userLiCurrency'>₵{user.coins}</span>
-          <div className='userLiActions'>
-            {getUserActions(user.nick, socket).map(action => (
-              <button key={action.name} className='userActionBtn' onClick={action.callback}>
-                {action.name}
-              </button>
-            ))}
+      {userlist.map(user => {
+        const isBlocked = blocked.has(user.nick.toLowerCase());
+        return (
+          <div className={'userLiSpan' + (isBlocked ? ' userLiBlocked' : '')} key={user.id}>
+            <span className='userLiName'>{user.nick}</span>
+            {isBlocked ? (
+              <span
+                className='material-symbols-outlined userLiBlockMark'
+                title={blockedUntil(blocked.get(user.nick.toLowerCase()))}
+              >block</span>
+            ) : null}
+            <span className='userLiCurrency'>₵{user.coins}</span>
+            <div className='userLiActions'>
+              {getUserActions(user.nick, socket, isBlocked).map(action => (
+                <button key={action.name} className='userActionBtn' onClick={action.callback}>
+                  {action.name}
+                </button>
+              ))}
+            </div>
+            <div className='userLiAFK'><ParsedContent text={user.afk} emojis={emojis} styles={inlineStyles} /></div>
           </div>
-          <div className='userLiAFK'><ParsedContent text={user.afk} emojis={emojis} styles={inlineStyles} /></div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -173,6 +199,7 @@ UserList.propTypes = {
   socket:      PropTypes.object.isRequired,
   userlist:    PropTypes.array.isRequired,
   emojis:      PropTypes.array,
+  blocks:      PropTypes.array,
 };
 
 // ─── AccountPanel ───────────────────────────────────────────────────────────

@@ -240,18 +240,27 @@ const COMMANDS = {
       });
     }
   },
+  // Blocking needs a duration, so the typed form opens the same box the userlist
+  // button and a moderator's /separate raise; the box is what emits the command
+  // (with the duration) to the server, which owns the list.
   block: {
     params: ['nick'],
-    handler (params, {store, addMessage}) {
-      const blocked = store.get('block') || [];
-      blocked.push(params.nick);
-      store.setState('block', blocked);
-      addMessage({
-        message: params.nick + ' is now blocked',
-        type: 'info',
-        count: Math.random()
-      });
+    handler (params, {addMessage}) {
+      const nick = params?.nick;
+      if (!nick) {
+        addMessage({ message: 'Usage: /block <nick>', type: 'error', noparse: true, count: Math.random() });
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('block:open', { detail: { nick } }));
     }
+  },
+  // Nothing to ask, so no client handler — it goes straight to the server.
+  unblock: {
+    params: ['nick']
+  },
+  // Moderator-only, checked server-side: offers both users the block box.
+  separate: {
+    params: ['nick1', 'nick2']
   },
   trust: {
     params: ['nick', 'level'],

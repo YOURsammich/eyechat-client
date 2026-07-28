@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Messages, {
   ParsedContent, mentionsNick,
@@ -14,6 +14,7 @@ import WhiteboardPanel from './../Whiteboard/WhiteboardPanel';
 import ManagerPanel from './../ManagerPanel';
 import CommandsPanel from './../CommandsPanel';
 import UsersPanel from './../UsersPanel';
+import BlockBox from './../BlockBox';
 import JumpScare from './JumpScare';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'filteredWords']);
@@ -52,6 +53,12 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [showCope, setShowCope] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
+  // Who this viewer has blocked: [{ nick, expires }], owned by the server and
+  // pushed on join and on every change.
+  const [blocks, setBlocks] = useState([]);
+  // { nick, offered } while the block box is up, else null. `offered` marks the
+  // box a moderator's /separate raised, as opposed to one the user asked for.
+  const [blockOffer, setBlockOffer] = useState(null);
   const [mobileUsers, setMobileUsers] = useState(false);
   // Which menu section the mobile overlay should show, and whether the "more"
   // dropdown of extra sections is open. Desktop uses the quickNav bar instead.
@@ -181,8 +188,21 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       const background = channelInfo.background ?? '';
       const centermsg = channelInfo.centermsg ?? '';
 
+      if (Array.isArray(channelInfo.blocks)) setBlocks(channelInfo.blocks);
+
       const parsed = store.handleStates(channelInfo);
       setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg }));
+    });
+
+    // The server sends the whole list on every change (including from another
+    // tab of this account), so it replaces rather than merges.
+    const offBlocks = socket.on('blocks', (list) => {
+      setBlocks(Array.isArray(list) ? list : []);
+    });
+
+    // A moderator ran /separate on this user and someone they're arguing with.
+    const offSeparate = socket.on('separateOffer', (data) => {
+      if (data?.other) setBlockOffer({ nick: data.other, offered: true });
     });
 
     const offSetID = socket.on('setID', (id) => { myIdRef.current = id; });
@@ -234,6 +254,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       document.removeEventListener('visibilitychange', onVisibility);
       offMessage();
       offChannelInfo();
+      offBlocks();
+      offSeparate();
       offSetID();
       offUserJoin();
       offUserLeft();
@@ -283,19 +305,41 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     const onDeepFind = (e) => setDeepFind({ target: e.detail?.target ?? '' });
     const onCommands = () => setShowCommands(true);
     const onRoles = () => setShowRoles(true);
+    // /block and the userlist's block button both land here, opening the same
+    // box a /separate offer does — minus the "a moderator noticed" framing.
+    const onBlock = (e) => {
+      const nick = e.detail?.nick;
+      if (nick) setBlockOffer({ nick, offered: false });
+    };
     window.addEventListener('banlist:open', onBanList);
     window.addEventListener('seecope:open', onCope);
     window.addEventListener('deepfind:open', onDeepFind);
     window.addEventListener('commands:open', onCommands);
     window.addEventListener('roles:open', onRoles);
+    window.addEventListener('block:open', onBlock);
     return () => {
       window.removeEventListener('banlist:open', onBanList);
       window.removeEventListener('seecope:open', onCope);
       window.removeEventListener('deepfind:open', onDeepFind);
       window.removeEventListener('commands:open', onCommands);
       window.removeEventListener('roles:open', onRoles);
+      window.removeEventListener('block:open', onBlock);
     };
   }, []);
+
+  const blockedNicks = useMemo(
+    () => new Set(blocks.map(b => String(b.nick).toLowerCase())),
+    [blocks]
+  );
+
+  // The server already withholds a blocked user's messages, so this is about the
+  // ones we were sent before the block: what's on screen right now, and the older
+  // history the scroll-back fetches over REST. Blocking someone mid-argument
+  // should take their side of it away, not just stop the next line.
+  const visibleMessages = useMemo(() => {
+    if (!blockedNicks.size) return messages;
+    return messages.filter(m => !m.nick || !blockedNicks.has(String(m.nick).toLowerCase()));
+  }, [messages, blockedNicks]);
 
   // The channel's render caps, as stored (themecolors rows, so they arrive as
   // strings and are absent until a mod sets one), and what we actually render
@@ -481,7 +525,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
             filters={channelState.filteredWords}
             socket={socket}
             getUserFlair={getUserFlair}
-            messages={messages}
+            messages={visibleMessages}
             background={toggles.background ? channelState.background : '#000'}
             user={user}
             setViewLog={setViewLog}
@@ -536,6 +580,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           hats={channelState.hats}
           emojis={channelState.emojis}
           user={user}
+          blocks={blocks}
         />
       ) : null}
 
@@ -603,6 +648,15 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
             { label: 'Answer', render: (a) => a.answer },
             { label: 'By', render: (a) => a.nick || '—' },
           ]}
+        />
+      ) : null}
+
+      {blockOffer ? (
+        <BlockBox
+          socket={socket}
+          nick={blockOffer.nick}
+          offered={blockOffer.offered}
+          onClose={() => setBlockOffer(null)}
         />
       ) : null}
 
