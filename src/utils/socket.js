@@ -65,6 +65,14 @@ const socket = {
 
       const prefix = window.location.protocol === 'https:' ? 'wss' : 'ws';
 
+      // Same origin in production, always. The override exists only for a
+      // standalone `npm run dev` in eyechat-client: this socket lives at the
+      // origin root, which is also where Vite's own HMR socket lives, so Vite
+      // can't proxy it the way it proxies the REST routes. Setting
+      // VITE_WS_URL=ws://chat.example.com points the chat socket at a real
+      // server while the page itself is served by Vite. Unset in every build.
+      const url = import.meta.env?.VITE_WS_URL || (prefix + '://' + location.host);
+
       // Supersede any previous socket before opening the new one: assign
       // this._socket first (so the old socket's handlers see themselves as stale
       // and stop acting), then close it. Overlapping reconnects (e.g. a scheduled
@@ -72,7 +80,7 @@ const socket = {
       // live sockets, and since both feed the same event registry every message
       // was processed twice — the "double messages" bug.
       const previous = this._socket;
-      const ws = new WebSocket(prefix + '://' + location.host);
+      const ws = new WebSocket(url);
       this._socket = ws;
       if (previous && previous !== ws) { try { previous.close(); } catch { /* already closing */ } }
 

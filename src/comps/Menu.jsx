@@ -415,57 +415,74 @@ Shop.propTypes = {
 // Middlewares: server-defined transform functions (shrek, uwu, etc) that run
 // against a *target user's* message text when they send it — this is a curse
 // you pay coins to inflict on someone else, not something you equip on
-// yourself. `/mw <nick> <mwId>` is the chat-command equivalent; this panel is
+// yourself. `/mw <nick> <id>` is the chat-command equivalent; this panel is
 // the GUI version: pick a target, pick an MW, pay the cost.
 //
 // `user.middlewares` here is the list of MWs currently cursing *you* (placed
-// on you by other people), each `{ id, appliedBy }`, pushed live by the
-// server the same way `registered` flips post-login. It's read-only from
-// your side aside from an optional "shake it off" removal.
+// on you by other people), each `{ id, appliedBy, messagesLeft }`, pushed live
+// by the server the same way `registered` flips post-login. It's read-only from
+// your side apart from paying again to shake one off.
+//
+// Nothing here is enforcement — the buttons disable on price and the datalist
+// only knows who's online, but the server re-checks the balance, the target and
+// the block list on every request (see src/middlewareActions.js).
 function MwsShop({ user, channelName, userlist = [] }) {
   const [catalog, setCatalog] = useState([]);
-  const [active, setActive] = useState([]); // [{ id, appliedBy }] currently affecting you
   const [target, setTarget] = useState('');
   const [applyingId, setApplyingId] = useState(null);
   const [removingId, setRemovingId] = useState(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    fetch('/channel/info/main/middlewares')
+    fetch('/channel/middlewares')
       .then(res => res.json())
       .then(data => setCatalog(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => setError('Could not load the MW list.'));
   }, []);
 
-  useEffect(() => {
-    setActive(Array.isArray(user?.middlewares) ? user.middlewares : []);
-  }, [user?.middlewares]);
+  // Read straight off the live user rather than mirroring into local state: the
+  // server is the only thing that changes this list, and it pushes every change
+  // through userStateChange — a local copy would just be a second source of
+  // truth to keep in sync after an apply lands on someone else's screen.
+  const active = Array.isArray(user?.middlewares) ? user.middlewares : [];
 
   const byId = new Map(catalog.map(mw => [mw.id, mw]));
   const coins = user?.coins ?? 0;
   const nick = target.trim();
+  const busy = !!applyingId || !!removingId;
+
+  function say(err, ok) {
+    setError(err ?? '');
+    setNotice(ok ?? '');
+  }
 
   function apply(mw) {
-    if (applyingId) return;
-    if (!nick) { setError('Pick who to target first.'); return; }
-    if (coins < mw.cost) { setError(`Not enough coins for ${mw.name}.`); return; }
+    if (busy) return;
+    if (!nick) { say('Pick who to target first.'); return; }
+    if (coins < mw.cost) { say(`Not enough coins for ${mw.name}.`); return; }
     setApplyingId(mw.id);
-    setError('');
+    say();
     fetch('/a/middleware/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channelName, targetNick: nick, id: mw.id }),
     })
       .then(res => res.json())
-      .then(res => { if (res.error) setError(res.error); })
-      .catch(() => setError('Could not reach the server.'))
+      .then(res => {
+        if (res.error) { say(res.error); return; }
+        say(null, `${res.name} applied to ${res.target} for their next ${res.messages} messages.`);
+      })
+      .catch(() => say('Could not reach the server.'))
       .finally(() => setApplyingId(null));
   }
 
   function clear(id) {
-    if (removingId) return;
+    if (busy) return;
+    const mw = byId.get(id);
+    if (mw && coins < mw.cost) { say(`Shaking off ${mw.name} costs ₵${mw.cost}.`); return; }
     setRemovingId(id);
-    setError('');
+    say();
     fetch('/a/middleware/clear', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -473,16 +490,19 @@ function MwsShop({ user, channelName, userlist = [] }) {
     })
       .then(res => res.json())
       .then(res => {
-        if (res.error) { setError(res.error); return; }
-        setActive(prev => prev.filter(a => a.id !== id));
+        // No local removal: the server broadcasts the new list, which arrives as
+        // a userStateChange and re-renders this panel on its own.
+        if (res.error) { say(res.error); return; }
+        say(null, `You shook off ${res.name}.`);
       })
-      .catch(() => setError('Could not reach the server.'))
+      .catch(() => say('Could not reach the server.'))
       .finally(() => setRemovingId(null));
   }
 
   return (
     <div className='mwShop'>
       {error && <div className='mwError'>{error}</div>}
+      {notice && <div className='mwNotice'>{notice}</div>}
 
       <div className='mwSectionLabel'>Apply a MW to someone</div>
       <div className='mwTargetRow'>
@@ -491,7 +511,7 @@ function MwsShop({ user, channelName, userlist = [] }) {
           list='mwUserlist'
           placeholder='Target nick'
           value={target}
-          onChange={e => { setTarget(e.target.value); setError(''); }}
+          onChange={e => { setTarget(e.target.value); say(); }}
         />
         <datalist id='mwUserlist'>
           {userlist.filter(u => u.nick).map(u => <option key={u.id} value={u.nick} />)}
@@ -505,11 +525,15 @@ function MwsShop({ user, channelName, userlist = [] }) {
             <div className='mwCatalogBody'>
               <div className='mwCatalogName'>{mw.name}</div>
               <p className='mwCatalogDesc'>{mw.description}</p>
+              <div className='mwCatalogMeta'>{mw.messages} messages</div>
             </div>
             <button
               className='stdBtn mwApplyBtn'
               onClick={() => apply(mw)}
-              disabled={applyingId === mw.id || !nick || coins < mw.cost}
+              // Disabled for the whole panel while any request is in flight, not
+              // just this row — apply() refuses concurrent calls anyway, and a
+              // button that looks live but silently no-ops reads as broken.
+              disabled={busy || !nick || coins < mw.cost}
               title={!nick ? 'Pick a target first' : coins < mw.cost ? 'Not enough coins' : `Apply to ${nick}`}
             >
               {applyingId === mw.id ? '…' : `₵${mw.cost}`}
@@ -528,13 +552,16 @@ function MwsShop({ user, channelName, userlist = [] }) {
                 <div className='mwActiveRow' key={a.id}>
                   <div className='mwActiveBody'>
                     <span className='mwActiveName'>{mw?.name || a.id}</span>
-                    {a.appliedBy && <span className='mwActiveMeta'>from {a.appliedBy}</span>}
+                    <span className='mwActiveMeta'>
+                      {a.appliedBy && `from ${a.appliedBy} · `}
+                      {a.messagesLeft} message{a.messagesLeft === 1 ? '' : 's'} left
+                    </span>
                   </div>
                   <span
                     className='mwActiveRemoveBtn material-symbols-outlined'
-                    onClick={() => clear(a.id)}
-                    title='Shake it off'
-                  >close</span>
+                    onClick={() => { if (!busy) clear(a.id); }}
+                    title={mw ? `Shake it off (₵${mw.cost})` : 'Shake it off'}
+                  >{removingId === a.id ? 'hourglass_empty' : 'close'}</span>
                 </div>
               );
             })}

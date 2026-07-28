@@ -700,9 +700,13 @@ a {
   flex-direction: column;
 }
 
+/* The dropped file, shown as-is. Uploads are stored resized to fit inside 64×64
+   (sharp, in the server's uploadEmoji route), so the preview is capped at the
+   same box to show roughly what actually gets saved — the container is 93px
+   tall, so this also keeps a large drop from filling it edge to edge. */
 .emojiFileContainer img {
-  max-width: 90%;
-  max-height: 90%;
+  max-width: 64px;
+  max-height: 64px;
 }
 
 .emojiIdField {
@@ -1280,6 +1284,17 @@ a {
 .mwError {
   color: #ff6b6b;
   font-size: 12px;
+}
+
+.mwNotice {
+  color: #6bd47f;
+  font-size: 12px;
+}
+
+/* How long the curse lasts, under its description. */
+.mwCatalogMeta {
+  font-size: 11px;
+  color: #8a97ad;
 }
 
 /* A single MW on offer in the catalog: name/description on the left, an

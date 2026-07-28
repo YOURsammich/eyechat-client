@@ -50,7 +50,7 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
         }}>
           <div className='emojiFileContainer' onDragOver={onDragOver} onDrop={onDrop}>
             {emojiUpload
-              ? <img width="80" src={imageSrcRef.current} />
+              ? <img src={imageSrcRef.current} />
               : <><span className="material-symbols-outlined">upload_file</span>Drag or Drop to upload</>
             }
           </div>
