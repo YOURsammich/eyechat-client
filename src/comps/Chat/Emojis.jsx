@@ -18,22 +18,13 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
 
   function onDrop(e) {
     e.preventDefault();
-    if (!e.dataTransfer.items) return;
-    const file = e.dataTransfer.items[0].getAsFile();
+    const file = e.dataTransfer.files?.[0] || e.dataTransfer.items?.[0]?.getAsFile();
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 128;
-        canvas.height = 128;
-        ctx.drawImage(img, 0, 0, 128, 128);
-        fileRef.current = file;
-        imageSrcRef.current = canvas.toDataURL('image/png');
-        setEmojiUpload(true);
-      };
-      img.src = ev.target.result;
+      fileRef.current = file;
+      imageSrcRef.current = ev.target.result;
+      setEmojiUpload(true);
     };
     reader.readAsDataURL(file);
   }
@@ -59,7 +50,7 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
         }}>
           <div className='emojiFileContainer' onDragOver={onDragOver} onDrop={onDrop}>
             {emojiUpload
-              ? <img src={imageSrcRef.current} />
+              ? <img width="80" src={imageSrcRef.current} />
               : <><span className="material-symbols-outlined">upload_file</span>Drag or Drop to upload</>
             }
           </div>
