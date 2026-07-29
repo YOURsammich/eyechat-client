@@ -242,7 +242,7 @@ const messageParser = {
       return txt;
     }, '');
 
-    
+
     if (dataTree.children.length > 0) {
       for (let child of dataTree.children) {
         txt = this.getTextContent(child, txt);
@@ -434,12 +434,12 @@ const messageParser = {
       nextRawComp,
       nextSlideShowComp,
       nextStyleBreaker,
-      nextQuoteComp, 
-      nextFontComp, 
-      nextStyleComp, 
-      nextLinkComp, 
+      nextQuoteComp,
+      nextFontComp,
+      nextStyleComp,
+      nextLinkComp,
       nextEmojiMergeComp,
-      nextEmojiComp, 
+      nextEmojiComp,
       nextColorComp
     ].filter(comp => comp != null);
     if (comps.length == 0) return null;
@@ -541,7 +541,7 @@ const messageParser = {
 
         if (currComp.type == 'style') {
           depth++;
-        } 
+        }
 
         this.parse(str.slice(currComp.strdata.length), msgStyles, tracker.children[tracker.children.length - 1], depth);
       }
@@ -566,7 +566,7 @@ const messageParser = {
           children: []
         });
       }
-      
+
       if (nextComp.type == 'styleBreaker') {
         let styleParent = this.getStyleParent(tracker);
         const styleLayer = (styleParent?.parent) || tracker;
@@ -817,6 +817,105 @@ function hasExtension (href, types) {
   return types.includes(ext) ? ext : undefined;
 }
 
+function OpenGraphEmbed({ href, _imageLoaded }) {
+  const [og, setOg] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch('https://og-proxy.sadovh.workers.dev/?url=' + encodeURIComponent(href))
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!isMounted) return;
+        if (data && (data.title || data.description || data.image)) {
+          setOg(data);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => { isMounted = false; };
+  }, [href]);
+
+  if (loading || !og) return null;
+
+  return (
+    <div
+      className="og-embed"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'rgba(255, 255, 255, 0.06)',
+        backdropFilter: 'blur(16px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderRadius: '14px',
+        padding: '14px 16px',
+        marginTop: '8px',
+        marginBottom: '8px',
+        maxWidth: '430px',
+        fontFamily: 'sans-serif',
+        fontSize: '0.9em',
+        boxSizing: 'border-box',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+      }}
+    >
+      {og.siteName && (
+        <div style={{
+          fontSize: '0.72em',
+          color: 'rgba(255, 255, 255, 0.55)',
+          marginBottom: '4px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}>
+          {og.siteName}
+        </div>
+      )}
+      {og.title && (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontWeight: 600,
+            color: og.themeColor || '#7dd3fc',
+            textDecoration: 'none',
+            marginBottom: '4px',
+            lineHeight: 1.3,
+          }}
+        >
+          {og.title}
+        </a>
+      )}
+      {og.description && (
+        <div style={{
+          color: 'rgba(255, 255, 255, 0.75)',
+          fontSize: '0.85em',
+          marginBottom: og.image ? '10px' : '0',
+          lineHeight: '1.4',
+        }}>
+          {og.description}
+        </div>
+      )}
+      {og.image && (
+        <img
+          src={og.image}
+          alt={og.title || 'embed preview'}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '300px',
+            borderRadius: '10px',
+            objectFit: 'cover',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+          onLoad={(e) => _imageLoaded && _imageLoaded(e.target)}
+        />
+      )}
+    </div>
+  );
+}
+
 function LinkMsg (props) {
   const message = props.message;
   const href = message.data.href ?? message.data.strdata;
@@ -854,13 +953,17 @@ function LinkMsg (props) {
     </div> : href
   }</a>
   {' '}
-  
+
   {(isMP4 || isYouTube) ? <a target='_blank' rel="noopener noreferrer" onClick={(e) => {
     props.setOverlay({
       href: href,
       type: isYouTube ? 'youtube' : 'video'
     });
   }}>[embed]</a> : null}
+
+  {!imageType && !isMP4 && !isYouTube && !props.compact && (
+    <OpenGraphEmbed href={href} _imageLoaded={props._imageLoaded} />
+  )}
 
 
 </>);
@@ -994,7 +1097,7 @@ function NestMessage (props) {
     return <span key={i} style={msgcss} className={className}>
 
       { getCompRender(message, props, props.spanish) }
-      
+
       {message.children.length > 0 ? <NestMessage
         spanish={props.spanish || msgcss.spanish}
         message={message}
@@ -1082,7 +1185,7 @@ function getMsgCss (compName, value) {
     '/&': { className: 'wavy', display: 'inline-block', spanish: true },
     '/?': { filter: 'contrast(10000000000%) saturate(1000000000%)' },
   }
-  
+
   if (compName == 'color') {
     const color = cssColor(value);
     return { color };
@@ -1273,7 +1376,7 @@ class Messages extends React.Component {
       const scrollBottom = messageCon.scrollTop + messageCon.clientHeight;
 
       if (target.scrollTop < 50) {
-        
+
         this.props.setViewLog();
 
         // const oldestMessage = this.props.messages[0];
@@ -1533,7 +1636,7 @@ class Messages extends React.Component {
 
         {/* {overlay here} */}
         {
-          this.state.showOverlay ? <EmbedOverlay 
+          this.state.showOverlay ? <EmbedOverlay
             src={this.state.showOverlay}
             setOverlay={(id) => {
               console.log('set overlay', id);
@@ -1560,4 +1663,4 @@ class Messages extends React.Component {
 }
 
 export default Messages;
-export { NestMessage, messageParser, msgStyles, inlineStyles, partStyles, markGreentext, CollapsibleMessage };
+export { NestMessage, messageParser, msgStyles, inlineStyles, partStyles, markGreentext, CollapsibleMessage, OpenGraphEmbed };
