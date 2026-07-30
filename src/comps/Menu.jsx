@@ -213,6 +213,54 @@ TorMark.propTypes = {
   tor: PropTypes.bool,
 };
 
+// The detail the full check (flags=f) adds, all admin-only like the score above.
+//
+// ASN is the bare AS number — getipintel returns no organisation name, so "AS15169"
+// is as far as it goes without shipping a separate dataset. It's still the fastest
+// way to tell a datacenter from a home ISP at a glance.
+//
+// RES marks a residential proxy: the category the quick check is worst at, and what
+// someone serious about evading actually buys.
+//
+// RELAY marks Apple Private Relay or Google One VPN. It reads as reassurance, not
+// suspicion — those are consumer defaults, and the gate deliberately won't block on
+// them (see proxyBlocked), so this explains why someone scoring high is still here.
+function ProxyDetail({ asn, residential, vpnType, consumerRelay }) {
+  return (
+    <>
+      {asn ? (
+        <span className='userLiProxy userLiProxy-asn' title={`Autonomous system AS${asn}`}>
+          AS{asn}
+        </span>
+      ) : null}
+      {residential ? (
+        <span
+          className='userLiProxy userLiProxy-high'
+          title={'Residential proxy — traffic routed through someone else’s home connection.'}
+        >RES</span>
+      ) : null}
+      {vpnType ? (
+        <span className='userLiProxy userLiProxy-mid' title={`VPN type reported: ${vpnType}`}>
+          {vpnType}
+        </span>
+      ) : null}
+      {consumerRelay ? (
+        <span
+          className='userLiProxy userLiProxy-relay'
+          title={'Apple Private Relay or Google One VPN — a consumer default, never blocked by the proxy gate.'}
+        >RELAY</span>
+      ) : null}
+    </>
+  );
+}
+
+ProxyDetail.propTypes = {
+  asn:           PropTypes.string,
+  residential:   PropTypes.bool,
+  vpnType:       PropTypes.string,
+  consumerRelay: PropTypes.bool,
+};
+
 function UserList({ socket, userlist, emojis, blocks = [] }) {
   // Keyed lowercase: nicks are matched case-insensitively everywhere else, and
   // the list is small enough that rebuilding this per render costs nothing.
@@ -227,6 +275,12 @@ function UserList({ socket, userlist, emojis, blocks = [] }) {
             <span className='userLiName'>{user.nick}</span>
             <TorMark tor={user.tor} />
             <ProxyScore score={user.proxyScore} />
+            <ProxyDetail
+              asn={user.asn}
+              residential={user.residential}
+              vpnType={user.vpnType}
+              consumerRelay={user.consumerRelay}
+            />
             {isBlocked ? (
               <span
                 className='material-symbols-outlined userLiBlockMark'

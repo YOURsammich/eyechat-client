@@ -536,6 +536,21 @@ a {
   letter-spacing: 0.5px;
 }
 
+/* ASN is context, not an accusation, so it stays quiet. */
+.userLiProxy-asn {
+  color: #7fa8c9;
+  font-style: normal;
+}
+
+/* A consumer relay is the one marker here that argues *for* the user: it explains
+   why a high score isn't being acted on. Green so it doesn't read as a warning. */
+.userLiProxy-relay {
+  color: #7fc99a;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
 .userLiAFK {
   color: lightgrey;
   font-size: 12px;

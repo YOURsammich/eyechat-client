@@ -273,6 +273,9 @@ const COMMANDS = {
   proxyblock: {
     params: ['mode'],
   },
+  proxyscan: {
+    params: ['nick'],
+  },
   change_password: {
     params: ['oldpass', 'newpass'],
   },
