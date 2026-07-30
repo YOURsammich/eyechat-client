@@ -268,6 +268,11 @@ const COMMANDS = {
   whitelist: {
     params: ['state'],
   },
+  // off | guests | all. Param name must match the server's (see COMMANDS in
+  // src/commands.js) — the object is built by name, not position.
+  proxyblock: {
+    params: ['mode'],
+  },
   change_password: {
     params: ['oldpass', 'newpass'],
   },

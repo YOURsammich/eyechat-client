@@ -526,6 +526,16 @@ a {
 .userLiProxy-mid  { color: #e0a95f; }
 .userLiProxy-low  { color: #8a8a8a; }
 
+/* Tor is a fact off the published exit list, not a probability, so it reads as a
+   label rather than a number — and getipintel often scores exits 0, which would
+   otherwise sit next to it looking reassuring. */
+.userLiProxy-tor {
+  color: #c9a0ff;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
 .userLiAFK {
   color: lightgrey;
   font-size: 12px;
@@ -918,6 +928,9 @@ a {
 
 /* ─── Shop ────────────────────────────────────────────────────────────────── */
 
+/* Takes the height the menu gives it (flex: 1) instead of sizing to its content,
+   so a panel inside it — the join-name lists, the filter list — can scroll
+   within the panel rather than growing until this container's overflow clips it. */
 .shopContainer {
   color: #f7f9f5;
   overflow: hidden;
@@ -925,6 +938,8 @@ a {
   flex-direction: column;
   padding: 5px;
   width: 250px;
+  flex: 1;
+  min-height: 0;
 }
 
 .shopNav {
@@ -1049,23 +1064,153 @@ a {
 
 /* ─── Join Names ──────────────────────────────────────────────────────────── */
 
+/* Two word lists (adjectives, nouns) side by side under a live sample of the
+   name a guest would be given. The container owns the height so each list
+   scrolls on its own rather than the whole panel growing past the viewport. */
 .joinNamesContainer {
   display: flex;
-  justify-content: space-evenly;
   flex-direction: column;
+  gap: 8px;
+  padding: 5px;
+  min-height: 0;
+  flex: 1;
 }
 
 .randomNameDisplay {
-  background-color: #000;
-  height: 80px;
+  background-color: #000000ab;
+  border-radius: 6px;
+  box-shadow: 0 0 4px #3d3d3d;
+  padding: 12px 8px;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.joinNameSample {
+  font-size: 15px;
+  font-weight: bold;
+  color: #cdd6e4;
+  word-break: break-all;
+  text-align: center;
+}
+
+.joinNameHint,
+.joinNameCount {
+  font-size: 10px;
+  color: #8a97ad;
+}
+
+.joinNameError {
+  font-size: 12px;
+  color: #e06c6c;
 }
 
 .nameCategory {
   display: flex;
-  justify-content: space-evenly;
+  gap: 8px;
+  min-height: 0;
+  flex: 1;
+}
+
+.joinNameColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.joinNameColumn > b {
+  font-size: 12px;
+  color: #cdd6e4;
+}
+
+.joinNameAddRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The panel is ~250px wide for two of these, so the input takes whatever the
+   add button leaves rather than carrying its own width. */
+.joinNameInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.joinNameAddBtn {
+  font-size: 18px;
+  color: #8a97ad;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.12s;
+}
+
+.joinNameAddBtn:hover {
+  color: #39f;
+}
+
+.joinNameList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.joinNameEmpty {
+  font-size: 11px;
+  color: #8a97ad;
+  padding: 4px 2px;
+}
+
+.joinNameRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #000000ab;
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+.joinNameRow:hover {
+  background: #000000d9;
+}
+
+.joinNameWord {
+  font-size: 11px;
+  color: #cdd6e4;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Delete only on hover, matching .filterRow — a list of 100 words shouldn't be
+   a wall of × icons. */
+.joinNameDelete {
+  font-size: 15px;
+  color: #8a97ad;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+.joinNameRow:hover .joinNameDelete {
+  opacity: 1;
+}
+
+.joinNameDelete:hover {
+  color: #ff6b6b;
 }
 
 /* ─── Filters (word filters shop) ─────────────────────────────────────────── */

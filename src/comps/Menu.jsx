@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import handleInput from '../utils/handleInput';
 import DraggableWindow from './DraggableWindow';
@@ -192,6 +192,27 @@ ProxyScore.propTypes = {
   score: PropTypes.number,
 };
 
+// Connecting from a published Tor exit node. Its own marker rather than a score,
+// because it's an exact fact off the Tor Project's list rather than an inference —
+// and because getipintel routinely scores exits 0, so the number beside it can be
+// misleadingly clean. Gated the same way: the server only sends `tor` to trust 0-1.
+function TorMark({ tor }) {
+  if (!tor) return null;
+
+  return (
+    <span
+      className='userLiProxy userLiProxy-tor'
+      title={'Connecting through a Tor exit node (Tor Project exit list).\nVisible to trust 0-1.'}
+    >
+      TOR
+    </span>
+  );
+}
+
+TorMark.propTypes = {
+  tor: PropTypes.bool,
+};
+
 function UserList({ socket, userlist, emojis, blocks = [] }) {
   // Keyed lowercase: nicks are matched case-insensitively everywhere else, and
   // the list is small enough that rebuilding this per render costs nothing.
@@ -204,6 +225,7 @@ function UserList({ socket, userlist, emojis, blocks = [] }) {
         return (
           <div className={'userLiSpan' + (isBlocked ? ' userLiBlocked' : '')} key={user.id}>
             <span className='userLiName'>{user.nick}</span>
+            <TorMark tor={user.tor} />
             <ProxyScore score={user.proxyScore} />
             {isBlocked ? (
               <span
@@ -429,7 +451,7 @@ function Shop({ hats, emojis, user, channelName, userlist }) {
 
       {selectedCat === 'filters'    && <FiltersShop emojis={emojis} />}
       {selectedCat === 'mws'        && <MwsShop user={user} channelName={channelName} userlist={userlist} />}
-      {selectedCat === 'join names' && <JoinNames />}
+      {selectedCat === 'join names' && <JoinNames channelName={channelName} />}
     </div>
   );
 }
@@ -870,32 +892,154 @@ FilterEditor.propTypes = {
 
 // ─── JoinNames ────────────────────────────────────────────────────────────────
 
-function JoinNames() {
-  const [joinNames, setJoinNames] = useState({});
+// The word lists a guest's random nick is built from: one adjective plus one
+// noun. Adding is open to any logged-in user by default and removing is a
+// moderator action, but both are trust levels an admin retunes from the commands
+// panel (joinnick:add / joinnick:remove) — so, like the filters panel, the
+// controls are always offered and a refusal comes back as an error to show.
+//
+// Editing a word isn't a thing: a name is its own identity in the table (the
+// primary key is channel + type + name), so a fix is a remove plus an add.
+const JOIN_NAME_TYPES = [
+  { type: 'adjective', label: 'Adjectives' },
+  { type: 'noun',      label: 'Nouns' },
+];
+
+// The same name the server would assemble (see Channel.assignName), so the
+// preview stays honest as either list empties out.
+function sampleJoinName(adjectives, nouns) {
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+  if (adjectives.length && nouns.length) return pick(adjectives) + pick(nouns);
+  if (adjectives.length || nouns.length) {
+    return pick(adjectives.length ? adjectives : nouns) + Math.floor(Math.random() * 999);
+  }
+  return 'ChatUser' + Math.floor(Math.random() * 9999);
+}
+
+function JoinNames({ channelName = 'main' }) {
+  const [lists, setLists] = useState({ adjective: [], noun: [] });
+  const [drafts, setDrafts] = useState({ adjective: '', noun: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  // Bumped to re-roll the preview; the lists changing re-rolls it too, which is
+  // what makes an add or a remove visibly land on the sample name.
+  const [roll, setRoll] = useState(0);
 
   useEffect(() => {
-    fetch('/channel/info/main/joinnick')
+    fetch('/channel/info/' + encodeURIComponent(channelName) + '/joinnick')
       .then(res => res.json())
       .then(data => {
-        setJoinNames({
-          nouns:      data.filter(a => a.type === 'noun').map(a => a.name),
-          adjectives: data.filter(a => a.type === 'adjective').map(a => a.name),
-        });
-      });
-  }, []);
+        if (!Array.isArray(data)) return;
+        const byType = type => data.filter(a => a.type === type).map(a => a.name).sort((a, b) => a.localeCompare(b));
+        setLists({ adjective: byType('adjective'), noun: byType('noun') });
+      })
+      .catch(() => setError('Could not load the join names.'));
+  }, [channelName]);
+
+  // Memoised, or every unrelated re-render (typing in an input) would reshuffle
+  // the sample under the user.
+  const preview = useMemo(() => sampleJoinName(lists.adjective, lists.noun), [lists, roll]);
+
+  function add(type) {
+    const name = drafts[type].trim();
+    if (!name || busy) return;
+
+    setBusy(true);
+    setError('');
+    fetch('/a/joinnick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelName, type, name }),
+    })
+      .then(res => res.json())
+      // `message` covers the /a/ login gate, which answers with that rather than
+      // an `error` — without it a guest's click would do nothing at all.
+      .then(res => {
+        if (res.error || res.message) { setError(res.error || res.message); return; }
+        setLists(prev => ({ ...prev, [type]: [...prev[type], res.name].sort((a, b) => a.localeCompare(b)) }));
+        setDrafts(prev => ({ ...prev, [type]: '' }));
+        setRoll(n => n + 1);
+      })
+      .catch(() => setError('Could not reach the server.'))
+      .finally(() => setBusy(false));
+  }
+
+  // Removing is moderator-only by default, so the word leaves the list only once
+  // the server confirms it — dropping it here first would show it as gone to
+  // someone who isn't allowed to remove it, until they reload.
+  function remove(type, name) {
+    if (busy) return;
+
+    setBusy(true);
+    setError('');
+    fetch('/a/joinnick', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelName, type, name }),
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res.error || res.message) { setError(res.error || res.message); return; }
+        setLists(prev => ({ ...prev, [type]: prev[type].filter(n => n !== name) }));
+        setRoll(n => n + 1);
+      })
+      .catch(() => setError('Could not reach the server.'))
+      .finally(() => setBusy(false));
+  }
 
   return (
     <div className='joinNamesContainer'>
-      <div className='randomNameDisplay'>
-        <h3>Random Name</h3>
+      <div className='randomNameDisplay' onClick={() => setRoll(n => n + 1)} title='Roll another'>
+        <span className='joinNameSample' key={roll}>{preview}</span>
+        <span className='joinNameHint'>Click to roll another</span>
       </div>
+
+      {error && <div className='joinNameError'>{error}</div>}
+
       <div className='nameCategory'>
-        <b>Nouns</b>
-        <b>Adjectives</b>
+        {JOIN_NAME_TYPES.map(({ type, label }) => (
+          <div className='joinNameColumn' key={type}>
+            <b>{label} <span className='joinNameCount'>{lists[type].length}</span></b>
+
+            <div className='joinNameAddRow'>
+              <input
+                className='stdInput joinNameInput'
+                placeholder={type === 'adjective' ? 'Sneaky' : 'Wizard'}
+                value={drafts[type]}
+                maxLength={20}
+                onChange={e => { setDrafts(prev => ({ ...prev, [type]: e.target.value })); setError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') add(type); }}
+              />
+              <span
+                className='joinNameAddBtn material-symbols-outlined'
+                onClick={() => add(type)}
+                title={'Add ' + type}
+              >add</span>
+            </div>
+
+            <div className='joinNameList'>
+              {lists[type].length === 0 && <div className='joinNameEmpty'>None yet.</div>}
+              {lists[type].map(name => (
+                <div className='joinNameRow' key={name}>
+                  <span className='joinNameWord' title={name}>{name}</span>
+                  <span
+                    className='joinNameDelete material-symbols-outlined'
+                    onClick={() => remove(type, name)}
+                    title='Remove'
+                  >close</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+
+JoinNames.propTypes = {
+  channelName: PropTypes.string,
+};
 
 // ─── ChannelTheme ─────────────────────────────────────────────────────────────
 
