@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import AvatarDisplay from './AvatarDisplay.jsx';
 
 
@@ -715,13 +716,12 @@ function QuoteMsg (props) {
         setQuote(false);
 
       } else {
-        setQuote({
-          nick: res.nick,
-          message: res.message,
-          type: res.messageType,
-          messageParsed: messageParser.parse(res.message, msgStyles),
-          time: res.time,
-        });
+        // Spread the whole row rather than picking fields: the preview is
+        // rendered by the same renderMessage() as the log, so it wants
+        // everything that draws a message — flair, hat, avatar and the author's
+        // textstyle included. Picking fields by hand is how the flair went
+        // missing. `messageType` is the only key that needs renaming.
+        setQuote({ ...res, type: res.messageType });
       }
     });
 
@@ -738,11 +738,20 @@ function QuoteMsg (props) {
 
     </button>
     {
-        quoteVisible ? <div ref={containerRef} className='quote-container' style={{position: 'fixed', top: '-9999px', left: '-9999px'}}>
+        // Portalled to <body> rather than left where it sits in the tree. The
+        // >>N token is nested inside the *quoting* message's markup, so a
+        // preview rendered in place inherits that author's color, font and
+        // text-shadow — the quoted message would come out wearing the quoter's
+        // style. Out at the body there is nothing to inherit from. (It is
+        // position: fixed either way, so nothing about the layout changes.)
+        quoteVisible ? createPortal(
+          <div ref={containerRef} className='quote-container' style={{position: 'fixed', top: '-9999px', left: '-9999px'}}>
 
-          {props.renderMessage(quote)}
+            {props.renderMessage(quote)}
 
-        </div> : null
+          </div>,
+          document.body
+        ) : null
       }
   </>
 
@@ -1272,6 +1281,13 @@ class Messages extends React.Component {
       const target = e.target;
       const scrollBottom = messageCon.scrollTop + messageCon.clientHeight;
 
+      // Whether we're pinned to the live end of the log. ChatWindow only trims
+      // old messages out of the DOM while this holds. Same 150px slack as the
+      // autoscroll in componentDidUpdate, so the two agree on what "at the
+      // bottom" means: anything close enough to be scrolled down by an incoming
+      // message is close enough to drop history off the top of.
+      this.props.onAtBottomChange?.(messageCon.scrollHeight - scrollBottom < 150);
+
       if (target.scrollTop < 50) {
         
         this.props.setViewLog();
@@ -1303,10 +1319,17 @@ class Messages extends React.Component {
 
   }
 
+  // Scroll anchoring for a scroll-back fetch: the list gained a block of older
+  // messages at the front, so hold the reader's place by distance from the
+  // bottom. The length test keeps a *trim* out of this branch — that also
+  // changes messages[0], but by dropping from the front, not adding to it, and
+  // synthetic counts (Math.random() on a join notice) make the count comparison
+  // alone unreliable about which happened.
   getSnapshotBeforeUpdate(prevProps) {
     const el = this.messageCon.current;
     if (
       prevProps.messages.length > 0 &&
+      this.props.messages.length > prevProps.messages.length &&
       this.props.messages[0]?.count !== prevProps.messages[0]?.count &&
       this.props.messages[0]?.count < prevProps.messages[0]?.count
     ) {
@@ -1316,6 +1339,8 @@ class Messages extends React.Component {
   }
 
   componentDidUpdate (prevProps, prevState, snapshot) {
+    this.pruneMessageCache();
+
     if (snapshot !== null) {
       const el = this.messageCon.current;
       el.scrollTop = el.scrollHeight - snapshot;
@@ -1353,6 +1378,21 @@ class Messages extends React.Component {
       });
     } else {
       console.log('no scroll');
+    }
+  }
+
+  // render() memoizes a rendered element per message count, and nothing ever
+  // took entries back out — so trimming the message list alone would not free
+  // anything, the elements would just live on in here instead of the DOM. Drop
+  // whatever is no longer on screen, with enough slack that this isn't rebuilding
+  // the map on every single message.
+  pruneMessageCache () {
+    const messages = this.props.messages;
+    if (Object.keys(this.cacheMessage).length <= messages.length + 100) return;
+
+    const live = new Set(messages.map(m => String(m?.count)));
+    for (const key of Object.keys(this.cacheMessage)) {
+      if (!live.has(key)) delete this.cacheMessage[key];
     }
   }
 

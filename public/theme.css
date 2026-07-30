@@ -507,6 +507,25 @@ a {
   font-size: smaller;
 }
 
+/* getipintel proxy/VPN score on a guest's row. The server only sends the field to
+   trust 0-1, so this never renders for anyone else. Banded per the service's
+   guidance: > 0.99 most likely a proxy, > 0.95 worth a look. */
+
+.userLiProxy {
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  font-style: italic;
+  cursor: help;
+  vertical-align: 2px;
+}
+
+.userLiProxy-high { color: #e57373; }
+.userLiProxy-mid  { color: #e0a95f; }
+.userLiProxy-low  { color: #8a8a8a; }
+
 .userLiAFK {
   color: lightgrey;
   font-size: 12px;

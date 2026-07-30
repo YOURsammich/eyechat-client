@@ -161,6 +161,37 @@ Menu.propTypes = {
 
 // ─── UserList ──────────────────────────────────────────────────────────────────
 
+// getipintel's proxy/VPN score for a guest's address. The field only reaches trust
+// 0 and 1 — the server omits it from clientInfo for everyone else — so rendering it
+// whenever it's present is the whole gate; there's nothing to check here. Absent
+// for registered users, and for guests whose address couldn't be scored.
+//
+// Banded per the service's own guidance: > 0.99 "most likely proxies", > 0.95
+// "should be looked at". Shown to 3 decimals because 0.999 and 1 mean different
+// things (1 is an explicit ban) and rounding to 2 would blur them together.
+function ProxyScore({ score }) {
+  if (typeof score !== 'number') return null;
+
+  const band = score > 0.99 ? 'high' : score > 0.95 ? 'mid' : 'low';
+
+  return (
+    <span
+      className={`userLiProxy userLiProxy-${band}`}
+      title={
+        `getipintel proxy score: ${score}\n` +
+        '> 0.95 worth a look, > 0.99 most likely a proxy, 1 = explicitly banned.\n' +
+        'Guests only. Visible to trust 0-1.'
+      }
+    >
+      {Number(score.toFixed(3))}
+    </span>
+  );
+}
+
+ProxyScore.propTypes = {
+  score: PropTypes.number,
+};
+
 function UserList({ socket, userlist, emojis, blocks = [] }) {
   // Keyed lowercase: nicks are matched case-insensitively everywhere else, and
   // the list is small enough that rebuilding this per render costs nothing.
@@ -173,6 +204,7 @@ function UserList({ socket, userlist, emojis, blocks = [] }) {
         return (
           <div className={'userLiSpan' + (isBlocked ? ' userLiBlocked' : '')} key={user.id}>
             <span className='userLiName'>{user.nick}</span>
+            <ProxyScore score={user.proxyScore} />
             {isBlocked ? (
               <span
                 className='material-symbols-outlined userLiBlockMark'

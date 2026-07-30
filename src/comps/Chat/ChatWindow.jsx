@@ -19,6 +19,22 @@ import JumpScare from './JumpScare';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'filteredWords']);
 
+// How many messages stay in the DOM. Every one of them is a live React element
+// holding parsed markup, images and embeds, so an untrimmed log is a session-long
+// memory leak in a busy channel. Past the cap the oldest fall off the top; they
+// come back from the server when the user scrolls up (see setViewLog).
+export const MAX_RENDERED_MESSAGES = 100;
+
+// Trimming is only safe while the view is pinned to the live end of the log:
+// dropping messages off the top moves everything above the viewport, which would
+// yank the page out from under someone reading history — and would immediately
+// throw away the batch setViewLog just fetched for them. `atBottom` comes from
+// the Messages scroll handler.
+export function capMessages(list, atBottom) {
+  if (!atBottom || list.length <= MAX_RENDERED_MESSAGES) return list;
+  return list.slice(list.length - MAX_RENDERED_MESSAGES);
+}
+
 // Join/leave display preference (see store 'joinleave'). Decide whether a given
 // user's join/leave notice should be shown for the current mode.
 function showJoinLeave(mode, user) {
@@ -100,6 +116,9 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const blurredRef = useRef(false);
   const unreadRef = useRef(0);
   const pendingFetchRef = useRef(false);
+  // Is the log scrolled to the bottom? Kept up to date by Messages' scroll
+  // handler; read by capMessages to decide whether old messages may be dropped.
+  const atBottomRef = useRef(true);
 
   // The message handler is registered once, so read the latest nick / toggle
   // through refs instead of the stale values captured at mount.
@@ -127,11 +146,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
 
     const offDisconnect = socket.onDisconnect((reason) => {
       console.log('disconnected', reason);
-      setMessages(prev => [...prev, { message: 'Connection lost. Reconnecting…', type: 'error', count: Math.random() }]);
+      pushMessages({ message: 'Connection lost. Reconnecting…', type: 'error', count: Math.random() });
     });
 
     const offReconnect = socket.onReconnect(() => {
-      setMessages(prev => [...prev, { message: 'Reconnected.', type: 'general', count: Math.random() }]);
+      pushMessages({ message: 'Reconnected.', type: 'general', count: Math.random() });
     });
 
     const offMessage = socket.on('message', (data) => {
@@ -152,7 +171,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         try { mentionAudio.currentTime = 0; mentionAudio.play().catch(() => {}); } catch { /* autoplay blocked */ }
       }
 
-      setMessages(prev => [...prev, msg]);
+      pushMessages(msg);
     });
 
     const offChannelInfo = socket.on('channelInfo', (channelInfo) => {
@@ -179,7 +198,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         const seen = new Set();
         for (const m of prev) if (m.count != null) seen.add(m.count);
         const incoming = [...messageLog, ...extra].filter(m => m.count == null || !seen.has(m.count));
-        return [...prev, ...incoming];
+        return capMessages([...prev, ...incoming], atBottomRef.current);
       });
 
       // Extract plain string fields before handleStates JSON.parses and possibly
@@ -209,17 +228,17 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
 
     const offUserJoin = socket.on('userJoin', (user) => {
       if (showJoinLeave(joinLeaveRef.current, user)) {
-        setMessages(prev => [...prev, { message: user.nick + ' has joined', type: 'general', count: Math.random() }]);
+        pushMessages({ message: user.nick + ' has joined', type: 'general', count: Math.random() });
       } else if (user.id === myIdRef.current) {
         // Our own join was hidden by the filter — still confirm we connected so
         // there's feedback that we're in the channel.
-        setMessages(prev => [...prev, { message: 'You have joined as ' + user.nick, type: 'general', count: Math.random() }]);
+        pushMessages({ message: 'You have joined as ' + user.nick, type: 'general', count: Math.random() });
       }
     });
 
     const offUserLeft = socket.on('userLeft', (user) => {
       if (!showJoinLeave(joinLeaveRef.current, user)) return;
-      setMessages(prev => [...prev, { message: user.nick + ' has left: ', userText: user.part || 'bye.', type: 'general', count: Math.random() }]);
+      pushMessages({ message: user.nick + ' has left: ', userText: user.part || 'bye.', type: 'general', count: Math.random() });
     });
 
     const offSetState = socket.on('setState', (data) => {
@@ -229,7 +248,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       if (!CHAT_STATE_KEYS.has(key)) return;
 
       if (key === 'topic') {
-        setMessages(prev => [...prev, { message: 'Topic: ' + value, type: 'general', count: Math.random() }]);
+        pushMessages({ message: 'Topic: ' + value, type: 'general', count: Math.random() });
       }
 
       setChannelState(prev => {
@@ -355,9 +374,16 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   // it has to be set the other way round.
   useEffect(() => { setMessageMaxHeight(effectiveMsgHeight); }, [effectiveMsgHeight]);
 
+  // The one way messages get appended: every caller goes through here so the cap
+  // is applied in a single place. Hoisted, so the socket handlers registered on
+  // mount can call it — it only closes over refs and setMessages, both stable.
+  function pushMessages(...items) {
+    setMessages(prev => capMessages([...prev, ...items], atBottomRef.current));
+  }
+
   function addMessage(message) {
     if (!Array.isArray(message)) message = [message];
-    setMessages(prev => [...prev, ...message]);
+    pushMessages(...message);
   }
 
   function setViewLog() {
@@ -365,10 +391,14 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     pendingFetchRef.current = true;
 
     setMessages(prev => {
-      const oldest = prev[0];
-      if (!oldest || oldest.count <= 1) { pendingFetchRef.current = false; return prev; }
+      // The oldest message carrying a real log number, which is not always the
+      // first one: join/leave notices count themselves with Math.random() and
+      // the note/topic lines use string counts, and once the list is trimmed one
+      // of those can end up at the top.
+      const oldestCount = prev.map(m => Number(m.count)).find(c => Number.isInteger(c) && c > 0);
+      if (!oldestCount || oldestCount <= 1) { pendingFetchRef.current = false; return prev; }
 
-      const range = (oldest.count - 100) + '-' + (oldest.count - 1);
+      const range = (oldestCount - 100) + '-' + (oldestCount - 1);
       fetch('/channel/messages/' + range + '?channel=' + encodeURIComponent(channelName))
         .then(res => res.json())
         .then(data => {
@@ -529,6 +559,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
             background={toggles.background ? channelState.background : '#000'}
             user={user}
             setViewLog={setViewLog}
+            onAtBottomChange={(atBottom) => { atBottomRef.current = atBottom; }}
             centermsg={channelState.centermsg}
             layout={layout}
             showAvatars={toggles.avatars}
@@ -609,9 +640,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           deleteUrl='/channel/unban'
           deleteLabel='Unban'
           emptyText='No active bans.'
-          confirmText={(b) => `Lift the ban on ${b.nick || b.remote_addr || 'this user'}?`}
+          confirmText={(b) => `Lift the ban on ${b.account || b.nick || b.remote_addr || 'this user'}?`}
           columns={[
             { label: 'Nick', render: (b) => b.nick || '—' },
+            // An account ban survives an IP change; a row with no account doesn't.
+            { label: 'Account', render: (b) => b.account || '—' },
             { label: 'IP', render: (b) => b.remote_addr || 'hidden' },
             { label: 'Banned by', render: (b) => b.bannedBy || '—' },
           ]}

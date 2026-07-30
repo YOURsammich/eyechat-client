@@ -396,6 +396,16 @@ const COMMANDS = {
   whosaid: {
     params: ['msgnum']
   },
+  // The argument is optional — bare /nothrottle uses the default window, and
+  // "off" ends it early. Declared here anyway so the arg gets parsed when it is
+  // given (and shows up in the param hint); the server treats it as optional.
+  nothrottle: {
+    params: ['minutes']
+  },
+  // Optional too — bare /hatdrop forces a Dunce. Admin-gated on the server.
+  hatdrop: {
+    params: ['hat']
+  },
   // Like /banlist, /deepfind opens a client-side panel that fetches its own
   // data; the server gates the fetch at trust 0 and resolves the nick-or-IP.
   deepfind: {

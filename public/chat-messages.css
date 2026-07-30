@@ -195,11 +195,15 @@
   text-decoration: underline;
 }
 
+/* Portalled to <body>, so it is outside #message-container and inherits none of
+   the quoting message's styling — nor the chat's default white ink, which is why
+   that is restated here. */
 .quote-container {
   display: block !important;
   padding: 4px;
   pointer-events: none;
   z-index: 100;
+  color: white;
 }
 
 .quote-container .message {
