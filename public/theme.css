@@ -206,6 +206,25 @@ a {
   overflow: hidden;
 }
 
+/* Why scroll-back stopped, shown where the older messages would have appeared.
+   Reading the archive is vetted-members-only (see requireVetted in
+   src/routes/chat.js). Floats over the top of the log rather than sitting in it,
+   so appearing never shifts the message list under the user mid-scroll. */
+.scrollbackNotice {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: 7px 14px;
+  background: rgba(24, 24, 24, 0.94);
+  border-bottom: 1px solid #3a3a3a;
+  color: #999;
+  font-size: 12.5px;
+  text-align: center;
+  pointer-events: none;
+}
+
 #center-text {
   position: absolute;
   color: white;

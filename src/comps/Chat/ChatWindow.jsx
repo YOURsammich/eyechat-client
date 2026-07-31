@@ -120,6 +120,13 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   // handler; read by capMessages to decide whether old messages may be dropped.
   const atBottomRef = useRef(true);
 
+  // Why scroll-back stopped, when the server refuses it — reading the archive is
+  // vetted-members-only (see requireVetted in src/routes/chat.js). Latched in a
+  // ref as well as state: the answer cannot change while the page is open, so
+  // one refusal must stop every later scroll to the top from asking again.
+  const [scrollbackNotice, setScrollbackNotice] = useState('');
+  const scrollbackBlockedRef = useRef(false);
+
   // The message handler is registered once, so read the latest nick / toggle
   // through refs instead of the stale values captured at mount.
   const userNickRef = useRef(user?.nick);
@@ -387,7 +394,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   }
 
   function setViewLog() {
-    if (pendingFetchRef.current) return;
+    if (pendingFetchRef.current || scrollbackBlockedRef.current) return;
     pendingFetchRef.current = true;
 
     setMessages(prev => {
@@ -402,10 +409,21 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       fetch('/channel/messages/' + range + '?channel=' + encodeURIComponent(channelName))
         .then(res => res.json())
         .then(data => {
+          // A batch comes back as an array; a refusal or a bad range comes back
+          // as an object. Say why instead of looking like the log simply ends
+          // here, and stop asking — a refusal will not change on the next scroll.
+          if (!Array.isArray(data)) {
+            scrollbackBlockedRef.current = true;
+            setScrollbackNotice(data?.message || 'Older messages could not be loaded.');
+            return;
+          }
           for (const m of data) m.type = m.messageType;
           setMessages(current => [...data, ...current]);
-          pendingFetchRef.current = false;
-        });
+        })
+        // Without this a dropped request would leave the pending flag set and
+        // scroll-back dead for the rest of the session.
+        .catch(() => {})
+        .finally(() => { pendingFetchRef.current = false; });
 
       return prev;
     });
@@ -549,6 +567,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
             {showFluid ? <FluidBackground palette={fluidPalette} customColors={fluidColors} /> : null}
             {toggles.centermsg ? <div id="center-text"><ParsedContent text={channelState.centermsg} emojis={channelState.emojis} /></div> : null}
           </div>
+
+          {scrollbackNotice ? <div className='scrollbackNotice'>{scrollbackNotice}</div> : null}
 
           <Messages
             emojis={channelState.emojis}

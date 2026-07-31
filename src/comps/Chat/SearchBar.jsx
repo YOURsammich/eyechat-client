@@ -5,6 +5,10 @@ export default function SearchBar({ channelName }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  // Why there are no results, when the reason is not "nothing matched" — the
+  // search reads the archive, which is vetted-members-only (see requireVetted in
+  // src/routes/chat.js).
+  const [notice, setNotice] = useState('');
   const [anchorRect, setAnchorRect] = useState(null);
   const containerRef = useRef(null);
   const resultsRef = useRef(null);
@@ -32,6 +36,7 @@ export default function SearchBar({ channelName }) {
 
   function close() {
     setResults([]);
+    setNotice('');
     setAnchorRect(null);
   }
 
@@ -40,12 +45,20 @@ export default function SearchBar({ channelName }) {
     const q = query.trim();
     if (!q) return;
     setLoading(true);
+    setNotice('');
     const rect = containerRef.current?.getBoundingClientRect();
     setAnchorRect(rect ?? null);
     fetch(`/channel/search?q=${encodeURIComponent(q)}&channel=${encodeURIComponent(channelName)}`)
       .then(r => r.json())
-      .then(data => { setResults(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(data => {
+        // Matches come back as an array; a refusal comes back as an object.
+        // Without this the panel would just close, reading as a search that
+        // found nothing rather than one that was not allowed to run.
+        if (Array.isArray(data)) setResults(data);
+        else setNotice(data?.message || 'Search is unavailable.');
+        setLoading(false);
+      })
+      .catch(() => { setNotice('Could not reach the server.'); setLoading(false); });
   }
 
   function formatTime(t) {
@@ -53,7 +66,7 @@ export default function SearchBar({ channelName }) {
     return new Intl.DateTimeFormat('en', { dateStyle: 'short', timeStyle: 'short' }).format(Number(t));
   }
 
-  const showPanel = (results.length > 0 || loading) && anchorRect;
+  const showPanel = (results.length > 0 || loading || notice) && anchorRect;
 
   return (
     <div ref={containerRef} style={{ display: 'flex', alignItems: 'center' }}>
@@ -91,7 +104,10 @@ export default function SearchBar({ channelName }) {
               </div>
             </div>
           ))}
-          {!loading && results.length === 0 && (
+          {!loading && notice && (
+            <div style={{ padding: '10px 14px', color: '#888', fontSize: 13 }}>{notice}</div>
+          )}
+          {!loading && !notice && results.length === 0 && (
             <div style={{ padding: '10px 14px', color: '#888', fontSize: 13 }}>No results</div>
           )}
         </div>,
