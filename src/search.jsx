@@ -115,6 +115,10 @@ function App() {
     try {
       const res = await fetch('/search/query?q=' + encodeURIComponent(qv) + '&nick=' + encodeURIComponent(nv));
       const data = await res.json();
+      // The login gate answers with an error rather than results — e.g. when a
+      // session lapses with the page still open. Without this it reads as a
+      // search that simply matched nothing.
+      if (data && data.error) return flash(data.error);
       const items = data.results || [];
       ingestFonts(items);
       setMode('search');
@@ -132,6 +136,7 @@ function App() {
     try {
       const res = await fetch('/search/query?q=' + encodeURIComponent(qv) + '&nick=' + encodeURIComponent(nv) + '&before=' + before);
       const data = await res.json();
+      if (data && data.error) return flash(data.error);
       const items = data.results || [];
       ingestFonts(items);
       setResults(prev => [...prev, ...items]);
