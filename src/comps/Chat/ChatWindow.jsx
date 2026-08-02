@@ -198,13 +198,41 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       if (channelInfo.note) extra.push({ message: channelInfo.note, type: 'note', count: 'note' });
       if (channelInfo.topic) extra.push({ message: 'Topic: ' + channelInfo.topic, type: 'general', count: 'topic' });
 
-      // A reconnect re-fetches recent history via joinChannel; drop anything we
-      // already have (by count) so we don't duplicate messages — while still
-      // filling any gap that arrived while we were offline.
+      // A reconnect re-fetches recent history via joinChannel; keep only what
+      // arrived while we were offline.
+      //
+      // The test is "have we already read this?", not "is it still on screen?" —
+      // capMessages has trimmed prev to the newest MAX_RENDERED_MESSAGES, and the
+      // client's cap counts join/leave notices, hat drops and the connection lines
+      // while the server's window is 100 *chat* rows (getRecentMessages). So the
+      // client always holds fewer chat messages than the server sends back, and
+      // asking whether a message is still in the list let the oldest of that window
+      // through on every reconnect — appended below the 'Reconnected' notice, which
+      // is how it surfaced: old messages arriving out of order.
+      //
+      // The highest count held is the watermark. Trimming only ever drops from the
+      // top, so the newest message is always still there: at or below it means read
+      // (or read and since trimmed), above it means genuinely missed. That also
+      // settles the ordering, since what survives is newer than everything on screen.
       setMessages(prev => {
+        let highest = -Infinity;
         const seen = new Set();
-        for (const m of prev) if (m.count != null) seen.add(m.count);
-        const incoming = [...messageLog, ...extra].filter(m => m.count == null || !seen.has(m.count));
+        for (const m of prev) {
+          if (m.count == null) continue;
+          seen.add(m.count);
+          const n = Number(m.count);
+          if (Number.isInteger(n) && n > highest) highest = n;
+        }
+
+        const incoming = [...messageLog, ...extra].filter(m => {
+          if (m.count == null) return true;
+          const n = Number(m.count);
+          // The note and topic lines count themselves 'note'/'topic'; they sit
+          // outside the log's numbering, so they still dedupe by identity.
+          if (!Number.isInteger(n)) return !seen.has(m.count);
+          return n > highest;
+        });
+
         return capMessages([...prev, ...incoming], atBottomRef.current);
       });
 
