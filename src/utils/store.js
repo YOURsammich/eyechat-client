@@ -4,7 +4,7 @@ class Store {
     this.saveAttrs = ['color', 'bgcolor', 'glow', 'nick', 'token', 
       'currentProfile', 'cursor', 'flair', 'font',
       'lock', 'menu-order', 'proxy', 'style', 'part', 'hotlink',
-      'bubble', 'joinleave', 'stylelimit', 'msgheight'];
+      'bubble', 'joinleave', 'stylelimit', 'msgheight', 'cursormode'];
 
     this.stateStruct = {
       poll_votes: {
@@ -80,6 +80,11 @@ class Store {
       'toggle-mention-sound': true,
       // Which join/leave notices to display: 'all' | 'registered' | 'none'.
       'joinleave': 'registered',
+      // Live cursors: 'pointer' replaces your mouse pointer over the chat area,
+      // 'trail' leaves the system pointer alone and draws your cursor in the
+      // live layer instead, 'off' disables the feature in both directions (see
+      // LiveCursors).
+      'cursormode': 'pointer',
     };
 
     this.altAtt = {colour: 'color', bg: 'background'};

@@ -529,18 +529,48 @@
   justify-content: center;
 }
 
+/* Cursors are mostly small transparent PNGs, and plenty of them are dark or
+   black outlines — against the panel's near-black they were invisible. A light
+   checkerboard behind every one shows the artwork and its transparency at once,
+   whatever colour it is. */
+.cosCursorWorn,
+.cosCursorTile img,
+/* Scoped to the cursor panel: the avatar builder's copy of this grid sits on a
+   different background and is fine as it is. */
+.cosCursor .cosEmojiTile {
+  background-color: #b9b9b9;
+  background-image:
+    linear-gradient(45deg, #8f8f8f 25%, transparent 25%, transparent 75%, #8f8f8f 75%),
+    linear-gradient(45deg, #8f8f8f 25%, transparent 25%, transparent 75%, #8f8f8f 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+
 .cosCursorWorn {
   width: 32px;
   height: 32px;
+  object-fit: contain;
   image-rendering: pixelated;
+  padding: 4px;
+  border-radius: 5px;
 }
 
 .cosCursorWornName { font-size: 11px; color: #aaa; }
 
+.cosCursorSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 .cosCursorGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* auto-fit rather than a fixed 3 columns: the tiles then reflow instead of
+     forcing the grid wider than the 250px menu. */
+  grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
   gap: 6px;
+  min-width: 0;
 }
 
 .cosCursorTile {
@@ -553,6 +583,10 @@
   border-radius: 5px;
   cursor: pointer;
   background: #00000059;
+  /* Grid items default to min-width:auto, so a long unbreakable cursor name was
+     setting each column's floor and pushing the whole grid out of the panel. */
+  min-width: 0;
+  overflow: hidden;
 }
 
 .cosCursorTile:hover { border-color: #4a4a4a; }
@@ -563,6 +597,7 @@
   height: 32px;
   object-fit: contain;
   image-rendering: pixelated;
+  border-radius: 4px;
 }
 
 .cosCursorTile span {

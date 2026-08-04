@@ -98,6 +98,9 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   }));
   const [layout, setLayout] = useState(() => store.get('layout') || 'classic');
   const [joinLeave, setJoinLeave] = useState(() => store.get('joinleave') || 'registered');
+  // Live cursors, from this viewer's side: 'pointer' | 'trail' | 'off'. See
+  // LiveCursors, which is the only thing that reads it.
+  const [cursorMode, setCursorMode] = useState(() => store.get('cursormode') || 'pointer');
   // This viewer's own style-nesting cap. The channel sets one too (below); the
   // parser gets whichever is lower, so a user can only tighten what the channel
   // allows, never loosen it.
@@ -485,6 +488,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     store.setState('joinleave', mode);
   }
 
+  function changeCursorMode(mode) {
+    setCursorMode(mode);
+    store.setState('cursormode', mode);
+  }
+
   function changeStyleLimit(value) {
     const limit = clampStyleLimit(value);
     setStyleLimitPref(limit);
@@ -619,6 +627,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
             user={user}
             myIdRef={myIdRef}
             blockedNicks={blockedNicks}
+            cursorMode={cursorMode}
           />
 
           {scrollbackNotice ? <div className='scrollbackNotice'>{scrollbackNotice}</div> : null}
@@ -667,6 +676,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           changeLayout={changeLayout}
           joinLeave={joinLeave}
           changeJoinLeave={changeJoinLeave}
+          cursorMode={cursorMode}
+          changeCursorMode={changeCursorMode}
           styleLimit={styleLimit}
           changeStyleLimit={changeStyleLimit}
           channelStyleLimit={channelStyleLimit}

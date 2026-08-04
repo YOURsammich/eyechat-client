@@ -94,6 +94,11 @@
   font-size: 0.8em;
   color: grey;
   flex-shrink: 0;
+  /* Clicking a timestamp quotes that message (see handleClick in Messages), so
+     it needs to look clickable. Declaring it here also overrides the equipped
+     cursor the chat area sets inline in 'pointer' mode — a custom pointer
+     otherwise hid the one hint that these are hit targets. */
+  cursor: pointer;
 }
 
 .emoji {

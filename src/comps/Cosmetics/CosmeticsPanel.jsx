@@ -15,7 +15,7 @@ export const COSMETIC_ASPECTS = [
   { name: 'flair',     label: 'Nick flair',    icon: 'title',        description: 'Color, glow and style each character of your nick' },
   { name: 'avatar',    label: 'Avatar',        icon: 'face',         description: 'Compose one from parts, draw it, or use an emoji' },
   { name: 'hat',       label: 'Hat',           icon: 'redeem',       description: 'Sits above your nick on every message' },
-  { name: 'cursor',    label: 'Cursor',        icon: 'mouse',        description: 'A custom pointer, shown live to everyone in the room' },
+  { name: 'cursor',    label: 'Cursor',        icon: 'mouse',        description: 'An emoji or custom pointer, shown live to everyone in the room' },
   { name: 'textstyle', label: 'Message text',  icon: 'format_paint', description: 'A style applied to everything you say' },
   { name: 'part',      label: 'Leave message', icon: 'waving_hand',  description: 'What the room sees when you disconnect' },
 ];
@@ -52,7 +52,7 @@ function CosmeticsPanel({ user, emojis, hats, cursors, handleInput }) {
             )}
             {aspect === 'avatar' && <AvatarBuilder user={user} emojis={emojis} />}
             {aspect === 'hat' && <HatPicker user={user} hats={hats} />}
-            {aspect === 'cursor' && <CursorPicker user={user} cursors={cursors} />}
+            {aspect === 'cursor' && <CursorPicker user={user} cursors={cursors} emojis={emojis} />}
             {aspect === 'textstyle' && <TextStyleEditor user={user} emojis={emojis} />}
             {aspect === 'part' && <LeaveMessageEditor user={user} emojis={emojis} />}
           </div>

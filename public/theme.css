@@ -1114,6 +1114,15 @@ a {
   flex-direction: column;
 }
 
+/* Explains the setting directly above it, for the ones whose option names
+   aren't self-evident (see the cursor mode row). */
+.settingsNote {
+  font-size: 10px;
+  line-height: 1.4;
+  color: #777;
+  margin-top: -2px;
+}
+
 /* ─── Account panel (login / welcome) ─────────────────────────────────────── */
 
 .accountPanel {

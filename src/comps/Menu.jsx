@@ -47,7 +47,7 @@ function blockedUntil(expires) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, styleLimit, changeStyleLimit, channelStyleLimit, msgHeight, changeMsgHeight, channelMsgHeight, hats, cursors, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection, blocks }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, cursorMode, changeCursorMode, styleLimit, changeStyleLimit, channelStyleLimit, msgHeight, changeMsgHeight, channelMsgHeight, hats, cursors, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection, blocks }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
@@ -112,7 +112,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
           <AccountPanel user={user} channelName={channelName} />
         )}
         {selectedList === 'settings' && (
-          <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} joinLeave={joinLeave} changeJoinLeave={changeJoinLeave} />
+          <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} joinLeave={joinLeave} changeJoinLeave={changeJoinLeave} cursorMode={cursorMode} changeCursorMode={changeCursorMode} />
         )}
         {selectedList === 'shop' && (
           <Shop key={navNonce} hats={hats} emojis={emojis} user={user} channelName={channelName} userlist={userlist} />
@@ -416,6 +416,11 @@ AccountPanel.propTypes = {
 
 const LAYOUTS = ['classic', 'cozy'];
 const JOIN_LEAVE_MODES = ['all', 'registered', 'none'];
+// Live cursors, from this viewer's side: 'pointer' takes over the mouse pointer,
+// 'trail' leaves it alone and draws your cursor in the live layer the way the
+// room sees it, 'off' opts out of the feature in both directions. Only 'off'
+// changes anything for anyone else. See LiveCursors.
+const CURSOR_MODES = ['pointer', 'trail', 'off'];
 
 // A connected pill of mutually-exclusive options: the selected segment is filled,
 // the rest sit flat/muted. Keeps multi-option rows compact and visually distinct
@@ -436,7 +441,7 @@ function Segmented({ options, value, onChange }) {
   );
 }
 
-function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave }) {
+function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, cursorMode, changeCursorMode }) {
   return (
     <div className='settingsContainer'>
       {Object.entries(toggles).map(([key, value]) => (
@@ -457,6 +462,16 @@ function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave,
         join/leave
         <Segmented options={JOIN_LEAVE_MODES} value={joinLeave} onChange={changeJoinLeave} />
       </label>
+      <label className='settingsLabel'>
+        live cursors
+        <Segmented options={CURSOR_MODES} value={cursorMode} onChange={changeCursorMode} />
+      </label>
+      <div className='settingsNote'>
+        pointer: your equipped cursor replaces your mouse pointer in chat.
+        trail: your mouse pointer is left alone and your cursor follows it, the
+        way everyone else sees it. off: your position is never sent and nobody
+        else&apos;s cursor is shown.
+      </div>
     </div>
   );
 }
@@ -468,6 +483,8 @@ Settings.propTypes = {
   changeLayout:      PropTypes.func.isRequired,
   joinLeave:         PropTypes.string.isRequired,
   changeJoinLeave:   PropTypes.func.isRequired,
+  cursorMode:        PropTypes.string.isRequired,
+  changeCursorMode:  PropTypes.func.isRequired,
 };
 
 // ─── Shop ─────────────────────────────────────────────────────────────────────
