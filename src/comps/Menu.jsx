@@ -47,7 +47,7 @@ function blockedUntil(expires) {
 
 // ─── Menu ──────────────────────────────────────────────────────────────────────
 
-function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, styleLimit, changeStyleLimit, channelStyleLimit, msgHeight, changeMsgHeight, channelMsgHeight, hats, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection, blocks }) {
+function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, styleLimit, changeStyleLimit, channelStyleLimit, msgHeight, changeMsgHeight, channelMsgHeight, hats, cursors, emojis, user, themecolors, channelName, mobileOpen, setMobileOpen, mobileSection, requestSection, blocks }) {
   const [selectedList, setSelectedList] = useState('users');
   const [navExpanded, setNavExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
@@ -123,6 +123,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
             user={user}
             emojis={emojis}
             hats={hats}
+            cursors={cursors}
             handleInput={(text) => handleInput.handle(text, socket)}
           />
         )}
@@ -150,6 +151,7 @@ Menu.propTypes = {
   toggles:           PropTypes.object.isRequired,
   toggleStateChange: PropTypes.func.isRequired,
   hats:              PropTypes.array.isRequired,
+  cursors:           PropTypes.array,
   styleLimit:        PropTypes.number,
   changeStyleLimit:  PropTypes.func,
   channelStyleLimit: PropTypes.number,

@@ -6,7 +6,7 @@
 // markup string, so each is validated and edited on its own.
 export const TEXT_STYLE_COLUMNS = ['color', 'glow', 'font', 'style'];
 
-export const PROFILE_COLUMNS = ['flair', 'hat', 'avatar', 'part', ...TEXT_STYLE_COLUMNS];
+export const PROFILE_COLUMNS = ['flair', 'hat', 'avatar', 'cursor', 'part', ...TEXT_STYLE_COLUMNS];
 
 // Mirror of MAX_PROFILES in src/db.js, for disabling the create actions before
 // they fail. The server enforces the real cap.
@@ -18,6 +18,7 @@ export const ASPECT_COLUMNS = {
   flair:     ['flair'],
   avatar:    ['avatar'],
   hat:       ['hat'],
+  cursor:    ['cursor'],
   textstyle: TEXT_STYLE_COLUMNS,
   part:      ['part'],
 };
@@ -65,6 +66,7 @@ export function liveBundle(user) {
     flair:  user?.flair || null,
     hat:    user?.hat || null,
     avatar: normalizeAvatar(user?.avatar),
+    cursor: user?.cursor || null,
     part:   user?.part || null,
     color:  user?.color || null,
     glow:   user?.glow || null,

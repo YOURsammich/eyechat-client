@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import FlairBuilder from '../Chat/FlairBuilder';
 import AvatarBuilder from './AvatarBuilder';
 import HatPicker from './HatPicker';
+import CursorPicker from './CursorPicker';
 import TextStyleEditor from './TextStyleEditor';
 import LeaveMessageEditor from './LeaveMessageEditor';
 import ProfileHeader from './ProfileHeader';
@@ -14,6 +15,7 @@ export const COSMETIC_ASPECTS = [
   { name: 'flair',     label: 'Nick flair',    icon: 'title',        description: 'Color, glow and style each character of your nick' },
   { name: 'avatar',    label: 'Avatar',        icon: 'face',         description: 'Compose one from parts, draw it, or use an emoji' },
   { name: 'hat',       label: 'Hat',           icon: 'redeem',       description: 'Sits above your nick on every message' },
+  { name: 'cursor',    label: 'Cursor',        icon: 'mouse',        description: 'A custom pointer, shown live to everyone in the room' },
   { name: 'textstyle', label: 'Message text',  icon: 'format_paint', description: 'A style applied to everything you say' },
   { name: 'part',      label: 'Leave message', icon: 'waving_hand',  description: 'What the room sees when you disconnect' },
 ];
@@ -22,7 +24,7 @@ export const COSMETIC_ASPECTS = [
 // selected on top, then a nav into each aspect. Aspect editors write straight to
 // your live look; profiles are saved snapshots you apply on top of it, so the
 // header reports "modified" rather than silently following your edits.
-function CosmeticsPanel({ user, emojis, hats, handleInput }) {
+function CosmeticsPanel({ user, emojis, hats, cursors, handleInput }) {
   const [aspect, setAspect] = useState(null); // null = the nav root
 
   const selected = COSMETIC_ASPECTS.find(a => a.name === aspect);
@@ -50,6 +52,7 @@ function CosmeticsPanel({ user, emojis, hats, handleInput }) {
             )}
             {aspect === 'avatar' && <AvatarBuilder user={user} emojis={emojis} />}
             {aspect === 'hat' && <HatPicker user={user} hats={hats} />}
+            {aspect === 'cursor' && <CursorPicker user={user} cursors={cursors} />}
             {aspect === 'textstyle' && <TextStyleEditor user={user} emojis={emojis} />}
             {aspect === 'part' && <LeaveMessageEditor user={user} emojis={emojis} />}
           </div>
@@ -76,6 +79,7 @@ CosmeticsPanel.propTypes = {
   user:        PropTypes.object,
   emojis:      PropTypes.array,
   hats:        PropTypes.array,
+  cursors:     PropTypes.array,
   handleInput: PropTypes.func.isRequired,
 };
 

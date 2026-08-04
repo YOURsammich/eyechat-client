@@ -6,6 +6,7 @@ import Messages, {
   clampMessageHeight, effectiveMessageHeight, setMessageMaxHeight,
 } from './Messages';
 import InputBar from './InputBar';
+import LiveCursors from './LiveCursors';
 import Menu, { Overlay, SUB_MENUS } from './../Menu';
 import FluidBackground from './FluidBackground';
 import SearchBar from './SearchBar';
@@ -16,8 +17,9 @@ import CommandsPanel from './../CommandsPanel';
 import UsersPanel from './../UsersPanel';
 import BlockBox from './../BlockBox';
 import JumpScare from './JumpScare';
+import ChannelStatus from './ChannelStatus';
 
-const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'filteredWords']);
+const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'cursors', 'filteredWords', 'checkTrust', 'proxyBlock']);
 
 // How many messages stay in the DOM. Every one of them is a live React element
 // holding parsed markup, images and embeds, so an untrimmed log is a session-long
@@ -107,9 +109,14 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     background: '',
     topic: '',
     centermsg: '',
+    // Gate settings behind the header badges (see ChannelStatus): whitelist
+    // cutoff (0 = off) and the proxy gate mode ('off' | 'guests' | 'all').
+    checkTrust: 0,
+    proxyBlock: 'off',
     themecolors: {},
     emojis: [],
     hats: [],
+    cursors: [],
     filteredWords: {},
   });
 
@@ -119,6 +126,9 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   // Is the log scrolled to the bottom? Kept up to date by Messages' scroll
   // handler; read by capMessages to decide whether old messages may be dropped.
   const atBottomRef = useRef(true);
+  // The chat area live cursors are scoped to: both where we track our own
+  // pointer and the overlay other users' cursors render into (see LiveCursors).
+  const chatBoxRef = useRef(null);
 
   // Why scroll-back stopped, when the server refuses it — reading the archive is
   // vetted-members-only (see requireVetted in src/routes/chat.js). Latched in a
@@ -241,11 +251,15 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       const topic = channelInfo.topic ?? '';
       const background = channelInfo.background ?? '';
       const centermsg = channelInfo.centermsg ?? '';
+      // Same reason, plus these columns are nullable: normalise to the "off"
+      // values so the badges never read a null.
+      const checkTrust = Number(channelInfo.checkTrust) || 0;
+      const proxyBlock = channelInfo.proxyBlock ?? 'off';
 
       if (Array.isArray(channelInfo.blocks)) setBlocks(channelInfo.blocks);
 
       const parsed = store.handleStates(channelInfo);
-      setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg }));
+      setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg, checkTrust, proxyBlock }));
     });
 
     // The server sends the whole list on every change (including from another
@@ -553,7 +567,10 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       <div className={'chatContainer' + (toggles.bubbles ? ' bubbleMessage' : '')} style={{ '--bubble-bg': channelState.themecolors.bubblebg || '' }}>
 
         <div className="chatHeader" style={{ backgroundColor: channelState.themecolors.topbarpri || '' }}>
-          <div className='topic'>{channelState.topic}</div>
+          <div className='headerLeft'>
+            <ChannelStatus checkTrust={channelState.checkTrust} proxyBlock={channelState.proxyBlock} />
+            <div className='topic'>{channelState.topic}</div>
+          </div>
           <div className='topBarBtns'>
             <SearchBar channelName={channelName} />
             <span
@@ -590,11 +607,19 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           </div>
         </div>
 
-        <div className='chatBox'>
+        <div className='chatBox' ref={chatBoxRef}>
           <div className='messageBackground' style={{ background: showFluid ? '#000' : (toggles.background ? channelState.background : '#000') }}>
             {showFluid ? <FluidBackground palette={fluidPalette} customColors={fluidColors} /> : null}
             {toggles.centermsg ? <div id="center-text"><ParsedContent text={channelState.centermsg} emojis={channelState.emojis} /></div> : null}
           </div>
+
+          <LiveCursors
+            socket={socket}
+            containerRef={chatBoxRef}
+            user={user}
+            myIdRef={myIdRef}
+            blockedNicks={blockedNicks}
+          />
 
           {scrollbackNotice ? <div className='scrollbackNotice'>{scrollbackNotice}</div> : null}
 
@@ -657,6 +682,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
           themecolors={channelState.themecolors}
           channelName={channelName}
           hats={channelState.hats}
+          cursors={channelState.cursors}
           emojis={channelState.emojis}
           user={user}
           blocks={blocks}

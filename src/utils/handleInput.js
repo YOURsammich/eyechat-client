@@ -316,6 +316,9 @@ const COMMANDS = {
   scare: {
     params: ['nick']
   },
+  punch: {
+    params: ['nick']
+  },
   ban: {
     params: ['nick']
   },
