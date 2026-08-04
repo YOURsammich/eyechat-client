@@ -1450,7 +1450,12 @@ class Messages extends React.Component {
   }
 
   renderNick (msgData) {
-    const flair = messageParser.parse(msgData.flair || msgData.nick, msgStyles);
+    // Coerced, not passed through: the parser walks the string with indexOf and
+    // throws on anything that isn't one, and the throw happens inside the map in
+    // render() — so a single chat row with no nick (a log row written with a NULL
+    // nick, say) takes the entire message list down for everyone, not just that
+    // line. An empty string renders as a bare colon, which is survivable.
+    const flair = messageParser.parse(String(msgData.flair || msgData.nick || ''), msgStyles);
     const textContent = messageParser.getTextContent(flair);
 
     const avatar = msgData.avatar ? (typeof msgData.avatar === 'string' ? JSON.parse(msgData.avatar) : msgData.avatar) : null;
