@@ -324,3 +324,31 @@
   75%  { transform: translateY(5px); }
   100% { transform: translateY(0px); }
 }
+
+/* --- message effects (the `effect` MWs — see src/middlewares.js) ---
+
+   Two classes, on purpose. `.fx .fx-liquid` marks a message row as cursed and
+   is baked into the cached React element for good; `.fx-run` is added and
+   removed on the DOM node by the controller in Messages.jsx, which is what
+   enforces the three-at-once cap and the global off switch without a re-render.
+   A marked message that isn't running looks exactly like an ordinary one.
+
+   The filters themselves are defined once in App.jsx (MessageEffectFilters). */
+/* This sits on .message — the whole row, timestamp and nick and hat included.
+   It must not climb any higher: .messageBlock would take in the .msgExpand
+   toggle, and a filter on the scrolling ancestor itself (#message-container)
+   would repaint the entire log every frame. will-change keeps the filtered row
+   on its own layer, which stops the repaint spreading to its neighbours. */
+.fx-liquid.fx-run {
+  filter: url(#fx-liquid);
+  will-change: filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Same distortion, frozen — the animated <animate> variant is never
+     referenced, so nothing moves for a viewer who asked for that. */
+  .fx-liquid.fx-run {
+    filter: url(#fx-liquid-static);
+    will-change: auto;
+  }
+}

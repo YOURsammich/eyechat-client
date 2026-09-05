@@ -1,0 +1,165 @@
+/* Features page. Loaded after search.css, which supplies the shared side-page
+   chrome (body palette, .wrap, .card, .btn, input). Everything here is the
+   showcase-and-reference layout on top of it. */
+
+/* Wider than the 740px the search page uses: this one is a card grid and a
+   two-column table, not a single column of chat messages. */
+.wrap.features { max-width: 1000px; }
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+
+.hero { padding: 56px 0 40px; text-align: center; }
+.hero h1 {
+  color: #fff; font-size: 2.6rem; line-height: 1.1; margin-bottom: 14px;
+  letter-spacing: -0.02em;
+}
+.hero .tagline {
+  color: #9a9a9a; font-size: 1.05rem; line-height: 1.6;
+  max-width: 560px; margin: 0 auto 26px;
+}
+.hero .cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.hero .btn { padding: 10px 22px; font-size: 15px; }
+/* An <a> styled as a button: search.css gives every link the blue link color and
+   a hover underline, both wrong on a filled button. */
+a.btn, a.btn:hover { text-decoration: none; }
+a.btn-primary { color: #8cf; }
+
+/* Counts pulled from the live registries — "24 commands", "5 curses". Sits under
+   the buttons as evidence rather than as a claim. */
+.heroStats {
+  display: flex; gap: 26px; justify-content: center; flex-wrap: wrap;
+  margin-top: 32px; color: #666; font-size: 13px;
+}
+.heroStats b { color: #ccc; font-weight: 600; }
+
+/* ── Section headings ─────────────────────────────────────────────────────── */
+
+.section { margin-bottom: 52px; scroll-margin-top: 60px; }
+.section > h2 {
+  color: #fff; font-size: 1.35rem; margin-bottom: 6px;
+}
+.section > .lede {
+  color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 22px; max-width: 620px;
+}
+
+/* Sticky in-page nav, in the same slot the search page's result counter uses. */
+.pagenav {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; gap: 4px; flex-wrap: wrap;
+  background: #111; border-bottom: 1px solid #222;
+  padding: 10px 0; margin-bottom: 34px;
+}
+.pagenav a {
+  color: #888; font-size: 13px; padding: 5px 12px; border-radius: 6px;
+  border: 1px solid transparent;
+}
+.pagenav a:hover { color: #eee; background: #1c1c1c; border-color: #2e2e2e; text-decoration: none; }
+
+/* ── Feature / game cards ─────────────────────────────────────────────────── */
+
+.grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* Same surface as .card, but the grid controls the spacing, so no bottom margin
+   and a flex column so a card's footer can sit at the bottom of a stretched row. */
+.feature {
+  background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 8px;
+  padding: 18px; display: flex; flex-direction: column; gap: 8px;
+}
+.feature h3 {
+  color: #eee; font-size: 1rem; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
+.feature .icon { font-size: 1.15rem; line-height: 1; }
+.feature p { color: #999; font-size: 13.5px; line-height: 1.6; }
+.feature .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+
+/* A command name or an event name mentioned inside a card. */
+.tag {
+  font-family: ui-monospace, Consolas, monospace; font-size: 11.5px;
+  background: #232323; border: 1px solid #333; border-radius: 5px;
+  color: #8cf; padding: 2px 7px;
+}
+.tag.plain { color: #888; }
+
+/* The two headline games get a full-width card with a bit more room. */
+.feature.wide { grid-column: 1 / -1; }
+.feature.wide p { max-width: 720px; }
+
+/* ── MW shop table ────────────────────────────────────────────────────────── */
+
+.mwlist { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.mw {
+  background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 8px; padding: 14px 16px;
+}
+.mwHead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px; }
+.mwName { color: #eee; font-weight: 600; font-size: 14px; }
+.mwCost { margin-left: auto; color: #d9b45b; font-size: 13px; white-space: nowrap; }
+.mwLasts { color: #666; font-size: 12px; }
+.mw p { color: #999; font-size: 13px; line-height: 1.55; }
+
+/* ── Command reference ────────────────────────────────────────────────────── */
+
+.cmdControls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.cmdControls input { max-width: 280px; }
+.cmdControls select {
+  background: #252525; border: 1px solid #3a3a3a; color: #ddd;
+  border-radius: 6px; padding: 8px 12px; font-size: 14px; font-family: inherit; outline: none;
+}
+
+.cmdGroup { margin-bottom: 26px; }
+.cmdGroupHead {
+  display: flex; align-items: baseline; gap: 10px;
+  padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid #262626;
+}
+.cmdGroupHead h3 { color: #ddd; font-size: 0.95rem; font-weight: 600; }
+.cmdGroupHead .note { color: #666; font-size: 12.5px; }
+
+.cmd {
+  display: grid; grid-template-columns: 200px 1fr; gap: 14px;
+  padding: 9px 4px; border-bottom: 1px solid #1d1d1d; align-items: baseline;
+}
+.cmd:last-child { border-bottom: none; }
+.cmdName {
+  font-family: ui-monospace, Consolas, monospace; font-size: 13px;
+  color: #8cf; word-break: break-word;
+}
+/* An ACTIONS entry has no typed form, so it reads as a phrase, matching how the
+   in-chat commands panel draws the same rows. */
+.cmdName.action { font-style: italic; font-family: inherit; color: #b9a06a; }
+.cmdDesc { color: #999; font-size: 13.5px; line-height: 1.55; }
+.cmdDesc .params { color: #666; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+
+.cmd.locked .cmdName { color: #7a9ec4; }
+
+/* ── Hat drop odds ────────────────────────────────────────────────────────── */
+
+.drops { display: flex; gap: 10px; flex-wrap: wrap; }
+.drop {
+  background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 8px;
+  padding: 12px 16px; flex: 1 1 150px;
+}
+.dropName { color: #eee; font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.dropOdds { color: #888; font-size: 12.5px; }
+.dropCoins { color: #d9b45b; font-size: 12.5px; margin-top: 3px; }
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+
+.foot {
+  border-top: 1px solid #222; padding: 26px 0 40px;
+  color: #666; font-size: 13px; text-align: center; line-height: 1.7;
+}
+
+@media (max-width: 560px) {
+  .hero { padding: 36px 0 28px; }
+  .hero h1 { font-size: 2rem; }
+  .cmd { grid-template-columns: 1fr; gap: 3px; }
+}
+
+/* A command the chat handles in the browser — /uno, /whiteboard. Green rather
+   than blue so a reader can see at a glance which names never reach the server,
+   without the row needing a label saying so. */
+.cmdName.client { color: #6ec98a; }
+.cmdName .alias { color: #666; font-size: 12px; }

@@ -334,6 +334,163 @@ a {
 
 /* message-render styles moved to chat-messages.css */
 
+/* ─── What's New ──────────────────────────────────────────────────────────
+   Two surfaces, one set of styles. `.whatsNew` is the notice dropped into the
+   log once per session under the backlog (Chat/WhatsNew.jsx): a sibling of
+   .messageBlock, not a message, so no message rule reaches it — including
+   `.message div { display: inline }`, which is why nothing here needs a display
+   override. The `.wn*` section styles below are for the panel it opens
+   (WhatsNewPanel.jsx), which is portaled to <body> and so inherits nothing from
+   the chat either. Chat-only both ways, so this lives here rather than in
+   chat-messages.css, which /search also loads. */
+
+.whatsNew {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 9px;
+  padding: 7px 12px;
+  border: 1px solid #333;
+  border-left: 3px solid #2a5a8c;
+  border-radius: 6px;
+  background: rgba(20, 20, 20, 0.86);
+  color: #ccc;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.whatsNew:hover { background: rgba(40, 40, 40, 0.9); border-color: #444; }
+
+.wnTitle { color: #8cf; font-weight: 600; }
+.wnSummary { color: #777; font-size: 12px; }
+.wnAction { margin-left: auto; color: #6af; font-size: 12px; }
+
+.wnPanel { margin-bottom: 12px; }
+.wnPanelHead {
+  color: #888;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.wnItem { padding: 7px 0; border-bottom: 1px solid #222; }
+.wnItem:last-child { border-bottom: none; }
+
+/* Submit form. Sits below the two lists — see the note in WhatsNewPanel.jsx:
+   the panel opens on what shipped, not on a form. */
+.wnForm { padding-top: 8px; }
+.wnSelect, .wnTextarea {
+  background: #252525;
+  border: 1px solid #3a3a3a;
+  color: #ddd;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  /* There is no global reset here, so a width: 100% field would add its padding
+     and border on top of the panel's width and push a horizontal scrollbar out
+     of the body. */
+  box-sizing: border-box;
+}
+.wnSelect:focus, .wnTextarea:focus { border-color: #555; }
+.wnSelect { margin-bottom: 8px; }
+.wnTextarea {
+  display: block;
+  width: 100%;
+  min-height: 62px;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+.wnSubmit {
+  background: #1a3a5c;
+  border: 1px solid #2a5a8c;
+  color: #8cf;
+  border-radius: 6px;
+  padding: 5px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.wnSubmit:hover:not(:disabled) { background: #1f4570; }
+.wnSubmit:disabled { opacity: 0.6; cursor: default; }
+
+.wnStatus { margin-top: 8px; padding: 6px 10px; border-radius: 6px; font-size: 12px; }
+.wnStatus.ok { background: #1a3a1a; color: #6f6; border: 1px solid #2a5a2a; }
+.wnStatus.err { background: #3a1a1a; color: #f66; border: 1px solid #5a2a2a; }
+
+.wnNote { color: #888; font-size: 12px; line-height: 1.5; padding-top: 8px; }
+
+.wnBadge {
+  display: inline-block;
+  margin-bottom: 3px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.wnBadge-idea { background: #1a3a1a; color: #5c5; }
+.wnBadge-bug { background: #3a1a1a; color: #c55; }
+
+.wnHeadAsked { color: #6ec98a; border-bottom-color: #24422f; }
+.wnHeadAlso  { color: #8899a6; border-bottom-color: #2a3138; }
+
+/* One line under each heading saying what the section actually is. Without it
+   the panel reads as an undifferentiated changelog, which is the thing it is
+   not — the top half is the room's own requests coming back finished. */
+.wnLede { padding-top: 6px; padding-bottom: 2px; font-size: 11.5px; color: #777; }
+
+.wnItemHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+}
+
+/* The completed marker. The old rows never said anywhere that the thing had
+   shipped; the only carrier was an 11px grey section header. */
+.wnDone { color: #4ade80; font-size: 13px; font-weight: 700; line-height: 1; }
+
+.wnShipped { margin-left: auto; color: #4ade80; font-size: 11px; white-space: nowrap; }
+.wnShipped-also { color: #667; }
+
+.wnItem-asked { border-left: 2px solid #24422f; padding-left: 9px; }
+.wnItem-also  { border-left: 2px solid #2a3138; padding-left: 9px; }
+
+.wnItemTitle { color: #ddd; font-weight: 600; }
+.wnText {
+  color: #aaa;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Hard clamp, no expander. A request is shown as written, and one long one
+   would otherwise push every other item and the whole second section below the
+   fold. The full text lives on /feedback, linked at the foot of the panel. */
+.wnClamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wnMeta { color: #555; font-size: 11px; margin-top: 3px; }
+
+.wnLink {
+  display: inline-block;
+  margin-top: 10px;
+  color: #6af;
+  font-size: 12px;
+  text-decoration: none;
+}
+.wnLink:hover { text-decoration: underline; }
+
 /* ─── Input Bar ───────────────────────────────────────────────────────────── */
 
 .input-container {
@@ -2246,3 +2403,141 @@ a {
 }
 
 .search-input::placeholder { color: black; opacity: 1; }
+
+/* ─── Activity launcher ───────────────────────────────────────────────────
+   The "Play" button in the chat header and the menu it opens (Chat/
+   ActivityLauncher.jsx). The menu is portaled to <body>, like .mobileMoreMenu
+   above, so it inherits nothing from the header and positions itself from the
+   button's rect.
+
+   One button, by choice: the quickNav bar beside it is about you and the
+   channel's configuration, and a game filed under settings reads as one. */
+
+.activityBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+  padding: 4px 10px 4px 8px;
+  margin-right: 8px;
+  border: 1px solid #ffffff1f;
+  border-radius: 6px;
+  background: #ffffff0f;
+  color: #cfcfcf;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.activityBtn:hover { background: #ffffff1c; border-color: #ffffff33; color: #fff; }
+.activityBtn .material-symbols-outlined { font-size: 19px; }
+
+/* The label is the difference between an icon people guess at and a door they
+   read. First thing to go when the header runs out of room. */
+.activityBtnLabel { font-weight: 500; }
+
+/* Something is happening in there right now. A dot rather than a number: the
+   count is in the menu, and the header's job is only to say "worth a look". */
+.activityLiveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade8099;
+}
+
+.activityMenu {
+  position: fixed;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 30;
+  min-width: 260px;
+  max-width: 320px;
+  padding: 6px 0;
+  overflow: hidden;
+}
+
+.activityGroup + .activityGroup { border-top: 1px solid #2c2c2c; margin-top: 4px; padding-top: 4px; }
+
+.activityGroupLabel {
+  padding: 6px 14px 4px;
+  color: #777;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activityItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  color: #ddd;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.activityItem:hover { background: #2f2f2f; }
+
+.activityItemIcon { font-size: 20px; color: #8cf; flex: none; margin-top: 1px; }
+
+.activityItemText { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.activityItemLabel { color: #eee; }
+.activityItemBlurb { color: #808080; font-size: 11.5px; line-height: 1.35; }
+
+/* Right-aligned and green, so a live row reads at a glance without the idle
+   rows having to carry a placeholder. */
+.activityItemStatus {
+  margin-left: auto;
+  align-self: center;
+  flex: none;
+  color: #4ade80;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+/* ─── Activity invite ─────────────────────────────────────────────────────
+   The "sammich started UNO" line in the log (Chat/ActivityInvite.jsx). Same
+   shell as .whatsNew — a sibling of .messageBlock rather than a message, so no
+   message rule reaches it — with a green edge instead of blue, because this one
+   expires on its own and What's New does not. */
+
+.activityInvite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 9px;
+  padding: 7px 12px;
+  border: 1px solid #333;
+  border-left: 3px solid #2f7d4f;
+  border-radius: 6px;
+  background: rgba(20, 20, 20, 0.86);
+  color: #ccc;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.activityInvite:hover { background: rgba(40, 40, 40, 0.9); border-color: #444; }
+
+.activityInviteIcon { font-size: 18px; color: #4ade80; flex: none; }
+.activityInviteText { min-width: 0; }
+.activityInviteText b { color: #eee; font-weight: 600; }
+.activityInviteName { color: #8cf; font-weight: 600; }
+.activityInviteDetail { color: #777; font-size: 12px; margin-left: 6px; }
+.activityInviteAction { margin-left: auto; color: #4ade80; font-size: 12px; flex: none; }
+
+/* On mobile the header is tight (the search box is already hidden there), so
+   the launcher drops to its icon and keeps the live dot. */
+@media (max-width: 768px) {
+  .activityBtnLabel { display: none; }
+  .activityBtn { padding: 4px 8px; margin-right: 4px; }
+  .activityMenu { min-width: 220px; }
+}

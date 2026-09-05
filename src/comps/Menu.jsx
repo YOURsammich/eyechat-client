@@ -1197,6 +1197,9 @@ function ChannelTheme({
   // Whether we're a mod, i.e. whether the channel sliders are ours to move. The
   // server decides — and re-checks on the POST — so this only drives the UI.
   const [canEditLimits, setCanEditLimits] = useState(false);
+  // Same for the swatches, asked separately: the colours are gated at /theme's
+  // level, which an admin can move independently of the mod bar on the sliders.
+  const [canEditColors, setCanEditColors] = useState(false);
   const [chLimit, setChLimit] = useState(channelStyleLimit);
   const [chHeight, setChHeight] = useState(channelMsgHeight);
   const [limitStatus, setLimitStatus] = useState(null);
@@ -1216,8 +1219,8 @@ function ChannelTheme({
   useEffect(() => {
     fetch('/channel/theme')
       .then(r => r.json())
-      .then(d => setCanEditLimits(!!d.canEdit))
-      .catch(() => setCanEditLimits(false));
+      .then(d => { setCanEditLimits(!!d.canEdit); setCanEditColors(!!d.canEditColors); })
+      .catch(() => { setCanEditLimits(false); setCanEditColors(false); });
   }, []);
 
   const limitsDirty = chLimit !== channelStyleLimit || chHeight !== channelMsgHeight;
@@ -1268,8 +1271,9 @@ function ChannelTheme({
                 <input
                   type="color"
                   value={hex}
+                  disabled={!canEditColors}
                   onChange={e => { setColors(prev => ({ ...prev, [key]: hexAlphaToRgba(e.target.value, parseRgba(prev[key] || 'rgba(255,255,255,0.05)').alpha) })); setStatus(null); }}
-                  style={{ width: 36, height: 28, cursor: 'pointer', border: 'none', background: 'none', padding: 0 }}
+                  style={{ width: 36, height: 28, cursor: canEditColors ? 'pointer' : 'default', border: 'none', background: 'none', padding: 0, opacity: canEditColors ? 1 : 0.5 }}
                 />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1278,6 +1282,7 @@ function ChannelTheme({
                   type="range"
                   min="0" max="1" step="0.01"
                   value={alpha}
+                  disabled={!canEditColors}
                   onChange={e => { setColors(prev => ({ ...prev, [key]: hexAlphaToRgba(parseRgba(prev[key] || 'rgba(255,255,255,0.05)').hex, parseFloat(e.target.value)) })); setStatus(null); }}
                   style={{ flex: 1 }}
                 />
@@ -1292,20 +1297,25 @@ function ChannelTheme({
             <input
               type="color"
               value={colors[key] || '#181818'}
+              disabled={!canEditColors}
               onChange={e => { setColors(prev => ({ ...prev, [key]: e.target.value })); setStatus(null); }}
-              style={{ width: 36, height: 28, cursor: 'pointer', border: 'none', background: 'none', padding: 0 }}
+              style={{ width: 36, height: 28, cursor: canEditColors ? 'pointer' : 'default', border: 'none', background: 'none', padding: 0, opacity: canEditColors ? 1 : 0.5 }}
             />
           </div>
         );
       })}
-      <button
-        className='stdBtn'
-        onClick={save}
-        disabled={status === 'saving'}
-        style={{ width: '100%', marginTop: 8, padding: '6px 0' }}
-      >
-        {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved!' : status === 'error' ? 'Error — try again' : 'Save Colors'}
-      </button>
+      {canEditColors ? (
+        <button
+          className='stdBtn'
+          onClick={save}
+          disabled={status === 'saving'}
+          style={{ width: '100%', marginTop: 8, padding: '6px 0' }}
+        >
+          {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved!' : status === 'error' ? 'Error — try again' : 'Save Colors'}
+        </button>
+      ) : (
+        <div style={{ fontSize: 11, color: '#777', marginTop: 4 }}>Theme colors are set by moderators.</div>
+      )}
 
       <div style={{ fontSize: 11, color: '#777', margin: '22px 0 4px' }}>Style Limit</div>
       <div style={{ fontSize: 11, color: '#777', marginBottom: 10, lineHeight: 1.4 }}>

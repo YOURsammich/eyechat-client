@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cope.chat - Features &amp; games</title>
+  <meta name="description" content="Everything Cope.chat does: cosmetics, curses, coins, live cursors, the whiteboard, UNO, and every command in the room." />
+  <link rel="icon" type="image/x-icon" href="/images/emojis/copium.png" />
+  <!-- Shared base chrome (wrap/card/btn/input), same look as the search and
+       word-trends pages. No theme.css: its global body/a rules are written for
+       the chat shell and fight the side-page chrome. -->
+  <link href="/search.css" rel="stylesheet" />
+  <!-- Features-page additions (hero, feature grid, command table). External for
+       the same reason search.css is: an inline <style> makes the multi-entry
+       Vite build go through the html-inline-proxy plugin, which has failed
+       intermittently on this build. -->
+  <link href="/features.css" rel="stylesheet" />
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/features.jsx"></script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { composeTextStyle, pickTextStyle } from './textstyle';
+import { ACTIVITIES, activityCommandNames, openEvent } from '../comps/activities';
 
 // Parse a single hex color (3- or 6-digit, leading "#" optional) into an
 // [r, g, b] triple normalized to 0..1, or null if it isn't valid hex.
@@ -342,10 +343,6 @@ const COMMANDS = {
     params: ['note'],
     parseMethod: 'leaveSpace'
   },
-  chatgpt: {
-    params: ['message'],
-    parseMethod: 'leaveSpace'
-  },
   sidebar: {},
   flipcoin: {},
   ask: {
@@ -451,20 +448,21 @@ const COMMANDS = {
       window.dispatchEvent(new CustomEvent('fluid', { detail: { duration: secs, palette, customColors } }));
     }
   },
-  uno: {
-    handler() {
-      window.dispatchEvent(new CustomEvent('uno:open'));
-    }
-  },
-  whiteboard: {
-    handler() {
-      window.dispatchEvent(new CustomEvent('whiteboard:open'));
-    }
-  },
-  wb: {
-    handler() {
-      window.dispatchEvent(new CustomEvent('whiteboard:open'));
-    }
+  // The activity commands (/uno, /whiteboard, /wb …) are generated from the
+  // registry just below, rather than written out here.
+}
+
+// /uno, /whiteboard, /wb and whatever the next game is called, built from the
+// activity registry so a new game is one entry there and nothing here. Each one
+// opens the same window event the launcher and the in-log invite dispatch, so
+// all three ways in stay identical by construction.
+for (const activity of ACTIVITIES) {
+  for (const name of activityCommandNames(activity)) {
+    COMMANDS[name] = {
+      handler() {
+        window.dispatchEvent(new CustomEvent(openEvent(activity.id)));
+      }
+    };
   }
 }
 

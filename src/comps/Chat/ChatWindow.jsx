@@ -4,20 +4,23 @@ import Messages, {
   ParsedContent, mentionsNick,
   clampStyleLimit, setStyleLimit,
   clampMessageHeight, effectiveMessageHeight, setMessageMaxHeight,
+  setEffectsEnabled,
 } from './Messages';
 import InputBar from './InputBar';
 import LiveCursors from './LiveCursors';
 import Menu, { Overlay, SUB_MENUS } from './../Menu';
 import FluidBackground from './FluidBackground';
 import SearchBar from './SearchBar';
-import UnoPanel from './../Uno/UnoPanel';
-import WhiteboardPanel from './../Whiteboard/WhiteboardPanel';
 import ManagerPanel from './../ManagerPanel';
 import CommandsPanel from './../CommandsPanel';
 import UsersPanel from './../UsersPanel';
+import WhatsNewPanel, { WHATSNEW_WIDTH } from './../WhatsNewPanel';
 import BlockBox from './../BlockBox';
 import JumpScare from './JumpScare';
 import ChannelStatus from './ChannelStatus';
+import ActivityLauncher from './ActivityLauncher';
+import { ACTIVITIES, openEvent, closeEvent } from './../activities';
+import { activityPanel } from './../activityPanels';
 
 const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'cursors', 'filteredWords', 'checkTrust', 'proxyBlock']);
 
@@ -62,8 +65,13 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [showFluid, setShowFluid] = useState(false);
   const [fluidPalette, setFluidPalette] = useState(0);
   const [fluidColors, setFluidColors] = useState(null);
-  const [showUno, setShowUno] = useState(false);
-  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  // Which activity panels are open, by id (see comps/activities.js). One set
+  // rather than a useState per game: adding a game should not mean touching this
+  // component at all.
+  const [openActivities, setOpenActivities] = useState(() => new Set());
+  // Live state per activity id, pushed by the server's 'activity' event — what
+  // the launcher badges and the per-row status lines are built from.
+  const [activities, setActivities] = useState({});
   const [showBanList, setShowBanList] = useState(false);
   // { target } while the /deepfind panel is open, else null. The target is
   // resolved to an IP server-side (clients are never sent IPs).
@@ -71,6 +79,9 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [showCope, setShowCope] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
+  // null when closed, else the { left, top } the panel opens at — see
+  // whatsNewOrigin, which parks it against the right edge of the chat area.
+  const [showWhatsNew, setShowWhatsNew] = useState(null);
   // Who this viewer has blocked: [{ nick, expires }], owned by the server and
   // pushed on join and on every change.
   const [blocks, setBlocks] = useState([]);
@@ -95,6 +106,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     bubbles:       store.get('toggle-bubbles'),
     centermsg:     store.get('toggle-centermsg'),
     mentionSound:  store.get('toggle-mention-sound') !== false,
+    effects:       store.get('toggle-effects') !== false,
   }));
   const [layout, setLayout] = useState(() => store.get('layout') || 'classic');
   const [joinLeave, setJoinLeave] = useState(() => store.get('joinleave') || 'registered');
@@ -152,6 +164,60 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   useEffect(() => { mentionSoundRef.current = toggles.mentionSound; }, [toggles.mentionSound]);
   useEffect(() => { joinLeaveRef.current = joinLeave; }, [joinLeave]);
 
+  // The What's New card (see WhatsNew.jsx). Two things have to land before it can
+  // be shown — the /whatsnew fetch and the first channelInfo — and either can win
+  // the race, so both sides call maybeShowWhatsNew and whichever is second does
+  // the push. Waiting for the backlog matters: pushed first, the card would be at
+  // the top of the log and capMessages would trim it straight back off when up to
+  // 100 rows of history arrived behind it.
+  //
+  // `shown` makes it once per mount, not once per join — a reconnect re-emits
+  // joinChannel and would otherwise stack a second copy under the same key.
+  const whatsNewRef = useRef({ data: null, joined: false, shown: false });
+
+  function maybeShowWhatsNew() {
+    const state = whatsNewRef.current;
+    if (state.shown || !state.joined || !state.data) return;
+    if (!state.data.feedback?.length && !state.data.updates?.length) return;
+    state.shown = true;
+    pushMessages({
+      // `message` is only there to clear the truthiness check in Messages'
+      // render; the card ignores it and draws from `whatsNew`.
+      message: "What's new",
+      type: 'whatsnew',
+      whatsNew: state.data,
+      count: 'whatsnew'
+    });
+  }
+
+  // Where the panel opens: tucked against the right edge of the message area,
+  // clear of the userlist beyond it. Measured at open time rather than fixed,
+  // because the chat area's width follows the window and the sidebar. It is only
+  // the starting position — the window is draggable from there.
+  function whatsNewOrigin() {
+    const box = chatBoxRef.current?.getBoundingClientRect();
+    const right = box ? box.right : window.innerWidth;
+    return {
+      left: Math.max(8, right - WHATSNEW_WIDTH - 16),
+      top: (box ? box.top : 80) + 16
+    };
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/whatsnew')
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return;
+        whatsNewRef.current.data = data;
+        maybeShowWhatsNew();
+      })
+      // Nothing to show is the correct outcome of a failed fetch; the card is
+      // not worth an error line in the log.
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     const onVisibility = () => {
       if (document.hidden) {
@@ -204,6 +270,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         hat: a.hat,
         avatar: a.avatar ?? null,
         textstyle: a.textstyle ?? null,
+        effect: a.effect ?? null,
         time: a.time ? Number(a.time) : undefined
       }));
 
@@ -249,6 +316,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         return capMessages([...prev, ...incoming], atBottomRef.current);
       });
 
+      // Backlog is in; the What's New card can go under it now (or as soon as
+      // the fetch behind it lands).
+      whatsNewRef.current.joined = true;
+      maybeShowWhatsNew();
+
       // Extract plain string fields before handleStates JSON.parses and possibly
       // converts them to booleans/null (e.g. topic="true" → true, which React won't render)
       const topic = channelInfo.topic ?? '';
@@ -274,6 +346,31 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     // A moderator ran /separate on this user and someone they're arguing with.
     const offSeparate = socket.on('separateOffer', (data) => {
       if (data?.other) setBlockOffer({ nick: data.other, offered: true });
+    });
+
+    // Live state for one activity, merged by id. The server sends a whole slice
+    // per activity rather than a patch, so an id's value replaces what was
+    // there — which is how a game reports that its last session just ended.
+    const offActivity = socket.on('activity', (data) => {
+      const id = data?.id;
+      if (!id) return;
+      setActivities(prev => ({ ...prev, [id]: data.state ?? null }));
+    });
+
+    // Someone started a game: drop a join line into the log. Pushed the way a
+    // join/leave notice is, with a random count, so it is never mistaken for a
+    // logged message and never comes back on scroll-back.
+    const offActivityInvite = socket.on('activityInvite', (invite) => {
+      if (!invite?.id) return;
+      pushMessages({
+        // Same reason as the What's New card above: `message` is only here to
+        // clear the truthiness check in Messages' render, which drops any row
+        // without one. The card ignores it and draws from `invite`.
+        message: 'started a game',
+        type: 'activityinvite',
+        invite,
+        count: Math.random(),
+      });
     });
 
     const offSetID = socket.on('setID', (id) => { myIdRef.current = id; });
@@ -327,6 +424,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       offChannelInfo();
       offBlocks();
       offSeparate();
+      offActivity();
+      offActivityInvite();
       offSetID();
       offUserJoin();
       offUserLeft();
@@ -348,26 +447,22 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     return () => window.removeEventListener('fluid', onFluid);
   }, []);
 
+  // One pair of listeners per registered activity, wired from the registry.
+  // Every way in lands here — the launcher, the typed command, and the invite
+  // line in the log all dispatch the same window event.
   useEffect(() => {
-    const onOpen = () => setShowUno(true);
-    const onClose = () => setShowUno(false);
-    window.addEventListener('uno:open', onOpen);
-    window.addEventListener('uno:close', onClose);
-    return () => {
-      window.removeEventListener('uno:open', onOpen);
-      window.removeEventListener('uno:close', onClose);
-    };
-  }, []);
-
-  useEffect(() => {
-    const onOpen = () => setShowWhiteboard(true);
-    const onClose = () => setShowWhiteboard(false);
-    window.addEventListener('whiteboard:open', onOpen);
-    window.addEventListener('whiteboard:close', onClose);
-    return () => {
-      window.removeEventListener('whiteboard:open', onOpen);
-      window.removeEventListener('whiteboard:close', onClose);
-    };
+    const bound = ACTIVITIES.flatMap((a) => {
+      const onOpen = () => setOpenActivities((prev) => new Set(prev).add(a.id));
+      const onClose = () => setOpenActivities((prev) => {
+        const next = new Set(prev);
+        next.delete(a.id);
+        return next;
+      });
+      window.addEventListener(openEvent(a.id), onOpen);
+      window.addEventListener(closeEvent(a.id), onClose);
+      return [[openEvent(a.id), onOpen], [closeEvent(a.id), onClose]];
+    });
+    return () => bound.forEach(([name, fn]) => window.removeEventListener(name, fn));
   }, []);
 
   useEffect(() => {
@@ -376,6 +471,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     const onDeepFind = (e) => setDeepFind({ target: e.detail?.target ?? '' });
     const onCommands = () => setShowCommands(true);
     const onRoles = () => setShowRoles(true);
+    const onWhatsNew = () => setShowWhatsNew(whatsNewOrigin());
     // /block and the userlist's block button both land here, opening the same
     // box a /separate offer does — minus the "a moderator noticed" framing.
     const onBlock = (e) => {
@@ -387,6 +483,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     window.addEventListener('deepfind:open', onDeepFind);
     window.addEventListener('commands:open', onCommands);
     window.addEventListener('roles:open', onRoles);
+    window.addEventListener('whatsnew:open', onWhatsNew);
     window.addEventListener('block:open', onBlock);
     return () => {
       window.removeEventListener('banlist:open', onBanList);
@@ -394,6 +491,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       window.removeEventListener('deepfind:open', onDeepFind);
       window.removeEventListener('commands:open', onCommands);
       window.removeEventListener('roles:open', onRoles);
+      window.removeEventListener('whatsnew:open', onWhatsNew);
       window.removeEventListener('block:open', onBlock);
     };
   }, []);
@@ -425,6 +523,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   // this one renders. The style limit below is read during render instead, so
   // it has to be set the other way round.
   useEffect(() => { setMessageMaxHeight(effectiveMsgHeight); }, [effectiveMsgHeight]);
+
+  // Same reasoning, and it also seeds the controller from localStorage: the
+  // module defaults to on, so a viewer who turned effects off would otherwise
+  // see one rippling message per reload before touching the switch.
+  useEffect(() => { setEffectsEnabled(toggles.effects); }, [toggles.effects]);
 
   // The one way messages get appended: every caller goes through here so the cap
   // is applied in a single place. Hoisted, so the socket handlers registered on
@@ -513,6 +616,9 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       store.setState('toggle-bubbles', next.bubbles);
       store.setState('toggle-centermsg', next.centermsg);
       store.setState('toggle-mention-sound', next.mentionSound);
+      store.setState('toggle-effects', next.effects);
+      // setEffectsEnabled is not called here — the effect above owns that, so it
+      // isn't run twice by a re-invoked updater.
       return next;
     });
   }
@@ -580,6 +686,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
             <div className='topic'>{channelState.topic}</div>
           </div>
           <div className='topBarBtns'>
+            <ActivityLauncher activities={activities} />
             <SearchBar channelName={channelName} />
             <span
               className="material-symbols-outlined mobileNavBtn"
@@ -700,22 +807,24 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         />
       ) : null}
 
-      {showUno ? (
-        <UnoPanel
-          socket={socket}
-          user={user}
-          onClose={() => setShowUno(false)}
-        />
-      ) : null}
-
-      {showWhiteboard ? (
-        <WhiteboardPanel
-          socket={socket}
-          user={user}
-          channelName={channelName}
-          onClose={() => setShowWhiteboard(false)}
-        />
-      ) : null}
+      {/* Every open activity panel. They take the same prop bag — a panel that
+          doesn't need channelName simply ignores it — so a new game is one entry
+          in comps/activities.js and nothing here. */}
+      {ACTIVITIES.filter((a) => openActivities.has(a.id)).map((a) => {
+        const Panel = activityPanel(a.id);
+        // An activity with no panel registered can't open. Skipped rather than
+        // thrown so a half-added game breaks its own row, not the whole chat.
+        if (!Panel) return null;
+        return (
+          <Panel
+            key={a.id}
+            socket={socket}
+            user={user}
+            channelName={channelName}
+            onClose={() => window.dispatchEvent(new CustomEvent(closeEvent(a.id)))}
+          />
+        );
+      })}
 
       {showBanList ? (
         <ManagerPanel
@@ -781,6 +890,17 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       {showCommands ? <CommandsPanel onClose={() => setShowCommands(false)} /> : null}
 
       {showRoles ? <UsersPanel onClose={() => setShowRoles(false)} /> : null}
+
+      {/* The panel can only be opened from the notice, which only exists once
+          the fetch landed, so reading the ref straight through is safe. */}
+      {showWhatsNew ? (
+        <WhatsNewPanel
+          data={whatsNewRef.current.data}
+          initialLeft={showWhatsNew.left}
+          initialTop={showWhatsNew.top}
+          onClose={() => setShowWhatsNew(null)}
+        />
+      ) : null}
     </div>
   );
 }

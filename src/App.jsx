@@ -10,6 +10,54 @@ import { preloadFontsFromText, loadFont } from './comps/Chat/Messages';
 
 const COPE_CLOUD = 'http://localhost:8080/';
 
+// SVG filter definitions for the message `effect` MWs (src/middlewares.js).
+// Mounted once for the whole app, not per message: a filter is referenced by id
+// from CSS, so one definition serves every message wearing the class, and
+// duplicating it per message would put a full turbulence generator in the DOM
+// for each cursed line.
+//
+// Two variants of each. `#fx-liquid` animates; `#fx-liquid-static` is the same
+// distortion frozen, which is what the stylesheet switches to under
+// prefers-reduced-motion — the text still looks submerged, but nothing moves.
+//
+// Tuning (see liquid-effect-spec.md): scale is the intensity knob, and past
+// roughly 8 short words start coming apart. The x/y base frequencies are kept
+// different from each other so the noise reads as a liquid surface rather than
+// uniform static, and the animation moves between a rolling swell and a tighter
+// shimmer, which is what makes it flow instead of vibrate.
+//
+// The filter region is far taller than the default because this applies to the
+// whole message row, and a hat hangs ~50px above the line on negative margins
+// (.nick .hat in chat-messages.css). Anything outside the region is clipped, so
+// a tight box would decapitate every cursed message wearing one. Height is a
+// percentage of the row, so a one-line message gets the least slack — that is
+// the case to check if a hat ever looks cut off.
+function MessageEffectFilters() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+      <defs>
+        <filter id="fx-liquid" x="-10%" y="-150%" width="120%" height="400%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.028"
+            numOctaves="2" seed="7" result="noise">
+            <animate attributeName="baseFrequency"
+              dur="14s" repeatCount="indefinite"
+              values="0.012 0.028; 0.018 0.020; 0.012 0.028" />
+          </feTurbulence>
+          <feDisplacementMap in="SourceGraphic" in2="noise"
+            scale="10" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+
+        <filter id="fx-liquid-static" x="-10%" y="-150%" width="120%" height="400%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.028"
+            numOctaves="2" seed="7" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise"
+            scale="6" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+    </svg>
+  );
+}
+
 function App() {
   const [showApp, setShowApp] = useState(false);
   const [showPluginBar, setShowPluginBar] = useState(false);
@@ -164,6 +212,8 @@ function App() {
 
   return (
     <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <MessageEffectFilters />
+
       {rejection ? (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1000,

@@ -2,6 +2,8 @@ import * as React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import AvatarDisplay from './AvatarDisplay.jsx';
+import WhatsNew from './WhatsNew.jsx';
+import ActivityInvite from './ActivityInvite.jsx';
 
 
 // Does this message name `nick`? Case-insensitive: people type each other's
@@ -123,6 +125,102 @@ function subscribeMessageMaxHeight(notify) {
   return () => messageHeightSubs.delete(notify);
 }
 
+// --- message visual effects (the `effect` MWs — see src/middlewares.js) ---
+//
+// A cursed message is marked at render with a permanent class ('fx fx-liquid'),
+// baked into the cached element. The stylesheet hangs the actual SVG filter on a
+// *second* class, 'fx-run', which only this controller ever touches. Nothing
+// here goes through React state, for the reason given above setMessageMaxHeight:
+// rendered messages are cached React elements, so neither the settings toggle
+// nor a message scrolling out of view can reach them through props — and unlike
+// the height, this has to change without re-rendering at all, because a
+// re-render would restart the animation on every message still on screen.
+//
+// The cap is the point of the whole apparatus: an animated displacement filter
+// repaints its subtree every frame, so a log full of them would cost real
+// framerate. Three at once is the budget (liquid-effect-spec.md); past that the
+// oldest visible one drops back to plain text.
+const FX_LIMIT = 3;
+
+let fxEnabled = true;
+const fxVisible = new Set();  // marked nodes currently on screen
+const fxRunning = new Set();  // the <= FX_LIMIT of those actually filtered
+let fxObserver = null;
+
+// Reduced motion is handled entirely in the stylesheet (a static filter with no
+// <animate>), not here — one media query beats mirroring the preference in JS.
+
+// Bring the running set in line with what is visible, the cap and the setting.
+// DOM order decides the winners, not the order things scrolled into view, so
+// scrolling up and back down gives the same answer as never having left.
+function reconcileFx() {
+  const inOrder = [...fxVisible].sort((a, b) => (
+    a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+  ));
+  // slice(-FX_LIMIT) keeps the newest: they're the ones being read.
+  const keep = new Set(fxEnabled ? inOrder.slice(-FX_LIMIT) : []);
+
+  for (const node of fxRunning) if (!keep.has(node)) node.classList.remove('fx-run');
+  for (const node of keep) node.classList.add('fx-run');
+
+  fxRunning.clear();
+  for (const node of keep) fxRunning.add(node);
+}
+
+// The global off switch. Takes effect on the messages already on screen without
+// a reload, which is the whole reason this is imperative.
+export function setEffectsEnabled(on) {
+  if (fxEnabled === !!on) return;
+  fxEnabled = !!on;
+  reconcileFx();
+}
+
+// Start watching any newly rendered cursed message, and forget the ones that
+// have been trimmed out of the DOM. Called after every render of the list —
+// cheap, because the selector matches only cursed messages, which are rare.
+function observeFxNodes(root) {
+  if (!root || typeof IntersectionObserver === 'undefined') return;
+
+  if (!fxObserver) {
+    fxObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) fxVisible.add(entry.target);
+        else fxVisible.delete(entry.target);
+      }
+      reconcileFx();
+    }, { root });
+  }
+
+  // capMessages drops old messages out of the DOM; a detached node would
+  // otherwise sit in fxVisible forever and hold a slot under the cap.
+  let pruned = false;
+  for (const node of fxVisible) {
+    if (!node.isConnected) { fxVisible.delete(node); fxRunning.delete(node); pruned = true; }
+  }
+  if (pruned) reconcileFx();
+
+  for (const node of root.querySelectorAll('.fx:not([data-fx-watched])')) {
+    node.setAttribute('data-fx-watched', '');
+    fxObserver.observe(node);
+  }
+}
+
+// The marker classes for a message's snapshotted `effect`, or '' for the
+// overwhelming majority of messages that have none. An id the client has no CSS
+// for styles nothing, which is what makes retiring an effect safe while logged
+// messages still name it — hence the sanitising pass rather than a whitelist.
+function fxClasses(msgData) {
+  if (msgData.type != 'chat' || !msgData.effect) return '';
+  return ' fx fx-' + String(msgData.effect).replace(/[^a-z0-9-]/gi, '');
+}
+
+function disconnectFxObserver() {
+  fxObserver?.disconnect();
+  fxObserver = null;
+  fxVisible.clear();
+  fxRunning.clear();
+}
+
 const noStyle = {
   noColor: true
 };
@@ -228,6 +326,9 @@ function markGreentext (message) {
 // — these are used with .exec on varying strings, so they must stay stateless.
 const EMOJI_TOKEN = /:[^\s:]+:/;
 const EMOJI_MERGE_TOKEN = /:[^\s:]+:\$:[^\s:]+:/;
+// ":a:&:b:" — b is drawn through a's silhouette. "&" only means this between two
+// emoji tokens: as a style it is "/&" (wavy), which needs the leading slash.
+const EMOJI_CUTOUT_TOKEN = /:[^\s:]+:&:[^\s:]+:/;
 
 const messageParser = {
 
@@ -312,6 +413,12 @@ const messageParser = {
     if (!match) return null;
 
     return {index: match.index, strdata: match[0], type: 'emojiMerge'};
+  },
+  getNextEmojiCutoutComp (str) {
+    const match = EMOJI_CUTOUT_TOKEN.exec(str);
+    if (!match) return null;
+
+    return {index: match.index, strdata: match[0], type: 'emojiCutout'};
   },
   getNextQuoteComp (str, msgStyles) {
     if (msgStyles.noQuote) return null;
@@ -423,6 +530,7 @@ const messageParser = {
     const nextStyleComp = this.getNextStyleComp(str, msgStyles);
     const nextLinkComp = this.getNextLinkComp(str, msgStyles);
     const nextEmojiMergeComp = this.getNextEmojiMergeComp(str);
+    const nextEmojiCutoutComp = this.getNextEmojiCutoutComp(str);
     const nextEmojiComp = this.getNextEmojiComp(str);
     const nextColorComp = this.getColorComp(str, msgStyles);
     const nextFontComp = this.getFontComp(str, msgStyles);
@@ -439,8 +547,11 @@ const messageParser = {
       nextFontComp, 
       nextStyleComp, 
       nextLinkComp, 
+      // Both combiners come before nextEmojiComp so that on the shared start
+      // index they win the tie: ":a:&:b:" is one cutout, not ":a:" then text.
       nextEmojiMergeComp,
-      nextEmojiComp, 
+      nextEmojiCutoutComp,
+      nextEmojiComp,
       nextColorComp
     ].filter(comp => comp != null);
     if (comps.length == 0) return null;
@@ -672,6 +783,47 @@ function EmojiMerge(props) {
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center',
         backgroundBlendMode: 'multiply',
+        verticalAlign: 'middle',
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+// ":a:&:b:" — a is a stencil, b is what shows through it. A mask reads the alpha
+// channel, so a contributes only its transparent-background silhouette and none
+// of its own colors; an emoji uploaded as an opaque square masks to a square and
+// visibly does nothing.
+function EmojiCutout(props) {
+  const parts = props.message.data.strdata.split('&');
+  const ids = parts.map(p => p.replace(/:/g, ''));
+  const e1 = props.emojis?.find(e => e.id === ids[0]);
+  const e2 = props.emojis?.find(e => e.id === ids[1]);
+
+  if (!e1 || !e2) return props.message.data.strdata;
+
+  const mask = `url(/images/emojis/${e1.imageName})`;
+
+  return (
+    <div
+      className='emoji'
+      title={`:${e1.id}:&:${e2.id}:`}
+      style={{
+        display: 'inline-block',
+        width: 64,
+        height: 64,
+        backgroundImage: `url(/images/emojis/${e2.imageName})`,
+        backgroundSize: 'contain',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        maskImage: mask,
+        maskSize: 'contain',
+        maskRepeat: 'no-repeat',
+        maskPosition: 'center',
+        WebkitMaskImage: mask,
+        WebkitMaskSize: 'contain',
+        WebkitMaskRepeat: 'no-repeat',
+        WebkitMaskPosition: 'center',
         verticalAlign: 'middle',
         flexShrink: 0,
       }}
@@ -978,6 +1130,8 @@ function getCompRender (message, props, spanish) {
       />;
     case message.data.type == 'emojiMerge':
       return <EmojiMerge message={message} renderMessage={props.renderMessage} emojis={props.emojis} />;
+    case message.data.type == 'emojiCutout':
+      return <EmojiCutout message={message} renderMessage={props.renderMessage} emojis={props.emojis} />;
     case message.data.type == 'emoji':
       return <Emoji emojiId={message.data.strdata} emojis={props.emojis} _imageLoaded={(image) => props._imageLoaded(image)} />;
     case message.data.type == 'quote':
@@ -1276,6 +1430,8 @@ class Messages extends React.Component {
       behavior: 'instant'
     });
 
+    observeFxNodes(messageCon);
+
 
     messageCon.addEventListener('scroll', (e) => {
       const target = e.target;
@@ -1338,8 +1494,13 @@ class Messages extends React.Component {
     return null;
   }
 
+  componentWillUnmount () {
+    disconnectFxObserver();
+  }
+
   componentDidUpdate (prevProps, prevState, snapshot) {
     this.pruneMessageCache();
+    observeFxNodes(this.messageCon.current);
 
     if (snapshot !== null) {
       const el = this.messageCon.current;
@@ -1533,13 +1694,32 @@ class Messages extends React.Component {
   }
 
   renderMessage (message) {
+    // The What's New card is a widget, not a line of chat: it brings its own
+    // layout and its own collapse, so it skips the timestamp, the parser and
+    // CollapsibleMessage entirely.
+    if (message.type === 'whatsnew') {
+      return <WhatsNew data={message.whatsNew} key={'message-' + message.count} />;
+    }
+
+    // Same deal for the "someone started a game" invite: a widget with its own
+    // layout and its own button, not a line anyone said.
+    if (message.type === 'activityinvite') {
+      return <ActivityInvite invite={message.invite} key={'message-' + message.count} />;
+    }
+
     // `foundBy` marks a /findmsg result: a real message pulled back out of the
     // log. It is labelled with who dug it up and shown under its original
     // number, so it can't be mistaken for something just said in the room.
     const found = message.foundBy;
 
+    // The effect goes on the whole row — timestamp, nick, hat and body together
+    // — rather than the body alone. CollapsibleMessage puts this className on
+    // the inner .message div, which is what keeps .msgExpand out of it: the
+    // toggle is a sibling in .messageBlock, and a filter displaces painted
+    // pixels without moving hit targets, so a filtered button would take clicks
+    // several pixels from where it appears.
     return <CollapsibleMessage
-      className={'message' + (message.type ? ' ' + message.type : '') + (found ? ' foundMessage' : '')}
+      className={'message' + (message.type ? ' ' + message.type : '') + (found ? ' foundMessage' : '') + fxClasses(message)}
       key={'message-' + message.count}
     >
       { found ? <div className='foundBy'>{'findmsg by ' + found}</div> : null }

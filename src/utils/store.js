@@ -78,6 +78,9 @@ class Store {
       'toggle-bubbles': false,
       'toggle-centermsg': true,
       'toggle-mention-sound': true,
+      // Message visual effects (the `effect` MWs — see src/middlewares.js). Off
+      // suppresses every one of them for this viewer no matter who is cursed.
+      'toggle-effects': true,
       // Which join/leave notices to display: 'all' | 'registered' | 'none'.
       'joinleave': 'registered',
       // Live cursors: 'pointer' replaces your mouse pointer over the chat area,
