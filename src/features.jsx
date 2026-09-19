@@ -134,6 +134,13 @@ const SECTIONS = [
         tags: [],
       },
       {
+        icon: '💣',
+        title: 'Shared minesweeper',
+        wide: true,
+        body: 'One 50×30 grid and everyone in the room clicking on it at the same time. A flag on a mine is +1, a flag on a safe cell is −1, and setting off a mine is −10 — but the map carries on, and when it is cleared a fresh one spawns. Drop in whenever; scores reset with each map.',
+        tags: [],
+      },
+      {
         icon: '🖊️',
         title: 'Collaborative whiteboard',
         wide: true,

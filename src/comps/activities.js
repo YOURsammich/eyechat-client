@@ -51,6 +51,27 @@ export const ACTIVITIES = [
     },
   },
   {
+    id: 'minesweeper',
+    label: 'Minesweeper',
+    kind: 'game',
+    icon: 'bomb',
+    aliases: ['ms'],
+    blurb: 'One huge shared grid, everyone at once. Flags score, bombs cost.',
+
+    // There is no lobby to join — the map is always there — so the row goes
+    // quiet when nobody has clicked lately rather than always reading "0
+    // playing", and shows how far the current map has got when someone has.
+    status(state) {
+      if (!state?.players) return null;
+      const progress = state.progress ?? 0;
+      return `${state.players} playing · ${progress}% cleared`;
+    },
+
+    live(state) {
+      return (state?.players ?? 0) > 0;
+    },
+  },
+  {
     id: 'whiteboard',
     label: 'Whiteboard',
     kind: 'tool',

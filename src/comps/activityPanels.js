@@ -1,5 +1,6 @@
 import UnoPanel from './Uno/UnoPanel';
 import WhiteboardPanel from './Whiteboard/WhiteboardPanel';
+import MinesweeperPanel from './Minesweeper/MinesweeperPanel';
 
 // The component each activity opens, kept apart from the registry in
 // activities.js on purpose: that file is imported by the public features page,
@@ -11,6 +12,7 @@ import WhiteboardPanel from './Whiteboard/WhiteboardPanel';
 // panel here. ChatWindow reads both; nothing else needs this file.
 export const ACTIVITY_PANELS = {
   uno: UnoPanel,
+  minesweeper: MinesweeperPanel,
   whiteboard: WhiteboardPanel,
 };
 
