@@ -120,7 +120,7 @@ export default function WhatsNewPanel({ data, onClose, initialLeft, initialTop }
         <div className='wnPanel'>
           <div className='wnPanelHead wnHeadAsked'>You asked for it</div>
           {/* Says the one thing the old panel never did: these are live now. */}
-          <div className='wnNote wnLede'>Requests from the room that are now live.</div>
+          <div className='wnNote wnLede'>Requests from the room that went live in the last 7 days.</div>
           {feedback.map(item => (
             <div className='wnItem wnItem-asked' key={'wn-f-' + item.id}>
               <div className='wnItemHead'>
@@ -141,7 +141,7 @@ export default function WhatsNewPanel({ data, onClose, initialLeft, initialTop }
       {updates.length ? (
         <div className='wnPanel'>
           <div className='wnPanelHead wnHeadAlso'>Also new</div>
-          <div className='wnNote wnLede'>Changes that didn&apos;t come from the board.</div>
+          <div className='wnNote wnLede'>Changes from the last 7 days that didn&apos;t come from the board.</div>
           {updates.map(item => (
             <div className='wnItem wnItem-also' key={'wn-u-' + item.id}>
               <div className='wnItemHead'>

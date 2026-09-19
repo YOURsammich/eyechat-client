@@ -16,7 +16,9 @@ function summary(feedback, updates) {
   const parts = [];
   if (feedback.length) parts.push(feedback.length + ' request' + (feedback.length === 1 ? '' : 's') + ' shipped');
   if (updates.length) parts.push(updates.length + ' update' + (updates.length === 1 ? '' : 's'));
-  return parts.join(' · ');
+  // The server only sends the last 7 days, so the counts are a weekly figure;
+  // say so, or "3 requests shipped" reads like an all-time top three.
+  return parts.join(' · ') + ' this week';
 }
 
 function WhatsNew({ data }) {
