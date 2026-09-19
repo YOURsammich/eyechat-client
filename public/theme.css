@@ -693,6 +693,23 @@ a {
   color: #ddd;
 }
 
+/* Expanding the icon bar must not eat the panel. The pane is a fixed 330px
+   row-reverse flexbox, so a bar that grows from 66px to ~144px pushes
+   .menuContent under its 200px min-width — the excess overflows past the pane's
+   left edge, where `overflow: hidden` clips it (headers lose their first letter,
+   controls lose their left edge).
+   So let the pane grow instead, and pin the content to the width it has while
+   the bar is collapsed (330 - 66) so the panel itself doesn't reflow either.
+   Skipped on mobile, where .mobileOpen owns the width and the bar is hidden. */
+.menuPane.navExpanded:not(.mobileOpen) {
+  width: auto;
+}
+
+.menuPane.navExpanded:not(.mobileOpen) .menuContent {
+  flex: none;
+  width: 264px;
+}
+
 /* Closed menu: hide the content panel and shrink the pane to just the icon bar
    (reopen by clicking any quickNav button). */
 .menuPane.collapsed {
@@ -709,6 +726,8 @@ a {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Room for the hover actions of the last row, which hang below it. */
+  padding-bottom: 20px;
 }
 
 .userLiSpan {
@@ -726,8 +745,28 @@ a {
   display: unset;
 }
 
+/* The hover actions hang below their row instead of sitting in its flow. In
+   flow they grew the row from 30px to 46px on hover, which shoved every row
+   below down 16px the moment the pointer touched one — the list slid out from
+   under whoever was aiming at it. Positioned, the row never changes height and
+   nothing moves; the panel only paints the strip over the row beneath.
+   The strip carries the hover background so it stays legible over that row, and
+   it stays inside .userLiSpan, so moving the pointer down onto it keeps the row
+   hovered and the buttons clickable. */
 .userLiActions {
   display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Overlaps the row's 5px bottom padding, so the strip reads as the row's
+     second line rather than as a detached popup. */
+  top: calc(100% - 5px);
+  z-index: 2;
+  /* Deep enough to clear the whole text line of the row underneath — a shorter
+     strip left the next nick sliced in half. */
+  padding: 0 9px 13px;
+  background-color: #1b274f;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.45);
   font-size: 12px;
   font-style: italic;
   color: #6eaef3;
@@ -819,6 +858,15 @@ a {
   font-size: 12px;
   font-style: italic;
   word-break: break-all;
+}
+
+/* The time where this user is, on its own line under the nick. Quiet on purpose:
+   it's ambient context about someone, not something to read the list by, so it
+   sits well below the nick in weight and never competes with the AFK note. */
+.userLiTime {
+  color: #7f8ba3;
+  font-size: 11px;
+  cursor: help;
 }
 
 /* Someone this viewer has blocked: their row is dimmed and marked, so it's
@@ -1260,24 +1308,110 @@ a {
 
 .settingsContainer {
   padding: 10px;
-  gap: 5px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
-.settingsLabel {
+/* Settings are grouped rather than stacked in one undifferentiated column. The
+   11px grey header matches the one the Channel panel uses for Theme Colors /
+   Style Limit, so the two panels read as the same app. */
+.settingsSection {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settingsSection + .settingsSection {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid #1e2740;
+}
+
+.settingsSectionLabel {
+  font-size: 11px;
+  color: #777;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Explains a whole group, where a per-setting note would repeat itself. */
+.settingsSectionHint {
+  font-size: 10px;
+  line-height: 1.4;
+  color: #777;
+  margin-top: -4px;
+}
+
+.settingsRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settingsRowHead {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  flex-direction: column;
+  gap: 6px;
 }
 
-/* Explains the setting directly above it, for the ones whose option names
-   aren't self-evident (see the cursor mode row). */
+/* Was 16px in the panel's default weight — the same size as the panel header, so
+   the labels outweighed the controls they belonged to. */
+.settingsRowLabel {
+  font-size: 13px;
+  color: #cdd6e4;
+}
+
+/* Reveals the note for a setting whose option names can't explain themselves.
+   A button rather than a hover target: hover hides it from anyone not already
+   looking for it, and doesn't exist at all on a touch screen. */
+.settingsInfoBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: #55617a;
+  display: flex;
+  align-items: center;
+}
+
+.settingsInfoBtn:hover,
+.settingsInfoBtn.active {
+  color: #39f;
+}
+
+.settingsInfoBtn .material-symbols-outlined {
+  font-size: 16px;
+}
+
+/* The note itself, shown only while its row's info button is toggled on. */
 .settingsNote {
   font-size: 10px;
   line-height: 1.4;
   color: #777;
-  margin-top: -2px;
+}
+
+/* A save that didn't stick, under the row that tried it. */
+.settingsError {
+  color: #ff7676;
+}
+
+/* The zone override under the local-time row. Long enough a list that it has to
+   be a native select — the browser gives it type-ahead and a scrollable popup,
+   which several hundred zones need and a custom control here would not. */
+.settingsSelect {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 12px;
+  color: #dfe6f5;
+  background-color: #0e1730;
+  border: 1px solid #2c3a5e;
+  border-radius: 5px;
+  outline: none;
 }
 
 /* ─── Account panel (login / welcome) ─────────────────────────────────────── */
@@ -1347,6 +1481,21 @@ a {
 .segmentBtn.active {
   background: #39f;
   color: #fff;
+}
+
+/* A control the account can't use yet — the local-time row for a guest, whose
+   value has nowhere to be stored. Dimmed rather than hidden so the setting is
+   still discoverable, with the note underneath saying why it's inert. */
+.segmented.disabled {
+  opacity: 0.45;
+}
+
+.segmentBtn:disabled {
+  cursor: not-allowed;
+}
+
+.segmentBtn:disabled:hover {
+  color: #8a97ad;
 }
 
 /* ─── Join Names ──────────────────────────────────────────────────────────── */

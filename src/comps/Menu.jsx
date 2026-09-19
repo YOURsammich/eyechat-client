@@ -24,9 +24,13 @@ const STORE_CATS = [
   { name: 'join names', label: 'Join Names', description: 'Modify default join names',   icon: 'wand_stars' },
 ];
 
+// The row's hover actions. PM and MOD used to sit here with `() => {}` for a
+// callback — they looked identical to the two that work and did nothing when
+// clicked. PM is not wired up anywhere yet (InputBar holds the panel behind a
+// `showConvos` flag that has no setter), and there is no moderation panel to
+// open, so neither is listed until there is something for it to do.
 function getUserActions(nick, socket, blocked) {
   return [
-    { name: 'PM',    callback: () => {} },
     { name: 'whois', callback: () => handleInput.handle('/whois ' + nick, socket) },
     // Blocking asks for a duration, so it opens the box (the same one a
     // moderator's /separate raises); unblocking has nothing to ask, so it just
@@ -34,7 +38,6 @@ function getUserActions(nick, socket, blocked) {
     blocked
       ? { name: 'unblock', callback: () => handleInput.handle('/unblock ' + nick, socket) }
       : { name: 'block', callback: () => window.dispatchEvent(new CustomEvent('block:open', { detail: { nick } })) },
-    { name: 'MOD',   callback: () => {} },
   ];
 }
 
@@ -86,7 +89,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
   }
 
   return (
-    <div className={'menuPane' + (menuOpen ? '' : ' collapsed') + (mobileOpen ? ' mobileOpen' : '')} style={{ background: themeColor }}>
+    <div className={'menuPane' + (menuOpen ? '' : ' collapsed') + (mobileOpen ? ' mobileOpen' : '') + (navExpanded ? ' navExpanded' : '')} style={{ background: themeColor }}>
       <ul className={'quickNav' + (navExpanded ? ' expanded' : '')} style={{ background: sidebarColor || undefined }}>
         {SUB_MENUS.map(m => (
           <li className={`navBtn${m.name === selectedList ? ' active' : ''}`} key={m.name} onClick={() => selectNav(m.name)}>
@@ -112,7 +115,7 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
           <AccountPanel user={user} channelName={channelName} />
         )}
         {selectedList === 'settings' && (
-          <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} joinLeave={joinLeave} changeJoinLeave={changeJoinLeave} cursorMode={cursorMode} changeCursorMode={changeCursorMode} />
+          <Settings toggles={toggles} toggleStateChange={toggleStateChange} layout={layout} changeLayout={changeLayout} joinLeave={joinLeave} changeJoinLeave={changeJoinLeave} cursorMode={cursorMode} changeCursorMode={changeCursorMode} user={user} />
         )}
         {selectedList === 'shop' && (
           <Shop key={navNonce} hats={hats} emojis={emojis} user={user} channelName={channelName} userlist={userlist} />
@@ -263,10 +266,77 @@ ProxyDetail.propTypes = {
   consumerRelay: PropTypes.bool,
 };
 
+// Re-renders the list on each minute boundary so a published clock stays honest
+// while the panel sits open. Aligned to the wall clock rather than set to a plain
+// 60s interval, so every row flips when the minute actually changes instead of up
+// to a minute late. Idle while nobody in the room is publishing a time.
+function useMinuteTick(enabled) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    setNow(Date.now());
+
+    let timer;
+    const untilNextMinute = () => 60000 - (Date.now() % 60000);
+    const tick = () => {
+      setNow(Date.now());
+      timer = setTimeout(tick, untilNextMinute());
+    };
+    timer = setTimeout(tick, untilNextMinute());
+
+    return () => clearTimeout(timer);
+  }, [enabled]);
+
+  return now;
+}
+
+// Someone's own local time, from the IANA zone they chose to publish (Settings →
+// local time). Absent for everyone who hasn't opted in, which is the default.
+//
+// The weekday is appended only when their calendar day differs from the viewer's.
+// That is the case actually worth knowing — it's already tomorrow where they are
+// — and would be noise on every row the rest of the time.
+function LocalTime({ timezone, now }) {
+  const shown = useMemo(() => {
+    if (!timezone) return null;
+    try {
+      const at = new Date(now);
+      const time = new Intl.DateTimeFormat([], { timeZone: timezone, hour: 'numeric', minute: '2-digit' }).format(at);
+      // en-CA gives YYYY-MM-DD, so the two days compare as plain strings.
+      const theirDay = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(at);
+      const myDay = new Intl.DateTimeFormat('en-CA').format(at);
+      if (theirDay === myDay) return time;
+
+      const weekday = new Intl.DateTimeFormat([], { timeZone: timezone, weekday: 'short' }).format(at);
+      return `${time} ${weekday}`;
+    } catch {
+      // A zone name this browser's tz database doesn't have (an older runtime
+      // meeting a newer name). Show nothing rather than break the row.
+      return null;
+    }
+  }, [timezone, now]);
+
+  if (!shown) return null;
+
+  return (
+    <span className='userLiTime' title={`Their local time — ${timezone.replace(/_/g, ' ')}`}>
+      {shown}
+    </span>
+  );
+}
+
+LocalTime.propTypes = {
+  timezone: PropTypes.string,
+  now:      PropTypes.number.isRequired,
+};
+
 function UserList({ socket, userlist, emojis, blocks = [] }) {
   // Keyed lowercase: nicks are matched case-insensitively everywhere else, and
   // the list is small enough that rebuilding this per render costs nothing.
   const blocked = new Map(blocks.map(b => [String(b.nick).toLowerCase(), b.expires]));
+
+  const now = useMinuteTick(userlist.some(u => u.timezone));
 
   return (
     <div className='userLi'>
@@ -289,6 +359,7 @@ function UserList({ socket, userlist, emojis, blocks = [] }) {
                 title={blockedUntil(blocked.get(user.nick.toLowerCase()))}
               >block</span>
             ) : null}
+            <LocalTime timezone={user.timezone} now={now} />
             <span className='userLiCurrency'>₵{user.coins}</span>
             <div className='userLiActions'>
               {getUserActions(user.nick, socket, isBlocked).map(action => (
@@ -425,13 +496,14 @@ const CURSOR_MODES = ['pointer', 'trail', 'off'];
 // A connected pill of mutually-exclusive options: the selected segment is filled,
 // the rest sit flat/muted. Keeps multi-option rows compact and visually distinct
 // from the single On/Off toggle rows.
-function Segmented({ options, value, onChange }) {
+function Segmented({ options, value, onChange, disabled = false }) {
   return (
-    <div className='segmented'>
+    <div className={'segmented' + (disabled ? ' disabled' : '')}>
       {options.map(opt => (
         <button
           key={opt}
           className={'segmentBtn' + (value === opt ? ' active' : '')}
+          disabled={disabled}
           onClick={() => onChange(opt)}
         >
           {opt}
@@ -441,37 +513,231 @@ function Segmented({ options, value, onChange }) {
   );
 }
 
-function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, cursorMode, changeCursorMode }) {
+Segmented.propTypes = {
+  options:  PropTypes.array.isRequired,
+  value:    PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
+};
+
+// The zone this browser believes it is in — the default offered when the setting
+// is switched on. Read from Intl rather than looked up from the IP: the browser
+// already knows, and inferring a location from an address is both worse (VPNs)
+// and something the user never agreed to.
+function detectedZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
+// Options for the override dropdown, grouped by area ("America", "Europe"). The
+// zone list is the browser's own tz database — the same one that formats the
+// clock — so there is nothing to keep in sync here. Runtimes without
+// supportedValuesOf get a list holding just their current zone, which is the
+// value that matters; they can still switch the setting on and off.
+function timeZoneGroups(current) {
+  let zones;
+  try {
+    zones = Intl.supportedValuesOf('timeZone');
+  } catch {
+    zones = [];
+  }
+
+  // A zone set on another device may not be one this browser enumerates. Keep it
+  // in the list or the select would render blank and silently rewrite it on the
+  // next change.
+  if (current && !zones.includes(current)) zones = [current, ...zones];
+
+  const groups = new Map();
+  for (const zone of zones) {
+    const slash = zone.indexOf('/');
+    const area = slash === -1 ? 'Other' : zone.slice(0, slash).replace(/_/g, ' ');
+    const label = (slash === -1 ? zone : zone.slice(slash + 1)).replace(/_/g, ' ').replace(/\//g, ' / ');
+    if (!groups.has(area)) groups.set(area, []);
+    groups.get(area).push({ zone, label });
+  }
+
+  return [...groups];
+}
+
+// Human labels for the `toggles` keys, which are storage names rather than
+// anything meant to be read (see ChatWindow's toggles state).
+const TOGGLE_LABELS = {
+  background:   'background',
+  avatars:      'avatars',
+  bubbles:      'bubbles',
+  centermsg:    'center message',
+  mentionSound: 'mention sound',
+  effects:      'effects',
+};
+
+// Which section each toggle belongs to, so a new key added to `toggles` doesn't
+// silently vanish from the panel — anything unlisted falls through to display.
+const SOUND_TOGGLES = ['mentionSound'];
+
+// A titled group of rows. The 11px grey header is the same one the Channel panel
+// uses for Theme Colors / Style Limit; sections are what that panel already gets
+// right and what this one was missing.
+function SettingsSection({ title, hint, children }) {
+  return (
+    <div className='settingsSection'>
+      <div className='settingsSectionLabel'>{title}</div>
+      {hint ? <div className='settingsSectionHint'>{hint}</div> : null}
+      {children}
+    </div>
+  );
+}
+
+SettingsSection.propTypes = {
+  title:    PropTypes.string.isRequired,
+  hint:     PropTypes.string,
+  children: PropTypes.node,
+};
+
+// One setting: label, optional disclosure for the ones whose option names can't
+// explain themselves, then the control.
+//
+// The note is behind a click rather than a hover. Hover would hide it from
+// anyone who doesn't already suspect it's there, and it is unreachable entirely
+// on a touch screen — which is most of the drawing side of this room.
+function SettingsRow({ label, note, children }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className='settingsRow'>
+      <div className='settingsRowHead'>
+        <span className='settingsRowLabel'>{label}</span>
+        {note ? (
+          <button
+            className={'settingsInfoBtn' + (open ? ' active' : '')}
+            aria-expanded={open}
+            title={open ? 'Hide explanation' : 'What does this do?'}
+            onClick={() => setOpen(o => !o)}
+          >
+            <span className='material-symbols-outlined'>info</span>
+          </button>
+        ) : null}
+      </div>
+      {children}
+      {note && open ? <div className='settingsNote'>{note}</div> : null}
+    </div>
+  );
+}
+
+SettingsRow.propTypes = {
+  label:    PropTypes.node.isRequired,
+  note:     PropTypes.node,
+  children: PropTypes.node,
+};
+
+function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, cursorMode, changeCursorMode, user }) {
+  // The account's own value, straight off the live userlist entry — the server
+  // broadcasts a userStateChange for it, so a save from another tab lands here
+  // too and there is no local copy to drift.
+  const timezone = user?.timezone || null;
+  const registered = !!user?.registered;
+  const [tzError, setTzError] = useState(false);
+
+  const zoneGroups = useMemo(() => timeZoneGroups(timezone), [timezone]);
+
+  function saveTimezone(value) {
+    setTzError(false);
+    fetch('/a/timezone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timezone: value }),
+    })
+      .then(r => r.json())
+      // The /a/ auth gate answers with `message` rather than `error`, so a
+      // logged-out save has to be caught on both keys.
+      .then(d => setTzError(!!(d.error || d.message)))
+      .catch(() => setTzError(true));
+  }
+
+  function toggleRow(key) {
+    return (
+      <SettingsRow label={TOGGLE_LABELS[key] || key} key={key}>
+        <Segmented
+          options={['On', 'Off']}
+          value={toggles[key] ? 'On' : 'Off'}
+          onChange={(v) => toggleStateChange(key, v === 'On')}
+        />
+      </SettingsRow>
+    );
+  }
+
+  const displayToggles = Object.keys(toggles).filter(k => !SOUND_TOGGLES.includes(k));
+  const soundToggles = Object.keys(toggles).filter(k => SOUND_TOGGLES.includes(k));
+
   return (
     <div className='settingsContainer'>
-      {Object.entries(toggles).map(([key, value]) => (
-        <label className='settingsLabel' key={key}>
-          {key}
+      <SettingsSection title='Chat display'>
+        {displayToggles.map(toggleRow)}
+        <SettingsRow label='layout'>
+          <Segmented options={LAYOUTS} value={layout} onChange={changeLayout} />
+        </SettingsRow>
+        <SettingsRow
+          label='join/leave'
+          note='Whose arrivals and departures you see. registered hides the churn of guests joining and leaving.'
+        >
+          <Segmented options={JOIN_LEAVE_MODES} value={joinLeave} onChange={changeJoinLeave} />
+        </SettingsRow>
+      </SettingsSection>
+
+      {soundToggles.length ? (
+        <SettingsSection title='Sound'>
+          {soundToggles.map(toggleRow)}
+        </SettingsSection>
+      ) : null}
+
+      <SettingsSection title='You in the room' hint='What everyone else can see of you.'>
+        <SettingsRow
+          label='live cursors'
+          note={
+            'pointer: your equipped cursor replaces your mouse pointer in chat. ' +
+            'trail: your mouse pointer is left alone and your cursor follows it, ' +
+            'the way everyone else sees it. off: your position is never sent and ' +
+            'nobody else’s cursor is shown.'
+          }
+        >
+          <Segmented options={CURSOR_MODES} value={cursorMode} onChange={changeCursorMode} />
+        </SettingsRow>
+
+        <SettingsRow
+          label='local time'
+          note={
+            'On shows what time it is where you are, under your nick in the user ' +
+            'list. Off by default — nothing is shared until you turn it on. Your ' +
+            'zone is detected from your browser; pick another below if it guessed wrong.' +
+            (registered ? '' : ' Log in to use this — it is stored on your account.')
+          }
+        >
           <Segmented
             options={['On', 'Off']}
-            value={value ? 'On' : 'Off'}
-            onChange={(v) => toggleStateChange(key, v === 'On')}
+            value={timezone ? 'On' : 'Off'}
+            disabled={!registered}
+            onChange={(v) => saveTimezone(v === 'On' ? (detectedZone() || 'UTC') : null)}
           />
-        </label>
-      ))}
-      <label className='settingsLabel'>
-        layout
-        <Segmented options={LAYOUTS} value={layout} onChange={changeLayout} />
-      </label>
-      <label className='settingsLabel'>
-        join/leave
-        <Segmented options={JOIN_LEAVE_MODES} value={joinLeave} onChange={changeJoinLeave} />
-      </label>
-      <label className='settingsLabel'>
-        live cursors
-        <Segmented options={CURSOR_MODES} value={cursorMode} onChange={changeCursorMode} />
-      </label>
-      <div className='settingsNote'>
-        pointer: your equipped cursor replaces your mouse pointer in chat.
-        trail: your mouse pointer is left alone and your cursor follows it, the
-        way everyone else sees it. off: your position is never sent and nobody
-        else&apos;s cursor is shown.
-      </div>
+          {timezone ? (
+            <select
+              className='settingsSelect'
+              value={timezone}
+              onChange={(e) => saveTimezone(e.target.value)}
+            >
+              {zoneGroups.map(([area, zones]) => (
+                <optgroup label={area} key={area}>
+                  {zones.map(z => <option key={z.zone} value={z.zone}>{z.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          ) : null}
+          {tzError ? (
+            <div className='settingsNote settingsError'>Couldn&apos;t save that — try again.</div>
+          ) : null}
+        </SettingsRow>
+      </SettingsSection>
     </div>
   );
 }
@@ -485,6 +751,7 @@ Settings.propTypes = {
   changeJoinLeave:   PropTypes.func.isRequired,
   cursorMode:        PropTypes.string.isRequired,
   changeCursorMode:  PropTypes.func.isRequired,
+  user:              PropTypes.object,
 };
 
 // ─── Shop ─────────────────────────────────────────────────────────────────────
