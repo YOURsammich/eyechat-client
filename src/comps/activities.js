@@ -72,6 +72,27 @@ export const ACTIVITIES = [
     },
   },
   {
+    id: 'solvex',
+    label: 'Solve for X',
+    kind: 'game',
+    icon: 'function',
+    aliases: ['sx', 'solve'],
+    blurb: 'Ten equations, same for everyone, fastest set of answers takes the pot.',
+
+    // One lobby at a time, so the row is about that lobby: recruiting while it
+    // waits, a race while it runs, quiet in between.
+    status(state) {
+      if (!state || state.state === 'none') return null;
+      const bet = state.bet ? ` · ₵${state.bet}` : '';
+      if (state.state === 'lobby') return `${state.players} waiting · ${state.difficulty}${bet}`;
+      return `${state.players} racing · ${state.difficulty}`;
+    },
+
+    live(state) {
+      return !!state && state.state !== 'none';
+    },
+  },
+  {
     id: 'whiteboard',
     label: 'Whiteboard',
     kind: 'tool',

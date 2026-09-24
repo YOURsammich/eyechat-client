@@ -121,6 +121,24 @@ function ActivityLauncher({ activities }) {
               </div>
             );
           })}
+
+          {/* The same games, on their own page: for playing without the chat
+              open, or on a second screen. It is the one row that leaves the
+              room, so it sits apart from the rows that open something here. */}
+          <a
+            className='activityHubLink'
+            role='menuitem'
+            href='/games'
+            target='_blank'
+            rel='noopener'
+            onClick={() => setOpen(false)}
+          >
+            <span className='material-symbols-outlined activityItemIcon'>open_in_new</span>
+            <span className='activityItemText'>
+              <span className='activityItemLabel'>Games hub</span>
+              <span className='activityItemBlurb'>Play from a page of its own, without the chat.</span>
+            </span>
+          </a>
         </div>,
         document.body,
       )}

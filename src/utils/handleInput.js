@@ -404,6 +404,19 @@ const COMMANDS = {
   whosaid: {
     params: ['msgnum']
   },
+  // Same >>N argument; mod-gated on the server.
+  delete: {
+    params: ['msgnum']
+  },
+  undelete: {
+    params: ['msgnum']
+  },
+  markcringe: {
+    params: ['msgnum']
+  },
+  unmarkcringe: {
+    params: ['msgnum']
+  },
   // The argument is optional — bare /nothrottle uses the default window, and
   // "off" ends it early. Declared here anyway so the arg gets parsed when it is
   // given (and shows up in the param hint); the server treats it as optional.

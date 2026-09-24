@@ -1409,6 +1409,81 @@ function CollapsibleMessage({ className, children }) {
   );
 }
 
+// A row of the log as render() sees it: either one message or a *run* — adjacent
+// messages a mod has marked as cringe, from one nick, which are drawn as a
+// single "<3 messages marked as cringe> [show]" stub rather than three stubs in
+// a row (feedback #71). Anything else between two cringed lines — another nick,
+// an untouched message, a deleted one — ends the run.
+//
+// `key` is what render() caches the element under. A message's key changes with
+// its verdict (`N`, `N:deleted`) and a run's key is its list of numbers, so a
+// /delete, an undo, or a new line joining a run all miss the cache and redraw —
+// while an unchanged row keeps hitting the element it already has. The bare `N`
+// is kept for untouched messages so the keys the pruner sees stay the same as
+// before.
+export function groupRows (messages) {
+  const rows = [];
+  for (const message of messages) {
+    if (!message) continue;
+    // A deleted message ships with an empty body (the server blanks it) but
+    // still has a row to draw — its verdict is the content.
+    if (!message.message && !message.moderation) continue;
+
+    if (message.moderation === 'cringe') {
+      const last = rows[rows.length - 1];
+      if (last?.run && sameNick(last.run[0], message)) {
+        last.run.push(message);
+        last.key += ',' + message.count;
+        continue;
+      }
+      rows.push({ key: 'cringe:' + message.count, run: [message] });
+      continue;
+    }
+
+    rows.push({
+      key: message.moderation ? message.count + ':' + message.moderation : String(message.count),
+      message,
+    });
+  }
+  return rows;
+}
+
+function sameNick (a, b) {
+  return String(a.nick ?? '').toLowerCase() === String(b.nick ?? '').toLowerCase();
+}
+
+// The stub for a run of cringed messages, and the messages themselves once
+// clicked open. The toggle is this viewer's alone and doesn't outlive the
+// element — a reload comes back collapsed. The stub stands where the first
+// message of the run stood and wears its timestamp and nick; opened, every
+// message is drawn in full with its own timestamp, under a [hide] to fold them
+// back up.
+//
+// The stub keeps the `.message.chat` shape (timestamp, nick, body) so the layout
+// CSS that positions those pieces applies to it unchanged, and so a click on its
+// timestamp still quotes the message (handleClick reads the title off .time).
+function CringeRun ({ messages, renderTimeStamp, renderNick, renderChatLine }) {
+  const [shown, setShown] = useState(false);
+  const first = messages[0];
+  const n = messages.length;
+
+  if (shown) {
+    return <div className='cringeRun'>
+      {messages.map(renderChatLine)}
+      <button className='msgReveal' onClick={() => setShown(false)}>[hide]</button>
+    </div>;
+  }
+
+  return <CollapsibleMessage className='message chat cringeStub'>
+    {renderTimeStamp(first)}
+    {renderNick(first)}
+    <div className='messageContent'>
+      {'<' + (n === 1 ? 'Message' : n + ' messages') + ' marked as cringe> '}
+      <button className='msgReveal' onClick={() => setShown(true)}>[show]</button>
+    </div>
+  </CollapsibleMessage>;
+}
+
 class Messages extends React.Component {
   constructor () {
     super();
@@ -1551,7 +1626,7 @@ class Messages extends React.Component {
     const messages = this.props.messages;
     if (Object.keys(this.cacheMessage).length <= messages.length + 100) return;
 
-    const live = new Set(messages.map(m => String(m?.count)));
+    const live = new Set(groupRows(messages).map(row => row.key));
     for (const key of Object.keys(this.cacheMessage)) {
       if (!live.has(key)) delete this.cacheMessage[key];
     }
@@ -1707,6 +1782,39 @@ class Messages extends React.Component {
       return <ActivityInvite invite={message.invite} key={'message-' + message.count} />;
     }
 
+    // A mod's verdict on the line (see groupRows). The log folds adjacent cringed
+    // messages into one run before it gets here; a single message reaching this
+    // path — a >>N quote preview, say — is a run of one.
+    if (message.moderation === 'deleted') return this.renderDeleted(message);
+    if (message.moderation === 'cringe') return this.renderCringeRun([message], 'cringe:' + message.count);
+
+    return this.renderChatLine(message);
+  }
+
+  // "<message deleted by Nick>" where the message was. The author's line stays
+  // so the gap is attributable; the body never arrived (the server blanks it),
+  // so there is nothing to reveal.
+  renderDeleted (message) {
+    return <CollapsibleMessage className='message chat deletedStub' key={'message-' + message.count}>
+      {this.renderTimeStamp(message)}
+      {message.type == 'chat' ? this.renderNick(message) : null}
+      <div className='messageContent'>{'<message deleted by ' + (message.moderatedBy || 'a moderator') + '>'}</div>
+    </CollapsibleMessage>;
+  }
+
+  renderCringeRun (messages, key) {
+    return <CringeRun
+      key={key}
+      messages={messages}
+      renderTimeStamp={(m) => this.renderTimeStamp(m)}
+      renderNick={(m) => this.renderNick(m)}
+      renderChatLine={(m) => this.renderChatLine(m)}
+    />;
+  }
+
+  // A line of chat as it was said — the shape every message has once the
+  // widgets and the moderation stubs above have been dealt with.
+  renderChatLine (message) {
     // `foundBy` marks a /findmsg result: a real message pulled back out of the
     // log. It is labelled with who dug it up and shown under its original
     // number, so it can't be mistaken for something just said in the room.
@@ -1770,11 +1878,10 @@ class Messages extends React.Component {
 
         {this.props.children}
 
-        {this.props.messages.map(message => {
-          if (!message || !message.message) return null;
-          if (this.cacheMessage[message.count]) return this.cacheMessage[message.count];
-          const msg = this.renderMessage(message);
-          this.cacheMessage[message.count] = msg;
+        {groupRows(this.props.messages).map(row => {
+          if (this.cacheMessage[row.key]) return this.cacheMessage[row.key];
+          const msg = row.run ? this.renderCringeRun(row.run, row.key) : this.renderMessage(row.message);
+          this.cacheMessage[row.key] = msg;
           return msg;
         })}
 

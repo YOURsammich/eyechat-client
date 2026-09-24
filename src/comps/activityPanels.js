@@ -1,6 +1,7 @@
 import UnoPanel from './Uno/UnoPanel';
 import WhiteboardPanel from './Whiteboard/WhiteboardPanel';
 import MinesweeperPanel from './Minesweeper/MinesweeperPanel';
+import SolveXPanel from './SolveX/SolveXPanel';
 
 // The component each activity opens, kept apart from the registry in
 // activities.js on purpose: that file is imported by the public features page,
@@ -13,6 +14,7 @@ import MinesweeperPanel from './Minesweeper/MinesweeperPanel';
 export const ACTIVITY_PANELS = {
   uno: UnoPanel,
   minesweeper: MinesweeperPanel,
+  solvex: SolveXPanel,
   whiteboard: WhiteboardPanel,
 };
 

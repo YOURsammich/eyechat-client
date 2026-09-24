@@ -30,6 +30,11 @@ const API_ROUTES = [
   '/set-nick',
   '/search',
   '/wordstats',
+  '/features/data',
+  // A regex, not a prefix: a bare '/games' would also catch /games.html, the
+  // hub page this dev server is meant to serve itself. Unlike the chat socket
+  // at the origin root, the hub's lives under a path, so it can be proxied.
+  '^/games/(preconnect|ws)$',
   '/images',
 ];
 
@@ -38,7 +43,7 @@ export default defineConfig({
   server: {
     host: true,
     proxy: Object.fromEntries(
-      API_ROUTES.map((route) => [route, { target: API_TARGET, changeOrigin: true }]),
+      API_ROUTES.map((route) => [route, { target: API_TARGET, changeOrigin: true, ws: true }]),
     ),
   },
   build: {
@@ -53,6 +58,8 @@ export default defineConfig({
         main: './index.html',
         search: './search.html',
         wordstats: './wordstats.html',
+        features: './features.html',
+        games: './games.html',
       },
     },
   },

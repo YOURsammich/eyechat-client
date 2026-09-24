@@ -153,6 +153,7 @@ function MinesweeperPanel({ socket, user, onClose }) {
   const popsRef = useRef([]);           // floating score labels in flight
   const popTimerRef = useRef(null);
   const pressRef = useRef(null);        // in-progress touch long-press
+  const lastFlagRef = useRef(null);     // {x, y, t} of the last flag we sent, to fold duplicate triggers
 
   // What React renders around the canvas. The map's cell array is deliberately
   // NOT state — it changes on every click in the room, and a 1500-cell array
@@ -238,11 +239,17 @@ function MinesweeperPanel({ socket, user, onClose }) {
   // one with the clicker's nick — that is most of what makes a shared board
   // feel shared. A scoring click puts the points above the nick; a plain
   // reveal is just the nick, and your own plain reveals get nothing (you know).
+  //
+  // The label floats from just ABOVE the cell, never over it: drawn on the
+  // cell it hides the flag that was just planted for the best part of a
+  // second, which reads as the click not having registered. Near the top edge
+  // it goes below instead.
   function addPop(x, y, points, mine, nick) {
+    const dir = y < 2 ? 1 : -1;
     popsRef.current.push({
-      x, y, mine, nick: nick.length > 12 ? nick.slice(0, 11) + '…' : nick,
+      x, y, dir, mine, nick: nick.length > 12 ? nick.slice(0, 11) + '…' : nick,
       text: points ? fmtPoints(points) : null,
-      born: performance.now(), lastY: y,
+      born: performance.now(), lastY: y + dir,
     });
     if (!popTimerRef.current) popTimerRef.current = requestAnimationFrame(tickPops);
   }
@@ -267,9 +274,12 @@ function MinesweeperPanel({ socket, user, onClose }) {
       }
       const t = (now - p.born) / POP_MS;
       if (t >= 1) continue;
-      const rise = t * cs * 0.9;
+      const drift = t * cs * 0.9 * p.dir;
       const cx = p.x * cs + cs / 2;
-      const cy = p.y * cs + cs / 2 - rise;
+      // Points line sits a cell away from the clicked one (above, usually) and
+      // drifts further; the nick line hangs off it toward the cell, so the
+      // whole label stays clear of the cell throughout.
+      const cy = p.y * cs + cs / 2 + p.dir * cs * (p.text ? 1.3 : 0.9) + drift;
       p.lastY = Math.floor(cy / cs);
       ctx.save();
       ctx.globalAlpha = 1 - t * t;
@@ -283,8 +293,8 @@ function MinesweeperPanel({ socket, user, onClose }) {
         ctx.fillStyle = p.text.startsWith('+') ? '#7fe08a' : '#ff6b6b';
         ctx.fillText(p.text, cx, cy);
       }
-      // The nick sits under the points, or where the points would be.
-      const ny = p.text ? cy + cs * 0.6 : cy;
+      // The nick sits on the cell side of the points, or where the points would be.
+      const ny = p.text ? cy - p.dir * cs * 0.6 : cy;
       ctx.font = `${Math.round(cs * 0.45)}px ${MONO}`;
       ctx.strokeText(p.nick, cx, ny);
       ctx.fillStyle = '#ddd';
@@ -350,6 +360,9 @@ function MinesweeperPanel({ socket, user, onClose }) {
       offSnapshot(); offUpdate();
       if (offReconnect) offReconnect();
       if (popTimerRef.current) cancelAnimationFrame(popTimerRef.current);
+      // The sync above is what told the launcher we're playing; this is what
+      // tells it we've stopped.
+      socket.emit('ms:leave', {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket]);
@@ -392,6 +405,26 @@ function MinesweeperPanel({ socket, user, onClose }) {
     else if (v > 0) socket.emit('ms:chord', cell);
   }
 
+  // A right click reaches us two ways: pointerdown with button 2, and the
+  // contextmenu event on release. Both are wired because either can be the only
+  // one that fires — Chrome sends no pointerdown for a right press that starts
+  // while the left button is still held (a chord, easy to do when clicking
+  // fast), and a pen's barrel button or a touch long-press may only surface as
+  // contextmenu. The same cell within a beat is one flag, not two.
+  function flagAt(cell) {
+    if (!cell) return;
+    const last = lastFlagRef.current;
+    const now = performance.now();
+    if (last && last.x === cell.x && last.y === cell.y && now - last.t < 400) return;
+    lastFlagRef.current = { x: cell.x, y: cell.y, t: now };
+    act(cell, 'flag');
+  }
+
+  function onContextMenu(e) {
+    e.preventDefault();
+    flagAt(cellAt(e));
+  }
+
   function onPointerDown(e) {
     if (!e.isPrimary) return;
     const cell = cellAt(e);
@@ -403,13 +436,13 @@ function MinesweeperPanel({ socket, user, onClose }) {
         const p = pressRef.current;
         if (!p || p.id !== e.pointerId) return;
         p.fired = true;
-        act(cell, 'flag');
+        flagAt(cell);
       }, LONG_PRESS_MS) };
       return;
     }
 
     // Mouse / pen: right or middle flags, left reveals (or flags in flag mode).
-    if (e.button === 2 || e.button === 1) { e.preventDefault(); act(cell, 'flag'); return; }
+    if (e.button === 2 || e.button === 1) { e.preventDefault(); flagAt(cell); return; }
     if (e.button === 0) act(cell, flagMode ? 'flag' : 'reveal');
   }
 
@@ -513,7 +546,7 @@ function MinesweeperPanel({ socket, user, onClose }) {
                 onPointerCancel={onPointerCancel}
                 onPointerMove={onPointerMove}
                 onPointerLeave={onPointerLeave}
-                onContextMenu={(e) => e.preventDefault()}
+                onContextMenu={onContextMenu}
                 onAuxClick={(e) => e.preventDefault()}
               />
             </div>

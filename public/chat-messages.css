@@ -63,6 +63,42 @@
   color: #fff;
 }
 
+/* Moderation stubs (/delete, /markcringe). The line keeps its timestamp and nick
+   and only the body is replaced, in a muted italic so it reads as a note about
+   the message rather than as something the author said. The [show]/[hide]
+   toggle is an inline button — `.message div { display: inline }` already puts
+   everything in a message on one line, so it just needs to lose the button
+   chrome and look like the rest of the stub. */
+
+.deletedStub .messageContent,
+.cringeStub .messageContent {
+  color: #8a8a8a;
+  font-style: italic;
+  text-shadow: none;
+}
+
+.msgReveal {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #bbb;
+  font: inherit;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.msgReveal:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* The [hide] under an opened run sits on its own line below the messages. */
+.cringeRun > .msgReveal {
+  display: block;
+  margin: -2px 0 4px 9px;
+  font-size: 0.75em;
+}
+
 .message.collapsedMsg {
   overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent 100%);
@@ -235,6 +271,27 @@
   66.4% { color: rgb(0, 0, 255); }
   84.3% { color: rgb(255, 0, 255); }
   100%  { color: rgb(255, 0, 0); }
+}
+
+/* Images have no text color to animate, so emojis and photos inside a rainbow
+   span cycle their hue instead, on the same clock. The Emoji component nests
+   img.emoji inside div.emoji; animating both would spin the hue twice as fast,
+   so only the wrapper is animated there. */
+.rainbow img,
+.rainbow div.emoji {
+  animation-name: rainbow-hue;
+  animation-duration: 2s;
+  animation-iteration-count: 15;
+  animation-timing-function: linear;
+}
+
+.rainbow div.emoji img {
+  animation: none;
+}
+
+@keyframes rainbow-hue {
+  from { filter: hue-rotate(0deg); }
+  to   { filter: hue-rotate(360deg); }
 }
 
 .shake {

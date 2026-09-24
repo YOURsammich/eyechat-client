@@ -1,0 +1,112 @@
+/* Games hub (/games). Loaded after search.css, which supplies the shared
+   side-page chrome (body palette, .wrap, .card, .btn, .status). Everything
+   here is the lobby on top of it, plus the few chat classes the game panels
+   were written against — they are the chat's floating windows, mounted here
+   unchanged, and theme.css (where those classes live) is not loaded on this
+   page because its #root/body rules are the chat shell's. */
+
+.wrap.games { max-width: 1000px; }
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.gamesHeader {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+}
+.gamesHeader p { max-width: 560px; line-height: 1.5; }
+
+.gamesMe {
+  display: flex; align-items: center; gap: 12px; flex: none;
+  padding-top: 8px; font-size: 13px;
+}
+.gamesMeNick { color: #eee; font-weight: 600; }
+.gamesMeCoins { color: gold; }
+
+/* Connection state, coloured only when it is worth a look. */
+.gamesConn {
+  padding: 3px 10px; border-radius: 999px; border: 1px solid #333;
+  color: #777; font-size: 12px; white-space: nowrap;
+}
+.gamesConn.online { color: #4ade80; border-color: #1f4d2e; }
+.gamesConn.offline, .gamesConn.rejected { color: #f66; border-color: #5a2a2a; }
+
+/* ── Lobby ────────────────────────────────────────────────────────────────── */
+
+.gamesSection { margin-bottom: 36px; }
+.gamesSection > h2 {
+  color: #777; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;
+}
+
+.gameGrid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+/* A card is one button: the whole face opens the game. */
+.gameCard {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  text-align: left; padding: 18px 18px 14px;
+  background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 10px;
+  color: #ddd; font-family: inherit; cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.gameCard:hover { background: #222; border-color: #3a3a3a; }
+.gameCard.live { border-color: #1f4d2e; }
+.gameCard.live:hover { border-color: #2c6b41; }
+.gameCard.open { border-color: #2a5a8c; }
+
+.gameCardIcon { font-size: 30px; color: #8cf; }
+.gameCardText { display: flex; flex-direction: column; gap: 4px; }
+.gameCardLabel { color: #fff; font-size: 16px; font-weight: 600; }
+.gameCardBlurb { color: #8a8a8a; font-size: 13px; line-height: 1.4; }
+
+.gameCardFoot {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; margin-top: 6px; font-size: 12px;
+}
+.gameCardStatus { color: #4ade80; }
+.gameCardIdle { color: #555; }
+.gameCardCta {
+  padding: 4px 12px; border-radius: 6px;
+  background: #1a3a5c; border: 1px solid #2a5a8c; color: #8cf; font-weight: 500;
+}
+.gameCard.open .gameCardCta { background: #16321f; border-color: #1f4d2e; color: #4ade80; }
+
+/* ── Toasts ───────────────────────────────────────────────────────────────── */
+/* Where a game's notices land. In the chat they are lines in the log; there is
+   no log here, so they stack at the bottom and fade on their own. */
+
+.toasts {
+  position: fixed; left: 16px; bottom: 16px; z-index: 20000;
+  display: flex; flex-direction: column; gap: 8px; max-width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.4;
+  background: #222; border: 1px solid #333; color: #ddd;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+.toast.error { border-color: #5a2a2a; color: #f88; }
+.toast.invite { border-color: #1f4d2e; }
+.toast .btn { padding: 4px 12px; font-size: 12px; }
+
+/* ── What the panels expect from the chat's stylesheet ────────────────────── */
+/* Mirrors .stdBtn / .stdInput in theme.css. If those change, change these. */
+
+.stdBtn {
+  background-color: #39f; color: white; padding: 5px 13px; border-radius: 3px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-weight: bold; gap: 10px; border: none; font-family: inherit;
+}
+.stdBtn:disabled { background-color: #333; color: #666; cursor: not-allowed; }
+
+/* search.css styles every <input> for its own form; this class wins on the
+   UNO lobby's inputs so they look like the chat's. */
+.stdInput {
+  padding: 5px 0; text-indent: 10px; outline: none; font-family: inherit;
+  background-color: #fff; color: #000; border-radius: 5px;
+  box-shadow: inset 0 0 1px black; border: 1px solid; height: 34px;
+}

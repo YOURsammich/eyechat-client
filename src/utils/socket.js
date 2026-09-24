@@ -29,8 +29,16 @@ const socket = {
   _heartbeatTimer: null,  // interval that sends pings while connected
   _pongTimer: null,       // watchdog armed after a ping; fires if no pong arrives
 
-  init ({ getActiveChannel } = {}) {
+  // Where the handshake and the socket live. The chat uses the defaults; the
+  // games hub page (games.jsx) points both at its own endpoints, which share
+  // the approval scheme but seat only logged-in accounts and join no channel.
+  _preconnectUrl: '/preconnect',
+  _wsPath: '',
+
+  init ({ getActiveChannel, preconnectUrl, wsPath } = {}) {
     this.getActiveChannel = getActiveChannel;
+    if (preconnectUrl) this._preconnectUrl = preconnectUrl;
+    if (wsPath) this._wsPath = wsPath;
 
     // Mobile browsers freeze page JS while backgrounded, so a socket can die
     // silently (no 'close' fires until the tab wakes). When the user returns,
@@ -45,9 +53,10 @@ const socket = {
 
     // Reuse the preconnect kicked off by the inline script in index.html so it
     // overlaps bundle download/parse; fall back to firing it here if absent.
-    const preconnect = window.__preconnect
+    // The inline script is the chat's, so it is only reused for the chat's URL.
+    const preconnect = window.__preconnect && this._preconnectUrl === '/preconnect'
       ? window.__preconnect
-      : fetch('/preconnect', { method: 'POST' }).then(res => res.json());
+      : fetch(this._preconnectUrl, { method: 'POST' }).then(res => res.json());
 
     return preconnect.then((message) => {
       if (message && message.success) {
@@ -71,7 +80,7 @@ const socket = {
       // can't proxy it the way it proxies the REST routes. Setting
       // VITE_WS_URL=ws://chat.example.com points the chat socket at a real
       // server while the page itself is served by Vite. Unset in every build.
-      const url = import.meta.env?.VITE_WS_URL || (prefix + '://' + location.host);
+      const url = (import.meta.env?.VITE_WS_URL || (prefix + '://' + location.host)) + this._wsPath;
 
       // Supersede any previous socket before opening the new one: assign
       // this._socket first (so the old socket's handlers see themselves as stale
@@ -198,7 +207,7 @@ const socket = {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), PRECONNECT_TIMEOUT);
 
-    fetch('/preconnect', { method: 'POST', signal: controller.signal })
+    fetch(this._preconnectUrl, { method: 'POST', signal: controller.signal })
       .then(res => res.json())
       .then((message) => {
         clearTimeout(timeout);

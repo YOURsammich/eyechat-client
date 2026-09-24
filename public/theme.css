@@ -2695,6 +2695,23 @@ a {
   white-space: nowrap;
 }
 
+/* The link out to /games, styled as a row of the menu rather than as a link,
+   and set apart from the rows above it by the same rule that separates the
+   groups. theme.css underlines every <a>; not this one. */
+.activityHubLink {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border-top: 1px solid #2c2c2c;
+  color: #ddd;
+  font-size: 14px;
+  text-decoration: none;
+}
+.activityHubLink:hover { background: #2f2f2f; text-decoration: none; }
+.activityHubLink .activityItemIcon { color: #999; }
+
 /* ─── Activity invite ─────────────────────────────────────────────────────
    The "sammich started UNO" line in the log (Chat/ActivityInvite.jsx). Same
    shell as .whatsNew — a sibling of .messageBlock rather than a message, so no

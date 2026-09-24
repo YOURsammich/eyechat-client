@@ -260,6 +260,23 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       pushMessages(msg);
     });
 
+    // A mod ran /delete, /markcringe or one of their undos on a message. The
+    // server sends the whole row as it now reads, but only three things on it
+    // can have changed — the verdict, who gave it, and the body (blanked for a
+    // deleted message, back again on /undelete) — so only those are taken. The
+    // rest of the row is kept as it was normalised on arrival (time as a number,
+    // `type` rather than `messageType`). A row that isn't on screen is left
+    // alone: it comes back correct from the log if it is ever scrolled to.
+    const offModeration = socket.on('messageModeration', (row) => {
+      if (row?.count == null) return;
+      const count = String(row.count);
+      setMessages(prev => prev.map(m => (
+        String(m.count) === count
+          ? { ...m, message: row.message, moderation: row.moderation ?? null, moderatedBy: row.moderatedBy ?? null }
+          : m
+      )));
+    });
+
     const offChannelInfo = socket.on('channelInfo', (channelInfo) => {
       const messageLog = channelInfo.message_log.reverse().map(a => ({
         message: a.message,
@@ -271,6 +288,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         avatar: a.avatar ?? null,
         textstyle: a.textstyle ?? null,
         effect: a.effect ?? null,
+        moderation: a.moderation ?? null,
+        moderatedBy: a.moderatedBy ?? null,
         time: a.time ? Number(a.time) : undefined
       }));
 
@@ -421,6 +440,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
       offMessage();
+      offModeration();
       offChannelInfo();
       offBlocks();
       offSeparate();

@@ -323,6 +323,10 @@ const COMMAND_NOTES = {
   nothrottle: 'Lift rate limits for a while.',
   find: 'Look up a user’s IP and every account created from it.',
   whosaid: 'Find out who sent a numbered message, and from where.',
+  delete: 'Delete a numbered message for everyone. A stub saying who removed it stays in its place.',
+  undelete: 'Bring a deleted message back.',
+  markcringe: 'Collapse a numbered message behind a "marked as cringe" stub. Anyone can click to read it anyway.',
+  unmarkcringe: 'Uncollapse a message marked as cringe.',
   findmsg: 'Search the log for a phrase, from chat.',
 
   // Actions — no typed form; these are gated things done through the interface.
