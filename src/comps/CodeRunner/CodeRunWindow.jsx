@@ -1,14 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 
-function CodeRunWindow({ giveRefresh, giveIframe, draggingWindow, pluginName, copeCloud }) {
+function CodeRunWindow({ giveRefresh, giveIframe, draggingWindow, pluginName, owner, copeCloud, onClose, onPopOut }) {
   const [chatWidth, setChatWidth] = useState(600);
+  const src = copeCloud + 'v/' + (owner || 'sammich') + '/' + pluginName;
   const resizeBarRef = useRef(null);
   const iframeRef = useRef(null);
   const isDraggingRef = useRef(false);
   const diffRef = useRef(0);
+  // Held in a ref so the reload closure, registered once, always reloads
+  // whichever plugin is currently open.
+  const srcRef = useRef(src);
+  srcRef.current = src;
 
   useEffect(() => {
-    giveRefresh(() => { iframeRef.current.src = iframeRef.current.src; });
+    giveRefresh(() => { if (iframeRef.current) iframeRef.current.src = srcRef.current; });
     giveIframe(iframeRef.current);
 
     const resizeBar = resizeBarRef.current;
@@ -42,7 +47,14 @@ function CodeRunWindow({ giveRefresh, giveIframe, draggingWindow, pluginName, co
   return (
     <div style={{ display: 'flex', width: chatWidth + 'px' }}>
       <div className='codeRunnerPanel' style={{ pointerEvents: draggingWindow ? 'none' : '' }}>
-        <iframe ref={iframeRef} src={copeCloud + 'v/sammich/' + pluginName}
+        <div className='codeRunnerHeader'>
+          <span className='codeRunnerTitle'>{pluginName}</span>
+          <span className='codeRunnerActions'>
+            <span className='material-symbols-outlined' onClick={onPopOut} title='Pop out'>open_in_new</span>
+            <span className='material-symbols-outlined' onClick={onClose} title='Close'>close</span>
+          </span>
+        </div>
+        <iframe ref={iframeRef} title={pluginName} src={src}
           style={{ flex: 1, border: 'none', pointerEvents: isDraggingRef.current ? 'none' : '' }}
         />
       </div>

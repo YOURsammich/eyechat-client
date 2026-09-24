@@ -91,6 +91,15 @@ a {
   align-items: center;
 }
 
+.pluginSelect:hover {
+  background-color: #444;
+}
+
+.pluginSelectActive {
+  background-color: #39f;
+  color: #fff;
+}
+
 .appViewToggle {
   display: flex;
   justify-content: center;
@@ -1230,6 +1239,40 @@ a {
   box-shadow: #111 0px 0px 4px;
   height: 100%;
   flex: 1;
+}
+
+.codeRunnerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1b1b1b;
+  border-bottom: 1px solid #333;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+}
+
+.codeRunnerTitle {
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codeRunnerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.codeRunnerActions span {
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0.7;
+}
+
+.codeRunnerActions span:hover {
+  opacity: 1;
 }
 
 .resizeBar {

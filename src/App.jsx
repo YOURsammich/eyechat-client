@@ -6,9 +6,11 @@ import socket from './utils/socket';
 
 import ChatWindow from './comps/Chat/ChatWindow';
 import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
+import PluginWindow from './comps/CodeRunner/PluginWindow';
+import { readOverrides, writeOverrides, resolveMode } from './comps/CodeRunner/pluginMode';
 import { preloadFontsFromText, loadFont } from './comps/Chat/Messages';
 
-const COPE_CLOUD = 'http://localhost:8080/';
+const COPE_CLOUD = 'https://cloud.cope.chat/';
 
 // SVG filter definitions for the message `effect` MWs (src/middlewares.js).
 // Mounted once for the whole app, not per message: a filter is referenced by id
@@ -59,23 +61,35 @@ function MessageEffectFilters() {
 }
 
 function App() {
-  const [showApp, setShowApp] = useState(false);
+  // The open plugin's name, or null. Its record is looked up in `plugins`, so
+  // an author changing the display mode lands on the next fetch without the
+  // viewer having to reopen anything.
+  const [showApp, setShowApp] = useState(null);
   const [showPluginBar, setShowPluginBar] = useState(false);
   const [userlist, setUserlist] = useState([]);
   const [userID, setUserID] = useState(null);
   const [plugins, setPlugins] = useState([]);
+  // Per-plugin viewer overrides of the author's display mode.
+  const [modeOverrides, setModeOverrides] = useState(readOverrides);
   // Set when /preconnect refuses us (ban, rate-limit, whitelist mode); shows a
   // blocking overlay instead of a silent, never-connecting chat shell.
   const [rejection, setRejection] = useState(null);
 
   const storeRef = useRef(null);
   const iframeRef = useRef(null);
+  const lastAppRef = useRef(null);
+  const myUserRef = useRef(null);
 
   // Build the store synchronously so the chat shell can render on first paint,
   // before the WebSocket connects. It only reads localStorage.
   if (!storeRef.current) storeRef.current = window.store = new Store();
 
   const myUser = userlist.find(u => u.id === userID);
+
+  // The message bridge is registered once, so it must not close over `myUser`
+  // directly: it would capture the undefined value from the first render and
+  // never answer a plugin's getNick/getTrust.
+  myUserRef.current = myUser;
 
   useEffect(() => {
     // Register handlers up front (they only fire once events arrive over the
@@ -144,17 +158,22 @@ function App() {
       if (!ok) return;
       socket.emit('joinChannel');
 
-      // fetch(COPE_CLOUD + 'getPublicApps')
-      //   .then(res => res.json())
-      //   .then(res => setPlugins(Object.keys(res)))
-      //   .catch(() => {});
+      // Public apps come back as records, not just names, because the plugin
+      // bar needs each one's display mode as well as its name.
+      fetch(COPE_CLOUD + 'getPublicApps')
+        .then(res => res.json())
+        .then(res => setPlugins(Array.isArray(res) ? res : []))
+        .catch(() => {});
     });
 
     window.addEventListener('message', (e) => {
-      if (e.data === 'requestnick' && iframeRef.current && myUser) {
-        iframeRef.current.contentWindow.postMessage('nick: ' + myUser.nick, '*');
-      } else if (e.data === 'requesttrust' && iframeRef.current && myUser) {
-        iframeRef.current.contentWindow.postMessage('trust: ' + myUser.trust, '*');
+      const user = myUserRef.current;
+      if (!iframeRef.current || !user) return;
+
+      if (e.data === 'requestnick') {
+        iframeRef.current.contentWindow.postMessage('nick: ' + user.nick, '*');
+      } else if (e.data === 'requesttrust') {
+        iframeRef.current.contentWindow.postMessage('trust: ' + user.trust, '*');
       }
     });
   }, []);
@@ -210,6 +229,35 @@ function App() {
       .catch(() => { styleAdopted.current = false; });
   }, [myUser?.registered, myUser?.color, myUser?.font, myUser?.glow, myUser?.style]);
 
+  // Reopening the bar should bring back what you last had open rather than
+  // nothing, so remember it while it is up.
+  useEffect(() => { if (showApp) lastAppRef.current = showApp; }, [showApp]);
+
+  const openPlugin = plugins.find(p => p.appname === showApp) || null;
+  const openMode = openPlugin ? resolveMode(openPlugin, modeOverrides) : null;
+
+  // A viewer moving a plugin overrides its author's default, for them only.
+  function setPluginMode(appname, mode) {
+    setModeOverrides(prev => {
+      const next = { ...prev, [appname]: mode };
+      writeOverrides(next);
+      return next;
+    });
+  }
+
+  function togglePluginPanel() {
+    setShowApp(open => open ? null : (lastAppRef.current || plugins[0]?.appname || null));
+  }
+
+  const pluginProps = openPlugin && {
+    pluginName: openPlugin.appname,
+    owner: openPlugin.owner,
+    copeCloud: COPE_CLOUD,
+    giveRefresh: (refresh) => { window._refreshIframe = refresh; },
+    giveIframe: (iframe) => { iframeRef.current = iframe; },
+    onClose: () => setShowApp(null),
+  };
+
   return (
     <div style={{ flexDirection: 'column', display: 'flex', flex: 1, overflow: 'hidden' }}>
       <MessageEffectFilters />
@@ -237,29 +285,39 @@ function App() {
 
         {showPluginBar ? (
           <div className="sideBar">
-            <div className="appViewToggle" onClick={() => setShowApp(s => !s)}>
+            <div className="appViewToggle" onClick={togglePluginPanel}>
               <span className="material-symbols-outlined">code</span>
             </div>
             <div className='pluginSelectionContainer'>
               {plugins.map((plugin) => (
-                <div key={plugin} className="pluginSelect" onClick={() => setShowApp(plugin)}>
-                  {plugin.slice(0, 2) + plugin.slice(-2)}
+                <div
+                  key={plugin.appname}
+                  title={plugin.appname}
+                  className={'pluginSelect' + (plugin.appname === showApp ? ' pluginSelectActive' : '')}
+                  onClick={() => setShowApp(plugin.appname)}
+                >
+                  {plugin.appname.slice(0, 2) + plugin.appname.slice(-2)}
                 </div>
               ))}
             </div>
           </div>
         ) : null}
 
-        {showApp ? (
+        {openMode === 'sidebar' ? (
           <CodeRunWindow
             socket={socket}
             userlist={userlist}
-            giveRefresh={(refresh) => { window._refreshIframe = refresh; }}
             focusOnCode={false}
             draggingWindow={false}
-            pluginName={showApp}
-            giveIframe={(iframe) => { iframeRef.current = iframe; }}
-            copeCloud={COPE_CLOUD}
+            onPopOut={() => setPluginMode(openPlugin.appname, 'floating')}
+            {...pluginProps}
+          />
+        ) : null}
+
+        {openMode === 'floating' ? (
+          <PluginWindow
+            onDock={() => setPluginMode(openPlugin.appname, 'sidebar')}
+            {...pluginProps}
           />
         ) : null}
 

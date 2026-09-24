@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 // can clip it). Dragging is bound to the title bar only, so interactive body
 // content (e.g. a paint canvas) is never hijacked. Follows the same fixed +
 // zIndex + move-on-mousemove idiom as UnoPanel.
-export default function DraggableWindow({ title, onClose, children, initialLeft = 140, initialTop = 90, width = 'auto' }) {
+export default function DraggableWindow({ title, onClose, children, initialLeft = 140, initialTop = 90, width = 'auto', headerActions = null, bodyStyle = null }) {
   const panelRef = useRef(null);
   const headerRef = useRef(null);
 
@@ -17,6 +17,7 @@ export default function DraggableWindow({ title, onClose, children, initialLeft 
 
     function onMouseDown(e) {
       if (e.target.nodeName === 'BUTTON' || e.target.closest('button')) return;
+      if (e.target.closest('[data-window-action]')) return;
       dragging = true;
       startX = e.clientX; startY = e.clientY;
       const rect = panel.getBoundingClientRect();
@@ -62,16 +63,19 @@ export default function DraggableWindow({ title, onClose, children, initialLeft 
         }}
       >
         <span style={{ fontWeight: 'bold', fontSize: 13 }}>{title}</span>
-        <span
-          className='material-symbols-outlined'
-          onClick={onClose}
-          title='Close'
-          style={{ cursor: 'pointer', fontSize: 20, display: 'flex' }}
-        >
-          close
+        <span data-window-action style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {headerActions}
+          <span
+            className='material-symbols-outlined'
+            onClick={onClose}
+            title='Close'
+            style={{ cursor: 'pointer', fontSize: 20, display: 'flex' }}
+          >
+            close
+          </span>
         </span>
       </div>
-      <div style={{ padding: 12, overflow: 'auto', flex: 1, minHeight: 0 }}>
+      <div style={{ padding: 12, overflow: 'auto', flex: 1, minHeight: 0, ...bodyStyle }}>
         {children}
       </div>
     </div>,
