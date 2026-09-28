@@ -247,6 +247,13 @@ const partStyles = {
   noSlideShow: true
 };
 
+// The question and answer on a Magic Cope Ball card: emoji and links, but no
+// color — the card sets its own, and an answer from the pool shouldn't restyle it.
+const copeStyles = {
+  ...partStyles,
+  noColor: true
+};
+
 // Greentext: a line opening with ">" renders in #859918, imageboard style. ">>"
 // is left alone — that's a message quote (see getNextQuoteComp).
 //
@@ -366,8 +373,14 @@ const messageParser = {
   getNextLinkComp (str, msgStyles) {
     if (msgStyles.noLink) return null;
 
-    const index = str.indexOf('https://');
-    if (index == -1) return null;
+    // Only https links are recognised, except that a page served over plain
+    // http (local dev) also recognises links to its own origin — otherwise a
+    // pasted image upload (origin + /images/uploads/...) never renders there.
+    const prefixes = ['https://'];
+    if (window.location.protocol === 'http:') prefixes.push(window.location.origin + '/');
+    const hits = prefixes.map(p => str.indexOf(p)).filter(i => i != -1);
+    if (!hits.length) return null;
+    const index = Math.min(...hits);
 
     const nextSpace = str.indexOf(' ', index);
     const quoteStart = str.indexOf('"', index);
@@ -1782,6 +1795,8 @@ class Messages extends React.Component {
       return <ActivityInvite invite={message.invite} key={'message-' + message.count} />;
     }
 
+    if (message.type === 'cope') return this.renderCope(message);
+
     // A mod's verdict on the line (see groupRows). The log folds adjacent cringed
     // messages into one run before it gets here; a single message reaching this
     // path — a >>N quote preview, say — is a run of one.
@@ -1789,6 +1804,52 @@ class Messages extends React.Component {
     if (message.moderation === 'cringe') return this.renderCringeRun([message], 'cringe:' + message.count);
 
     return this.renderChatLine(message);
+  }
+
+  // A Magic Cope Ball answer (/ask), on one line like the chat around it:
+  // "🔮 bob asked: will it work? (outlook hazy)", the answer as a pill. The
+  // server sends question and answer as JSON in `message` (the log has one
+  // text column) with the asker as `nick`. It keeps a real message number, so
+  // its timestamp quotes it like any line.
+  //
+  // Only a line that just arrived wiggles the ball and pops the pill in; one
+  // loaded from history appears already answered. Rows are cached once
+  // rendered, so this is decided once per line.
+  renderCope (message) {
+    let question = '', answer = '';
+    try {
+      ({ question, answer } = JSON.parse(message.message));
+    } catch {
+      answer = message.message;
+    }
+    const fresh = Date.now() - (message.time || 0) < 5000;
+    const emojis = this.props.emojis;
+
+    return <CollapsibleMessage
+      className={'message cope' + (fresh ? ' copeFresh' : '')}
+      key={'message-' + message.count}
+    >
+      {this.renderTimeStamp(message)}
+      <div className='messageContent'>
+        {/* Opens the answer pool, through the same window event /seecope
+            dispatches — a prop callback wouldn't reach a cached row. */}
+        <button
+          className='copeBall'
+          title='See every answer (/seecope)'
+          aria-label='See every Magic Cope Ball answer'
+          onClick={() => window.dispatchEvent(new CustomEvent('seecope:open'))}
+        >🔮</button>{' '}
+        <b className='copeAsker'>{message.nick || 'Someone'}</b>
+        {question ? ' asked: ' : ' asked the Magic Cope Ball'}
+        {question
+          ? <span className='copeQuestion'><ParsedContent text={question} emojis={emojis} styles={copeStyles} compact /></span>
+          : null}
+        {' '}
+        <span className='copeAnswer' title='The Magic Cope Ball says'>
+          <ParsedContent text={answer} emojis={emojis} styles={copeStyles} compact />
+        </span>
+      </div>
+    </CollapsibleMessage>;
   }
 
   // "<message deleted by Nick>" where the message was. The author's line stays

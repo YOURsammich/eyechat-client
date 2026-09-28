@@ -53,11 +53,24 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
   function getInputText() {
     const el = inputBarRef.current;
     let text = '';
+    // A GIF/image chip becomes a bare URL, which only renders as a link when
+    // whitespace separates it from its neighbours — so pad it where needed.
+    let afterUrl = false;
+    const append = (s) => {
+      if (!s) return;
+      if (afterUrl && !/^\s/.test(s)) text += ' ';
+      text += s;
+      afterUrl = false;
+    };
     for (const node of el.childNodes) {
-      if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
-      else if (node.nodeName === 'IMG') text += node.dataset.gifUrl ?? node.dataset.emojiId ?? '';
-      else if (node.nodeName === 'BR') text += '\n';
-      else text += node.textContent;
+      if (node.nodeType === Node.TEXT_NODE) append(node.textContent);
+      else if (node.nodeName === 'IMG' && node.dataset.gifUrl) {
+        append((text && !/\s$/.test(text) ? ' ' : '') + node.dataset.gifUrl);
+        afterUrl = true;
+      }
+      else if (node.nodeName === 'IMG') append(node.dataset.emojiId ?? '');
+      else if (node.nodeName === 'BR') append('\n');
+      else append(node.textContent);
     }
     return text;
   }
@@ -314,14 +327,23 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
         } else {
           historyIndexRef.current = -1;
           historyRef.current.unshift(inputText);
+          // A command that was refused (unknown, or missing an argument) keeps
+          // its text, with the param hint back up, so fixing it is one edit
+          // rather than a retype.
+          let refused = false;
           try {
-            handleInputFn(inputText);
+            refused = handleInputFn(inputText) === false;
           } catch (e) {
             console.error(e);
             addMessage({ message: e.message, type: 'error', count: 'error' + Math.random() });
+            refused = true;
           }
-          clearInput();
-          setGhostText('');
+          if (refused) {
+            setGhostText(getParamGhost(getPlainText()));
+          } else {
+            clearInput();
+            setGhostText('');
+          }
         }
       }
     } else if (event.which === 9) {
@@ -378,11 +400,16 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
       const ext = file.type.split('/')[1] || 'png';
       const formData = new FormData();
       formData.append('image', file, `paste.${ext}`);
+      // Upload now, but only place the image in the input bar as a chip — it is
+      // sent with the rest of the message when the user presses Enter.
       fetch('/a/upload/image', { method: 'POST', body: formData })
         .then(r => r.json())
         .then(data => {
-          if (data.url) socket.emit('message', { message: window.location.origin + data.url });
-        });
+          if (!data.url) throw new Error(data.error || 'Upload failed');
+          const url = window.location.origin + data.url;
+          insertGifAtCursor(url, url);
+        })
+        .catch(err => addMessage({ message: 'Image paste failed: ' + err.message, type: 'error', count: 'error' + Math.random() }));
       return;
     }
     // Paste as plain text to avoid injecting HTML formatting into contenteditable

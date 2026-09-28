@@ -156,8 +156,8 @@ const SECTIONS = [
       {
         icon: '🔮',
         title: 'Magic Cope Ball',
-        body: 'Ask it anything. The answer is a random pull from a pool the room wrote itself — vetted users add new ones, and the question is pure flavor.',
-        tags: ['/ask', '/addcope'],
+        body: 'Ask it anything. The answer is a random pull from a pool the room wrote itself — vetted users add new ones, and the question is pure flavor. /seecope opens the whole pool.',
+        tags: ['/ask', '/addcope', '/seecope'],
       },
       {
         icon: '💰',
@@ -352,6 +352,22 @@ const COMMAND_NOTES = {
 // `trust: null` is the literal truth: there is no gate, because there is no
 // server round-trip to gate. That puts them in the "open to anyone" group with
 // the other ungated commands, which is where a reader would look for them.
+// Other commands the chat handles in the browser, for the same reason: they
+// open a panel, which fetches its own data, so the server's registry doesn't
+// list them. Only the ones anyone can open — the staff panels gate their fetch
+// server-side and would read here as open to everyone.
+const PANEL_COMMANDS = [
+  {
+    name: 'seecope',
+    kind: 'client',
+    label: '/seecope',
+    trust: null,
+    params: [],
+    aliases: [],
+    note: 'Open the Magic Cope Ball’s answer pool. Vetted users can add answers there; moderators can delete them.',
+  },
+];
+
 function activityCommands() {
   return ACTIVITIES.map(activity => {
     const [name, ...aliases] = activityCommandNames(activity);
@@ -487,7 +503,7 @@ function Reference({ commands }) {
     // are italic phrases rather than commands, and mixing the two shapes into one
     // alphabetical run reads as noise.
     const actionLast = (c) => (c.kind === 'action' ? 1 : 0);
-    const all = [...commands, ...activityCommands()]
+    const all = [...commands, ...activityCommands(), ...PANEL_COMMANDS]
       .sort((a, b) => actionLast(a) - actionLast(b) || a.name.localeCompare(b.name));
 
     const matches = all.filter(c => {

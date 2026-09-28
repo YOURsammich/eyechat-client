@@ -2743,6 +2743,63 @@ a {
 .activityInviteDetail { color: #777; font-size: 12px; margin-left: 6px; }
 .activityInviteAction { margin-left: auto; color: #4ade80; font-size: 12px; flex: none; }
 
+/* ─── Magic Cope Ball ─────────────────────────────────────────────────────
+   An /ask answer (Messages.renderCope): one chat-height line, the answer as a
+   purple pill. A fresh line wiggles the ball, then pops the pill in. The
+   `.message.cope` prefix is what beats `.message div { display: inline }`
+   where these need inline-block (a transform needs a box). */
+
+.message.cope .messageContent { color: #bbb; }
+.message.cope .copeAsker { color: #eee; font-weight: 600; }
+.message.cope .copeQuestion { color: #ddd; }
+
+/* The ball is a button: it opens /seecope. */
+.message.cope .copeBall {
+  display: inline-block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.message.cope .copeBall:hover,
+.message.cope .copeBall:focus-visible { filter: drop-shadow(0 0 4px #c084fc); outline: none; }
+
+/* Inline, not inline-block, so a long answer wraps like text; `clone` gives
+   every wrapped line its own padding and rounded ends. */
+.message.cope .copeAnswer {
+  margin-left: 2px;
+  padding: 1px 8px;
+  border: 1px solid rgba(192, 132, 252, 0.45);
+  border-radius: 8px;
+  background: rgba(124, 77, 189, 0.28);
+  color: #e9d5ff;
+  font-weight: 700;
+  line-height: 1.7;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* An inline box can't be scaled, so the answer fades in out of a blur. */
+.message.copeFresh .copeBall { animation: copeShake 0.8s ease-in-out; }
+.message.copeFresh .copeAnswer { animation: copeReveal 0.4s ease-out 0.8s both; }
+
+@keyframes copeShake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-20deg); }
+  40% { transform: rotate(16deg); }
+  60% { transform: rotate(-10deg); }
+  80% { transform: rotate(6deg); }
+}
+@keyframes copeReveal {
+  from { opacity: 0; filter: blur(5px); }
+  to { opacity: 1; filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .copeFresh .copeBall, .copeFresh .copeAnswer { animation: none; }
+}
+
 /* On mobile the header is tight (the search box is already hidden there), so
    the launcher drops to its icon and keeps the live dot. */
 @media (max-width: 768px) {

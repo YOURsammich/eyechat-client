@@ -14,6 +14,7 @@ import SearchBar from './SearchBar';
 import ManagerPanel from './../ManagerPanel';
 import CommandsPanel from './../CommandsPanel';
 import UsersPanel from './../UsersPanel';
+import CopePanel from './../CopePanel';
 import WhatsNewPanel, { WHATSNEW_WIDTH } from './../WhatsNewPanel';
 import BlockBox from './../BlockBox';
 import JumpScare from './JumpScare';
@@ -883,19 +884,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       ) : null}
 
       {showCope ? (
-        <ManagerPanel
-          title='Magic Cope Ball — Answers'
-          onClose={() => setShowCope(false)}
-          loadUrl='/channel/cope'
-          deleteUrl='/channel/cope/delete'
-          deleteLabel='Delete'
-          emptyText='No answers submitted yet.'
-          confirmText={() => 'Delete this answer?'}
-          columns={[
-            { label: 'Answer', render: (a) => a.answer },
-            { label: 'By', render: (a) => a.nick || '—' },
-          ]}
-        />
+        <CopePanel onClose={() => setShowCope(false)} />
       ) : null}
 
       {blockOffer ? (

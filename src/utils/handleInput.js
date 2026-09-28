@@ -421,11 +421,13 @@ const COMMANDS = {
   // "off" ends it early. Declared here anyway so the arg gets parsed when it is
   // given (and shows up in the param hint); the server treats it as optional.
   nothrottle: {
-    params: ['minutes']
+    params: ['minutes'],
+    optional: true
   },
   // Optional too — bare /hatdrop forces a Dunce. Admin-gated on the server.
   hatdrop: {
-    params: ['hat']
+    params: ['hat'],
+    optional: true
   },
   // Like /banlist, /deepfind opens a client-side panel that fetches its own
   // data; the server gates the fetch at trust 0 and resolves the nick-or-IP.
@@ -491,6 +493,11 @@ for (const [alias, target] of Object.entries(ALIASES)) {
   COMMANDS[alias] = COMMANDS[target];
 }
 
+// "Usage: /pay <recipient> <amount>" — the same shape the server sends.
+function usageLine(name) {
+  return `Usage: /${name}` + (COMMANDS[name]?.params ?? []).map(p => ` <${p}>`).join('');
+}
+
 const handleCommand = {
   parseParamSpaces(params, paramQuantity) {
     const parsedInput = [];
@@ -521,6 +528,15 @@ const handleCommand = {
     });
 
     return paramObj;
+  },
+  // Whether a server-bound command is about to go out without an argument it
+  // needs. The server would refuse it anyway; catching it here means the typed
+  // text survives. Commands with a client handler check their own arguments,
+  // and `optional` marks the ones whose argument may be left off.
+  missingParams({ commandName, params, handler }) {
+    const cmd = COMMANDS[commandName];
+    if (handler || cmd.optional || !cmd.params?.length) return false;
+    return !params || cmd.params.some(p => !params[p]?.trim());
   },
   handle(command) {
     const [, typedName, params] = command;
@@ -559,10 +575,16 @@ const handleInput = {
       font: store.get('font') ? ( '$' + store.get('font') + '|' ) : ''
     }
   },
+  // Returns false when a command was refused here without being run, so the
+  // input bar can leave the text in place for the user to fix.
   handle (input, socket, store, channelName, addMessage, user, channelState) {
     const command = /^\/(\w+) ?([\s\S]*)/.exec(input);
     if (command) {
       const cmdData = handleCommand.handle(command);
+      if (handleCommand.missingParams(cmdData)) {
+        addMessage?.({ message: usageLine(cmdData.commandName), type: 'error', noparse: true, count: Math.random() });
+        return false;
+      }
       if (cmdData.handler) {
         cmdData.handler(cmdData.params, {
           channelName: channelName,
