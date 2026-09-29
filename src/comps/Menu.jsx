@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import handleInput from '../utils/handleInput';
 import DraggableWindow from './DraggableWindow';
 import CosmeticsPanel from './Cosmetics/CosmeticsPanel';
+import { useTrustedPlugins, setPluginTrusted } from './CodeRunner/pluginTrust';
 import {
   ParsedContent, inlineStyles,
   STYLE_LIMIT_MIN, STYLE_LIMIT_MAX,
@@ -738,7 +739,27 @@ function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave,
           ) : null}
         </SettingsRow>
       </SettingsSection>
+
+      {registered ? <TrustedPluginsSection /> : null}
     </div>
+  );
+}
+
+// Plugins this account lets take coins without the confirm dialog (chosen with
+// "Pay & always trust"). Same list as the badge in a plugin's header.
+function TrustedPluginsSection() {
+  const trusted = useTrustedPlugins();
+  return (
+    <SettingsSection
+      title='Trusted plugins'
+      hint='These can take coins from you without asking. Anything else asks first.'
+    >
+      {trusted.length ? trusted.map(appname => (
+        <SettingsRow label={appname} key={appname}>
+          <button type='button' onClick={() => setPluginTrusted(appname, false)}>Stop trusting</button>
+        </SettingsRow>
+      )) : <div className='settingsSectionHint'>None.</div>}
+    </SettingsSection>
   );
 }
 

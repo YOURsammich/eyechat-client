@@ -8,9 +8,29 @@ import ChatWindow from './comps/Chat/ChatWindow';
 import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 import PluginWindow from './comps/CodeRunner/PluginWindow';
 import { readOverrides, writeOverrides, resolveMode } from './comps/CodeRunner/pluginMode';
+import PluginPaymentDialog from './comps/CodeRunner/PluginPaymentDialog';
+import { parsePluginRequest, originOf } from './comps/CodeRunner/pluginBridge';
+import { isTrusted, requestTrustList, setPluginTrusted, useTrustedPlugins } from './comps/CodeRunner/pluginTrust';
 import { preloadFontsFromText, loadFont } from './comps/Chat/Messages';
 
+// copecloud's API (the app list) and the host its plugin pages are served
+// from. The two are separate origins so plugin code can never reach the
+// editor's storage, where developers' dev tokens live.
 const COPE_CLOUD = 'https://cloud.cope.chat/';
+const COPE_PLUGINS = 'https://plugins.cope.chat/';
+const PLUGIN_ORIGIN = originOf(COPE_PLUGINS);
+
+const PAYMENT_TIMEOUT_MS = 15000;
+
+// Answers to a plugin's coin requests go to copecloud's origin only, so a
+// plugin frame that has navigated somewhere else never receives them.
+function replyToPlugin(win, message) {
+  try {
+    win.postMessage(message, PLUGIN_ORIGIN);
+  } catch {
+    // the frame is gone
+  }
+}
 
 // SVG filter definitions for the message `effect` MWs (src/middlewares.js).
 // Mounted once for the whole app, not per message: a filter is referenced by id
@@ -79,6 +99,14 @@ function App() {
   const iframeRef = useRef(null);
   const lastAppRef = useRef(null);
   const myUserRef = useRef(null);
+  // A plugin's payment request: shown in the confirm dialog while `payment` is
+  // set, and held in pendingPayRef from the moment it arrives until the plugin
+  // has its answer (one at a time).
+  const [payment, setPayment] = useState(null);
+  const pendingPayRef = useRef(null);
+  const pluginRequestRef = useRef(null);
+  const openPluginRef = useRef(null);
+  const trustedPlugins = useTrustedPlugins();
 
   // Build the store synchronously so the chat shell can render on first paint,
   // before the WebSocket connects. It only reads localStorage.
@@ -175,8 +203,89 @@ function App() {
       } else if (e.data === 'requesttrust') {
         iframeRef.current.contentWindow.postMessage('trust: ' + user.trust, '*');
       }
+
+      // Coin requests are only taken from the open plugin's own frame.
+      const request = parsePluginRequest(e.data);
+      if (request && e.source === iframeRef.current.contentWindow) {
+        pluginRequestRef.current(request, e.source);
+      }
+    });
+
+    socket.on('pluginPayResult', (result) => {
+      const pending = pendingPayRef.current;
+      if (!pending || result?.requestId !== pending.requestId) return;
+      // The page thought the plugin was trusted but the server disagrees (it
+      // was revoked from another tab): ask after all.
+      if (result.needsConfirm) {
+        setPayment(pending);
+        return;
+      }
+      finishPayment(pending, { ok: !!result.ok, receipt: result.receipt, error: result.error });
     });
   }, []);
+
+  // Everything a plugin's coin request needs from the current render — who is
+  // logged in, which plugin is open — so the once-registered listener above
+  // calls through a ref instead of closing over the first render.
+  pluginRequestRef.current = (request, win) => {
+    const user = myUserRef.current;
+    const appname = openPluginRef.current?.appname;
+    if (!appname) return;
+
+    if (request.type === 'requestCoins') {
+      replyToPlugin(win, { copecloud: 'coins', id: request.id, coins: user.registered ? (user.coins ?? 0) : null });
+      return;
+    }
+
+    const fail = (error) => replyToPlugin(win, { copecloud: 'paymentResult', id: request.id, ok: false, error });
+    if (request.type === 'invalid') return fail(request.error);
+    if (!user.registered) return fail('Log in to pay with coins.');
+    if (pendingPayRef.current) return fail('Another payment is still waiting.');
+
+    const pending = {
+      requestId: Math.random().toString(36).slice(2),
+      id: request.id,
+      appname,
+      amount: request.amount,
+      memo: request.memo,
+      win,
+    };
+    pendingPayRef.current = pending;
+    if (isTrusted(appname)) {
+      sendPayment(pending, { confirmed: false });
+    } else {
+      setPayment(pending);
+    }
+  };
+
+  function sendPayment(pending, { confirmed, trust = false }) {
+    socket.emit('pluginPay', {
+      requestId: pending.requestId,
+      appname: pending.appname,
+      amount: pending.amount,
+      memo: pending.memo,
+      confirmed,
+      trust,
+    });
+    // Don't leave the plugin waiting forever on a socket that dropped. If the
+    // payment did go through, the balance shows it.
+    setTimeout(() => {
+      if (pendingPayRef.current === pending) {
+        finishPayment(pending, { ok: false, error: 'No answer from the server. Check your balance before trying again.' });
+      }
+    }, PAYMENT_TIMEOUT_MS);
+  }
+
+  function finishPayment(pending, result) {
+    if (pendingPayRef.current === pending) pendingPayRef.current = null;
+    setPayment(current => current === pending ? null : current);
+    replyToPlugin(pending.win, { copecloud: 'paymentResult', id: pending.id, ...result });
+  }
+
+  // Fetch the account's trusted plugins once we know who they are.
+  useEffect(() => {
+    if (myUser?.registered) requestTrustList();
+  }, [myUser?.registered, myUser?.nick]);
 
   // Persist a *guest* nick so a refresh keeps the same name. Registered users are
   // re-authed by their loginToken (and /preconnect refreshes their nick cookie
@@ -235,6 +344,16 @@ function App() {
 
   const openPlugin = plugins.find(p => p.appname === showApp) || null;
   const openMode = openPlugin ? resolveMode(openPlugin, modeOverrides) : null;
+  openPluginRef.current = openPlugin;
+
+  // A request dies with the plugin that made it: closing or switching away
+  // while the dialog is up cancels it rather than paying whatever opens next.
+  useEffect(() => {
+    const pending = pendingPayRef.current;
+    if (pending && pending.appname !== showApp) {
+      finishPayment(pending, { ok: false, cancelled: true, error: 'Cancelled.' });
+    }
+  }, [showApp]);
 
   // A viewer moving a plugin overrides its author's default, for them only.
   function setPluginMode(appname, mode) {
@@ -252,10 +371,12 @@ function App() {
   const pluginProps = openPlugin && {
     pluginName: openPlugin.appname,
     owner: openPlugin.owner,
-    copeCloud: COPE_CLOUD,
+    copeCloud: COPE_PLUGINS,
     giveRefresh: (refresh) => { window._refreshIframe = refresh; },
     giveIframe: (iframe) => { iframeRef.current = iframe; },
     onClose: () => setShowApp(null),
+    trusted: trustedPlugins.includes(openPlugin.appname),
+    onRevokeTrust: () => setPluginTrusted(openPlugin.appname, false),
   };
 
   return (
@@ -279,6 +400,20 @@ function App() {
             <div style={{ opacity: 0.85, lineHeight: 1.4 }}>{rejection}</div>
           </div>
         </div>
+      ) : null}
+
+      {payment ? (
+        <PluginPaymentDialog
+          appname={payment.appname}
+          amount={payment.amount}
+          memo={payment.memo}
+          balance={myUser?.coins}
+          onPay={(trust) => {
+            setPayment(null);
+            sendPayment(payment, { confirmed: true, trust });
+          }}
+          onCancel={() => finishPayment(payment, { ok: false, cancelled: true, error: 'Cancelled.' })}
+        />
       ) : null}
 
       <div id='main-container'>
