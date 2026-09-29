@@ -139,6 +139,21 @@ function ActivityLauncher({ activities }) {
               <span className='activityItemBlurb'>Play from a page of its own, without the chat.</span>
             </span>
           </a>
+          {/* Also a page of its own: drawings saved off the whiteboard. */}
+          <a
+            className='activityHubLink'
+            role='menuitem'
+            href='/gallery'
+            target='_blank'
+            rel='noopener'
+            onClick={() => setOpen(false)}
+          >
+            <span className='material-symbols-outlined activityItemIcon'>photo_library</span>
+            <span className='activityItemText'>
+              <span className='activityItemLabel'>Whiteboard gallery</span>
+              <span className='activityItemBlurb'>Drawings saved off the board — upvote them, watch them replay.</span>
+            </span>
+          </a>
         </div>,
         document.body,
       )}

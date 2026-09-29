@@ -35,6 +35,9 @@ const API_ROUTES = [
   // hub page this dev server is meant to serve itself. Unlike the chat socket
   // at the origin root, the hub's lives under a path, so it can be proxied.
   '^/games/(preconnect|ws)$',
+  // Same reason as the hub: the page itself (/gallery, /gallery/<id>) is served
+  // here; only its API goes to the server.
+  '^/gallery/(list|entry|vote|delete)',
   '/images',
 ];
 
@@ -60,6 +63,7 @@ export default defineConfig({
         wordstats: './wordstats.html',
         features: './features.html',
         games: './games.html',
+        gallery: './gallery.html',
       },
     },
   },

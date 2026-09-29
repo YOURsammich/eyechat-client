@@ -144,8 +144,8 @@ const SECTIONS = [
         icon: '🖊️',
         title: 'Collaborative whiteboard',
         wide: true,
-        body: 'One board the whole room can see, and a single marker. Whoever asks first gets to draw; when they put it down — or five minutes after somebody else asks for a turn — it passes to the next person waiting. Whatever gets drawn stays up until someone clears it.',
-        tags: [],
+        body: 'One board the whole room can see, and a single marker. Whoever asks first gets to draw; when they put it down — or five minutes after somebody else asks for a turn — it passes to the next person waiting. Whatever gets drawn stays up until someone clears it — and anyone watching can save it to the gallery, credited to everyone who drew on it, where it can be upvoted and replayed stroke by stroke.',
+        tags: ['/gallery'],
       },
       {
         icon: '🎩',

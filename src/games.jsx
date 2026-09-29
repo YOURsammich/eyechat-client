@@ -66,6 +66,9 @@ function App() {
   const [openActivities, setOpenActivities] = useState(() => new Set());
   const [toasts, setToasts] = useState([]);
   const toastId = useRef(0);
+  // The game a /games/<id> link asked for, captured before anything rewrites
+  // the URL (see the deep-link open below).
+  const arrivedFor = useRef(activityFromPath());
 
   const toast = useCallback((text, kind = 'info', action = null) => {
     const id = ++toastId.current;
@@ -148,9 +151,10 @@ function App() {
       if (!ok) return;
       setConn('online');
       // Arrived by deep link: open that game once the socket is up, so its
-      // first sync has somewhere to go.
-      const wanted = activityFromPath();
-      if (wanted) open(wanted);
+      // first sync has somewhere to go. Read from the path as it was on
+      // arrival — by now the URL-follows-panels effect has already rewritten
+      // it to /games, since nothing was open on the first render.
+      if (arrivedFor.current) open(arrivedFor.current);
     });
 
     return () => offs.forEach(off => off && off());
@@ -206,6 +210,21 @@ function App() {
                   onOpen={open}
                 />
               ))}
+              {/* Not an activity — nothing to join — but it's where the
+                  whiteboard's saved drawings live, so it sits beside it. */}
+              {kind === 'tool' ? (
+                <a className='gameCard' href='/gallery' style={{ textDecoration: 'none' }}>
+                  <span className='material-symbols-outlined gameCardIcon'>photo_library</span>
+                  <span className='gameCardText'>
+                    <span className='gameCardLabel'>Whiteboard gallery</span>
+                    <span className='gameCardBlurb'>Drawings saved off the board. Upvote them, watch them replay.</span>
+                  </span>
+                  <span className='gameCardFoot'>
+                    <span className='gameCardIdle' />
+                    <span className='gameCardCta'>Open</span>
+                  </span>
+                </a>
+              ) : null}
             </div>
           </section>
         );

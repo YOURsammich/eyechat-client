@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import { strokeSegment, applyStroke as paintStroke } from './strokeRender';
 
 // Reusable freehand painting surface — the smooth-brush sibling of PixelCanvas,
 // with the same imperative ref API (exportPNGBlob / exportDataURL / loadImage /
@@ -27,7 +28,8 @@ function genStrokeId() {
 
 const DrawCanvas = forwardRef(function DrawCanvas(
   { width = 128, height = 128, scale = 3.5, palette = DEFAULT_PALETTE, underlay = null, maxViewport = 520,
-    readOnly = false, onStroke = null, background = null, responsive = false, onClear = null },
+    readOnly = false, onStroke = null, background = null, responsive = false, onClear = null,
+    onBlocked = null },
   ref,
 ) {
   const canvasRef = useRef(null);
@@ -80,30 +82,8 @@ const DrawCanvas = forwardRef(function DrawCanvas(
     };
   }
 
-  // Paint one segment from → to (plus a round dot at `to`) with an explicit style,
-  // so both live drawing and remote-stroke replay share the exact same math.
-  function strokeSegment(ctx, from, to, { tool, color, size }) {
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = size;
-    if (tool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.strokeStyle = 'rgba(0,0,0,1)';
-    } else {
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.strokeStyle = color;
-    }
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.stroke();
-    // A dot so single clicks and stroke ends are round, not clipped.
-    ctx.beginPath();
-    ctx.fillStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color;
-    ctx.arc(to.x, to.y, size / 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
+  // Live drawing and remote-stroke replay share the exact same math
+  // (strokeRender.js), which the whiteboard gallery's replay uses too.
   function strokeTo(p) {
     const ctx = canvasRef.current.getContext('2d');
     const from = lastRef.current || p;
@@ -114,15 +94,7 @@ const DrawCanvas = forwardRef(function DrawCanvas(
 
   // Replay a finished remote stroke onto the bitmap using its own style.
   function applyStroke(s) {
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx || !s || !Array.isArray(s.points) || s.points.length === 0) return;
-    const style = { tool: s.tool, color: s.color, size: s.size };
-    let prev = s.points[0];
-    strokeSegment(ctx, prev, prev, style); // dot for a single-point stroke
-    for (let i = 1; i < s.points.length; i++) {
-      strokeSegment(ctx, prev, s.points[i], style);
-      prev = s.points[i];
-    }
+    paintStroke(canvasRef.current?.getContext('2d'), s);
   }
 
   // Keep the brush-size circle centered on the pointer. Written straight to the
@@ -140,7 +112,13 @@ const DrawCanvas = forwardRef(function DrawCanvas(
   // mouse — a tablet never fires a mousemove drag stream, and `touch-action: none`
   // below suppresses the synthesized-mouse fallback entirely.
   function onPointerDown(e) {
-    if (readOnly) return;
+    // A press on a read-only board is someone trying to draw who can't; the
+    // consumer says why (the whiteboard: you need the marker). Touch never sees
+    // the not-allowed cursor, so without this the press just does nothing.
+    if (readOnly) {
+      if (e.isPrimary && e.button === 0 && onBlocked) onBlocked();
+      return;
+    }
     if (!e.isPrimary) return;   // ignore extra fingers mid-stroke
     // Contact only: a mouse's left button or a pen's tip. Skips right/middle click
     // and a pen's barrel/eraser button, which report a non-zero `button`.
@@ -234,17 +212,21 @@ const DrawCanvas = forwardRef(function DrawCanvas(
     border: active ? '1px solid #39f' : '1px solid #333', borderRadius: 4,
   });
 
+  // Tools and palette dim while read-only: they still work (pick a colour before
+  // your turn), but they shouldn't look like the board is yours to draw on.
+  const dimmed = readOnly ? { opacity: 0.45 } : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center',
       ...(responsive ? { flex: 1, minHeight: 0, width: '100%' } : null) }}>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', ...dimmed }}>
         <button title='Brush' onClick={() => setTool('brush')} style={toolBtnStyle(tool === 'brush')}>
           <span className='material-symbols-outlined' style={{ fontSize: 18 }}>brush</span>
         </button>
         <button title='Eraser' onClick={() => setTool('eraser')} style={toolBtnStyle(tool === 'eraser')}>
           <span className='material-symbols-outlined' style={{ fontSize: 18 }}>ink_eraser</span>
         </button>
-        <button title='Clear' onClick={() => (onClear ? onClear() : clear())} style={toolBtnStyle(false)}>
+        <button title='Clear' disabled={readOnly} onClick={() => (onClear ? onClear() : clear())} style={toolBtnStyle(false)}>
           <span className='material-symbols-outlined' style={{ fontSize: 18 }}>delete</span>
         </button>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#999' }}>
@@ -307,7 +289,7 @@ const DrawCanvas = forwardRef(function DrawCanvas(
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', ...dimmed }}>
         {palette.map(c => (
           <div
             key={c}

@@ -2807,3 +2807,22 @@ a {
   .activityBtn { padding: 4px 8px; margin-right: 4px; }
   .activityMenu { min-width: 220px; }
 }
+
+/* ─── Whiteboard gallery save ─────────────────────────────────────────────
+   "🖼️ bob saved “title” to the gallery" (Messages.renderGallerySave), with a
+   small thumbnail of the drawing under it. Both open the gallery entry. */
+
+.message.gallerySave .messageContent { color: #bbb; }
+.message.gallerySave .gallerySaver { color: #eee; font-weight: 600; }
+.message.gallerySave .galleryTitle { color: #eee; }
+.message.gallerySave .galleryThumb {
+  display: block;
+  width: 160px;
+  margin: 4px 0 2px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+.message.gallerySave .galleryThumb:hover { border-color: #8cf; }
+.message.gallerySave .galleryThumb img { display: block; width: 100%; aspect-ratio: 16 / 9; }

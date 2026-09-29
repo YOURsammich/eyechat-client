@@ -1796,6 +1796,7 @@ class Messages extends React.Component {
     }
 
     if (message.type === 'cope') return this.renderCope(message);
+    if (message.type === 'gallerysave') return this.renderGallerySave(message);
 
     // A mod's verdict on the line (see groupRows). The log folds adjacent cringed
     // messages into one run before it gets here; a single message reaching this
@@ -1848,6 +1849,40 @@ class Messages extends React.Component {
         <span className='copeAnswer' title='The Magic Cope Ball says'>
           <ParsedContent text={answer} emojis={emojis} styles={copeStyles} compact />
         </span>
+      </div>
+    </CollapsibleMessage>;
+  }
+
+  // A whiteboard drawing saved to the gallery (wb:save in src/whiteboard.js):
+  // "🖼️ bob saved “title” to the gallery" beside a small thumbnail, both opening
+  // the entry. The server sends { id, title } as JSON in `message` with the saver
+  // as `nick`, like the Cope Ball line. A deleted entry's thumbnail 404s and is
+  // dropped rather than shown broken.
+  renderGallerySave (message) {
+    let id = null, title = null;
+    try {
+      ({ id, title } = JSON.parse(message.message));
+    } catch { /* malformed: render the sentence without a link */ }
+    const href = id ? `/gallery/${id}` : '/gallery';
+
+    return <CollapsibleMessage className='message gallerySave' key={'message-' + message.count}>
+      {this.renderTimeStamp(message)}
+      <div className='messageContent'>
+        🖼️ <b className='gallerySaver'>{message.nick || 'Someone'}</b>
+        {' saved '}
+        {title ? <>“<span className='galleryTitle'>{title}</span>” </> : 'the whiteboard '}
+        {'to the '}
+        <a href={href} target='_blank' rel='noopener'>gallery</a>
+        {id ? (
+          <a className='galleryThumb' href={href} target='_blank' rel='noopener' title='Open in the gallery'>
+            <img
+              src={`/images/gallery/${id}_thumb.png`}
+              alt={title || 'Whiteboard drawing'}
+              loading='lazy'
+              onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
+            />
+          </a>
+        ) : null}
       </div>
     </CollapsibleMessage>;
   }
