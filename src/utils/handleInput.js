@@ -295,6 +295,17 @@ const COMMANDS = {
   pay: {
     params: ['recipient', 'amount'],
   },
+  // copecloud sign-in: a token for the plugin editor and template uploads, and
+  // cancelling every one issued (see src/devTokens.js on the server)
+  devtoken: {},
+  revokedevtokens: {},
+  // admin: a plugin's wallet and its accept / payout permissions
+  pluginwallet: {
+    params: ['plugin'],
+  },
+  pluginperm: {
+    params: ['plugin', 'permission', 'state'],
+  },
   part: {
     params: ['message'],
     parseMethod: 'leaveSpace'
