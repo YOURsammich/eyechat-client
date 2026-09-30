@@ -745,18 +745,18 @@ function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave,
   );
 }
 
-// Plugins this account lets take coins without the confirm dialog (chosen with
-// "Pay & always trust"). Same list as the badge in a plugin's header.
+// Plugins this account gave wallet access when it first opened them. Same
+// list as the badge in a plugin's header.
 function TrustedPluginsSection() {
   const trusted = useTrustedPlugins();
   return (
     <SettingsSection
-      title='Trusted plugins'
-      hint='These can take coins from you without asking. Anything else asks first.'
+      title='Plugins with wallet access'
+      hint='These can take coins from you without asking. Remove one and it asks again next time you open it.'
     >
       {trusted.length ? trusted.map(appname => (
         <SettingsRow label={appname} key={appname}>
-          <button type='button' onClick={() => setPluginTrusted(appname, false)}>Stop trusting</button>
+          <button type='button' onClick={() => setPluginTrusted(appname, false)}>Remove access</button>
         </SettingsRow>
       )) : <div className='settingsSectionHint'>None.</div>}
     </SettingsSection>
