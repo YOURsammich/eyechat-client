@@ -1,47 +1,91 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
+
+// How much of the title bar always stays on screen, so a window dragged to the
+// edge can still be grabbed again.
+const KEEP_VISIBLE = 80;
+
+// Where a window may go: the bar stays inside the viewport vertically, and at
+// least KEEP_VISIBLE px of it stays inside horizontally.
+export function clampPosition(left, top, { width, barHeight, viewWidth, viewHeight }) {
+  const minLeft = Math.min(0, KEEP_VISIBLE - width);
+  const maxLeft = Math.max(0, viewWidth - KEEP_VISIBLE);
+  const maxTop = Math.max(0, viewHeight - barHeight);
+  return {
+    left: Math.min(Math.max(left, minLeft), maxLeft),
+    top: Math.min(Math.max(top, 0), maxTop),
+  };
+}
 
 // A generic floating, draggable window. Portaled to document.body so it floats
 // above everything regardless of where it is used (no ancestor overflow/transform
 // can clip it). Dragging is bound to the title bar only, so interactive body
-// content (e.g. a paint canvas) is never hijacked. Follows the same fixed +
-// zIndex + move-on-mousemove idiom as UnoPanel.
-export default function DraggableWindow({ title, onClose, children, initialLeft = 140, initialTop = 90, width = 'auto', headerActions = null, bodyStyle = null }) {
+// content (e.g. a paint canvas, a video player) is never hijacked. Pointer
+// events, so a finger drags it as well as a mouse.
+//
+// `centered` opens it in the middle of the viewport instead of at
+// initialLeft/initialTop.
+export default function DraggableWindow({ title, onClose, children, initialLeft = 140, initialTop = 90, width = 'auto', headerActions = null, bodyStyle = null, centered = false }) {
   const panelRef = useRef(null);
   const headerRef = useRef(null);
+  const bodyRef = useRef(null);
+
+  // Before the first paint, so a centred window never flashes at its default spot.
+  useLayoutEffect(() => {
+    if (!centered) return;
+    const panel = panelRef.current;
+    const rect = panel.getBoundingClientRect();
+    panel.style.left = Math.max(0, (window.innerWidth - rect.width) / 2) + 'px';
+    panel.style.top = Math.max(0, (window.innerHeight - rect.height) / 2) + 'px';
+  }, [centered]);
 
   useEffect(() => {
     const panel = panelRef.current;
     const header = headerRef.current;
-    let dragging = false, startX, startY, initX, initY;
+    let pointerId = null, startX, startY, initX, initY;
 
-    function onMouseDown(e) {
+    function onPointerDown(e) {
+      if (e.button !== undefined && e.button !== 0) return;
       if (e.target.nodeName === 'BUTTON' || e.target.closest('button')) return;
       if (e.target.closest('[data-window-action]')) return;
-      dragging = true;
+      pointerId = e.pointerId;
       startX = e.clientX; startY = e.clientY;
       const rect = panel.getBoundingClientRect();
       initX = rect.left; initY = rect.top;
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
+      // Keep every move coming to the bar, even over an iframe in the body
+      // (a video player would otherwise swallow them).
+      header.setPointerCapture?.(e.pointerId);
+      bodyRef.current.style.pointerEvents = 'none';
       e.preventDefault();
     }
-    function onMouseMove(e) {
-      if (!dragging) return;
-      panel.style.left = (initX + e.clientX - startX) + 'px';
-      panel.style.top = Math.max(0, initY + e.clientY - startY) + 'px';
+    function onPointerMove(e) {
+      if (pointerId === null || e.pointerId !== pointerId) return;
+      const rect = panel.getBoundingClientRect();
+      const { left, top } = clampPosition(initX + e.clientX - startX, initY + e.clientY - startY, {
+        width: rect.width,
+        barHeight: header.getBoundingClientRect().height,
+        viewWidth: window.innerWidth,
+        viewHeight: window.innerHeight,
+      });
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
     }
-    function onMouseUp() {
-      dragging = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+    function onPointerUp(e) {
+      if (pointerId === null || e.pointerId !== pointerId) return;
+      pointerId = null;
+      bodyRef.current.style.pointerEvents = '';
+      header.releasePointerCapture?.(e.pointerId);
     }
 
-    header.addEventListener('mousedown', onMouseDown);
+    header.addEventListener('pointerdown', onPointerDown);
+    header.addEventListener('pointermove', onPointerMove);
+    header.addEventListener('pointerup', onPointerUp);
+    header.addEventListener('pointercancel', onPointerUp);
     return () => {
-      header.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      header.removeEventListener('pointerdown', onPointerDown);
+      header.removeEventListener('pointermove', onPointerMove);
+      header.removeEventListener('pointerup', onPointerUp);
+      header.removeEventListener('pointercancel', onPointerUp);
     };
   }, []);
 
@@ -57,9 +101,12 @@ export default function DraggableWindow({ title, onClose, children, initialLeft 
     >
       <div
         ref={headerRef}
+        data-window-bar
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '6px 10px', cursor: 'move', userSelect: 'none', borderBottom: '1px solid #333',
+          // The page mustn't scroll or zoom when a finger drags the bar.
+          touchAction: 'none',
         }}
       >
         <span style={{ fontWeight: 'bold', fontSize: 13 }}>{title}</span>
@@ -75,7 +122,7 @@ export default function DraggableWindow({ title, onClose, children, initialLeft 
           </span>
         </span>
       </div>
-      <div style={{ padding: 12, overflow: 'auto', flex: 1, minHeight: 0, ...bodyStyle }}>
+      <div ref={bodyRef} style={{ padding: 12, overflow: 'auto', flex: 1, minHeight: 0, ...bodyStyle }}>
         {children}
       </div>
     </div>,

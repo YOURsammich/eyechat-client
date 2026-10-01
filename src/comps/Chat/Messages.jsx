@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import AvatarDisplay from './AvatarDisplay.jsx';
 import WhatsNew from './WhatsNew.jsx';
 import ActivityInvite from './ActivityInvite.jsx';
+import DraggableWindow from '../DraggableWindow.jsx';
 
 
 // Does this message name `nick`? Case-insensitive: people type each other's
@@ -1286,83 +1287,31 @@ function getMsgCss (compName, value) {
   return styles[value] || {};
 }
 
-function Draggable ({ children }) {
-
-  const ref = React.useRef();
-
-  useEffect(() => {
-
-    let isDragging = false;
-    let startX, startY, initialX, initialY;
-    const element = ref.current;
-    const firstChild = element.children[0];
-
-    element.style.position = 'fixed';
-    element.style.cursor = 'move';
-
-    function onMouseDown(e) {
-      if (e.target.nodeName === 'BUTTON') return;
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      const rect = element.getBoundingClientRect();
-      initialX = rect.left;
-      initialY = rect.top;
-
-      firstChild.style.pointerEvents = 'none';
-
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    }
-
-    function onMouseMove(e) {
-      if (isDragging) {
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        element.style.left = initialX + dx + 'px';
-        element.style.top = initialY + dy + 'px';
-      }
-    }
-
-    function onMouseUp() {
-      isDragging = false;
-      firstChild.style.pointerEvents = 'auto';
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    }
-
-    element.addEventListener('mousedown', onMouseDown);
-    return () => {
-      element.removeEventListener('mousedown', onMouseDown);
-    };
-
-  });
-
-  return <div ref={ref}>
-    {children}
-  </div>;
-}
-
+// A YouTube link or video file opened from chat: a normal chat window (solid
+// bar, drag by the bar with mouse or finger) that opens in the middle of the
+// screen every time, with the player in a 16:9 box that shrinks on phones.
 function EmbedOverlay (props) {
-  return <Draggable>
-      <div id='embed-overlay'>
-        <header>
-          <button onClick={() => props.setOverlay(null)}>[close]</button>
-        </header>
+  const { src } = props;
+  const isYouTube = src.type == 'youtube';
+  return <DraggableWindow
+    centered
+    title={isYouTube ? 'YouTube' : 'Video'}
+    onClose={() => props.setOverlay(null)}
+    width='min(528px, calc(100vw - 32px))'
+    bodyStyle={{ padding: 0, overflow: 'hidden' }}
+  >
+    <div className='embed-frame'>
+      {isYouTube ? <iframe
+        src={'https://www.youtube.com/embed/' + (src.href.includes('youtu.be/') ? src.href.split('youtu.be/')[1].split('?')[0] : new URL(src.href).searchParams.get('v'))}
+        title="YouTube video player"
+        frameBorder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      ></iframe> : null}
 
-        {props.src.type == 'youtube' ? <iframe
-          width="100%"
-          height="100%"
-          src={'https://www.youtube.com/embed/' + (props.src.href.includes('youtu.be/') ? props.src.href.split('youtu.be/')[1].split('?')[0] : new URL(props.src.href).searchParams.get('v'))}
-          title="YouTube video player"
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        ></iframe> : null}
-
-        {props.src.type == 'video' ? <video width="100%" height="100%" src={props.src.href} controls></video> : null}
+      {src.type == 'video' ? <video src={src.href} controls></video> : null}
     </div>
-  </Draggable>;
+  </DraggableWindow>;
 }
 
 // A message that clips itself once it's taller than the cap, with a toggle to
