@@ -266,6 +266,11 @@ const COMMANDS = {
   trust: {
     params: ['nick', 'level'],
   },
+  // Rooms: admin-only create, checked server-side; anyone can list them.
+  createroom: {
+    params: ['name'],
+  },
+  rooms: {},
   whitelist: {
     params: ['state'],
   },

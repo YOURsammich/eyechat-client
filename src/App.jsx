@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ROOM, IN_MAIN } from './utils/room.js';
 
 import Store from './utils/store';
 import socket from './utils/socket';
@@ -186,7 +187,7 @@ function App() {
     // Register before init() so a rejection from the in-flight preconnect is caught.
     socket.onRejected((message) => setRejection(message));
 
-    socket.init({ getActiveChannel: () => 'main' }).then((ok) => {
+    socket.init({ getActiveChannel: () => ROOM }).then((ok) => {
       if (!ok) return;
       socket.emit('joinChannel');
 
@@ -470,7 +471,7 @@ function App() {
 
       <div id='main-container'>
 
-        {showPluginBar ? (
+        {showPluginBar && IN_MAIN ? (
           <div className="sideBar">
             <div className="appViewToggle" onClick={togglePluginPanel}>
               <span className="material-symbols-outlined">code</span>
@@ -512,7 +513,7 @@ function App() {
           <ChatWindow
             socket={socket}
             userlist={userlist}
-            channelName='main'
+            channelName={ROOM}
             user={myUser}
             focusOnChat={true}
             store={storeRef.current}

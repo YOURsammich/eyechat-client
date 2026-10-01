@@ -21,6 +21,7 @@ import BlockBox from './../BlockBox';
 import JumpScare from './JumpScare';
 import ChannelStatus from './ChannelStatus';
 import ActivityLauncher from './ActivityLauncher';
+import { ROOM, IN_MAIN } from '../../utils/room.js';
 import { ACTIVITIES, openEvent, closeEvent } from './../activities';
 import { activityPanel } from './../activityPanels';
 
@@ -179,6 +180,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const whatsNewRef = useRef({ data: null, joined: false, shown: false });
 
   function maybeShowWhatsNew() {
+    if (!IN_MAIN) return;
     const state = whatsNewRef.current;
     if (state.shown || !state.joined || !state.data) return;
     if (!state.data.feedback?.length && !state.data.updates?.length) return;
@@ -475,7 +477,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   // line in the log all dispatch the same window event.
   useEffect(() => {
     const bound = ACTIVITIES.flatMap((a) => {
-      const onOpen = () => setOpenActivities((prev) => new Set(prev).add(a.id));
+      // Games and the whiteboard live in main: elsewhere their commands say so
+      // instead of opening a window the server won't play along with.
+      const onOpen = IN_MAIN ?
+        () => setOpenActivities((prev) => new Set(prev).add(a.id)) :
+        () => pushMessages({ message: 'Games and the whiteboard are only in the main room.', type: 'error', count: Math.random() });
       const onClose = () => setOpenActivities((prev) => {
         const next = new Set(prev);
         next.delete(a.id);
@@ -709,10 +715,11 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         <div className="chatHeader" style={{ backgroundColor: channelState.themecolors.topbarpri || '' }}>
           <div className='headerLeft'>
             <ChannelStatus checkTrust={channelState.checkTrust} proxyBlock={channelState.proxyBlock} />
+            {IN_MAIN ? null : <span className='roomName' title='This room'>/{ROOM}</span>}
             <div className='topic'>{channelState.topic}</div>
           </div>
           <div className='topBarBtns'>
-            <ActivityLauncher activities={activities} />
+            {IN_MAIN ? <ActivityLauncher activities={activities} /> : null}
             <SearchBar channelName={channelName} />
             <span
               className="material-symbols-outlined mobileNavBtn"

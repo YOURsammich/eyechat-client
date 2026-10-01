@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import handleInput from '../utils/handleInput';
 import DraggableWindow from './DraggableWindow';
+import { ROOM } from '../utils/room.js';
 import CosmeticsPanel from './Cosmetics/CosmeticsPanel';
 import { useTrustedPlugins, setPluginTrusted } from './CodeRunner/pluginTrust';
 import {
@@ -1022,7 +1023,7 @@ function FiltersShop({ emojis = [] }) {
     return fetch('/a/filter', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelName: 'main', replace: word }),
+      body: JSON.stringify({ channelName: ROOM, replace: word }),
     }).then(res => res.json());
   }
 
@@ -1044,7 +1045,7 @@ function FiltersShop({ emojis = [] }) {
       .then(() => fetch('/a/filter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelName: 'main', replace, withThis }),
+        body: JSON.stringify({ channelName: ROOM, replace, withThis }),
       }))
       .then(res => res.json())
       .then(res => {
@@ -1277,7 +1278,7 @@ function sampleJoinName(adjectives, nouns) {
   return 'ChatUser' + Math.floor(Math.random() * 9999);
 }
 
-function JoinNames({ channelName = 'main' }) {
+function JoinNames({ channelName = ROOM }) {
   const [lists, setLists] = useState({ adjective: [], noun: [] });
   const [drafts, setDrafts] = useState({ adjective: '', noun: '' });
   const [error, setError] = useState('');

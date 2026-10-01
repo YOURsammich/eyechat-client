@@ -13,7 +13,13 @@
     // Start the session handshake immediately, before the app bundle downloads
     // and parses, so this round-trip overlaps bundle load instead of stacking
     // after it. socket.init() reuses this in-flight promise.
-    window.__preconnect = fetch('/preconnect', { method: 'POST' })
+    // The room comes from the URL (cope.chat/ is main, cope.chat/<room> is that
+    // room); src/utils/room.js reads it the same way.
+    window.__preconnect = fetch('/preconnect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room: location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0] || 'main' })
+    })
       .then(res => res.json())
       .catch(err => ({ success: false, error: err }));
   </script>

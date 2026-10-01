@@ -56,7 +56,7 @@ const socket = {
     // The inline script is the chat's, so it is only reused for the chat's URL.
     const preconnect = window.__preconnect && this._preconnectUrl === '/preconnect'
       ? window.__preconnect
-      : fetch(this._preconnectUrl, { method: 'POST' }).then(res => res.json());
+      : fetch(this._preconnectUrl, this._preconnectInit()).then(res => res.json());
 
     return preconnect.then((message) => {
       if (message && message.success) {
@@ -67,6 +67,16 @@ const socket = {
       this._fireRejection(message);
       return false;
     });
+  },
+
+  // The /preconnect request: which room this connection is for. The server
+  // ties the socket it approves to that room.
+  _preconnectInit () {
+    return {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room: this.getActiveChannel?.() ?? 'main' })
+    };
   },
 
   initSocket (isReconnect = false) {
@@ -207,7 +217,7 @@ const socket = {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), PRECONNECT_TIMEOUT);
 
-    fetch(this._preconnectUrl, { method: 'POST', signal: controller.signal })
+    fetch(this._preconnectUrl, { ...this._preconnectInit(), signal: controller.signal })
       .then(res => res.json())
       .then((message) => {
         clearTimeout(timeout);

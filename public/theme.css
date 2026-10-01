@@ -203,6 +203,15 @@ a {
   min-width: 0;
 }
 
+/* The room's name, shown in every room but main (see ChatWindow.jsx). */
+.roomName {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .topic {
   font-size: 16px;
   font-style: italic;
