@@ -347,8 +347,11 @@ function UserList({ socket, userlist, emojis, blocks = [] }) {
         return (
           <div className={'userLiSpan' + (isBlocked ? ' userLiBlocked' : '')} key={user.id}>
             <span className='userLiName'>{user.nick}</span>
-            {user.roomMod ? (
-              <span className='material-symbols-outlined userLiRoomMod' title='Room mod: moderates this room'>shield_person</span>
+            {user.roomLevel === 1 || user.roomLevel === 2 ? (
+              <span
+                className={'material-symbols-outlined userLiRoomLevel' + (user.roomLevel === 1 ? ' owner' : '')}
+                title={user.roomLevel === 1 ? 'Owner of this room' : 'Mod of this room'}
+              >{user.roomLevel === 1 ? 'crown' : 'shield_person'}</span>
             ) : null}
             <TorMark tor={user.tor} />
             <ProxyScore score={user.proxyScore} />
@@ -1509,7 +1512,7 @@ function ChannelTheme({
   }, [channelStyleLimit, channelMsgHeight]);
 
   useEffect(() => {
-    fetch('/channel/theme')
+    fetch('/channel/theme?channel=' + encodeURIComponent(ROOM))
       .then(r => r.json())
       .then(d => { setCanEditLimits(!!d.canEdit); setCanEditColors(!!d.canEditColors); })
       .catch(() => { setCanEditLimits(false); setCanEditColors(false); });

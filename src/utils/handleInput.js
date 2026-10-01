@@ -279,10 +279,14 @@ const COMMANDS = {
   degenban: {
     params: ['kind', 'state'],
   },
-  roommod: {
-    params: ['action', 'nick'],
+  roomtrust: {
+    params: ['nick', 'level'],
   },
-  roommods: {},
+  roomtrusts: {},
+  roomlock: {
+    params: ['name', 'level'],
+  },
+  roomlocks: {},
   whitelist: {
     params: ['state'],
   },
