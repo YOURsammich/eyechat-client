@@ -347,9 +347,6 @@ function UserList({ socket, userlist, emojis, blocks = [] }) {
         return (
           <div className={'userLiSpan' + (isBlocked ? ' userLiBlocked' : '')} key={user.id}>
             <span className='userLiName'>{user.nick}</span>
-            {user.roomLevel === 2 ? (
-              <span className='material-symbols-outlined userLiRoomLevel' title='Mod of this room'>shield_person</span>
-            ) : null}
             <TorMark tor={user.tor} />
             <ProxyScore score={user.proxyScore} />
             <ProxyDetail

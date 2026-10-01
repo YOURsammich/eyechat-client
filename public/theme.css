@@ -819,14 +819,6 @@ a {
   font-weight: 300;
 }
 
-/* A mod of this room (/roomtrust level 2). */
-.userLiRoomLevel {
-  font-size: 16px;
-  color: #6c9;
-  margin-left: 4px;
-  vertical-align: middle;
-}
-
 .userLiCurrency {
   position: absolute;
   right: 10px;
