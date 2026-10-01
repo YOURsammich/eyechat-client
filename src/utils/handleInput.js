@@ -306,6 +306,13 @@ const COMMANDS = {
   pluginperm: {
     params: ['plugin', 'permission', 'state'],
   },
+  // The plugin wallets panel: every plugin's balance, to fund or correct, and
+  // its permissions. Client-side only, like /roles; the server gates it (trust 1).
+  pluginwallets: {
+    handler() {
+      window.dispatchEvent(new CustomEvent('pluginwallets:open'));
+    }
+  },
   part: {
     params: ['message'],
     parseMethod: 'leaveSpace'

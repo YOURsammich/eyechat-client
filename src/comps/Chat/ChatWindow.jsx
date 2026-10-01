@@ -14,6 +14,7 @@ import SearchBar from './SearchBar';
 import ManagerPanel from './../ManagerPanel';
 import CommandsPanel from './../CommandsPanel';
 import UsersPanel from './../UsersPanel';
+import PluginWalletsPanel from './../PluginWalletsPanel';
 import CopePanel from './../CopePanel';
 import WhatsNewPanel, { WHATSNEW_WIDTH } from './../WhatsNewPanel';
 import BlockBox from './../BlockBox';
@@ -80,6 +81,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
   const [showCope, setShowCope] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
+  const [showPluginWallets, setShowPluginWallets] = useState(false);
   // null when closed, else the { left, top } the panel opens at — see
   // whatsNewOrigin, which parks it against the right edge of the chat area.
   const [showWhatsNew, setShowWhatsNew] = useState(null);
@@ -492,6 +494,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     const onDeepFind = (e) => setDeepFind({ target: e.detail?.target ?? '' });
     const onCommands = () => setShowCommands(true);
     const onRoles = () => setShowRoles(true);
+    const onPluginWallets = () => setShowPluginWallets(true);
     const onWhatsNew = () => setShowWhatsNew(whatsNewOrigin());
     // /block and the userlist's block button both land here, opening the same
     // box a /separate offer does — minus the "a moderator noticed" framing.
@@ -504,6 +507,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     window.addEventListener('deepfind:open', onDeepFind);
     window.addEventListener('commands:open', onCommands);
     window.addEventListener('roles:open', onRoles);
+    window.addEventListener('pluginwallets:open', onPluginWallets);
     window.addEventListener('whatsnew:open', onWhatsNew);
     window.addEventListener('block:open', onBlock);
     return () => {
@@ -512,6 +516,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       window.removeEventListener('deepfind:open', onDeepFind);
       window.removeEventListener('commands:open', onCommands);
       window.removeEventListener('roles:open', onRoles);
+      window.removeEventListener('pluginwallets:open', onPluginWallets);
       window.removeEventListener('whatsnew:open', onWhatsNew);
       window.removeEventListener('block:open', onBlock);
     };
@@ -899,6 +904,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       {showCommands ? <CommandsPanel onClose={() => setShowCommands(false)} /> : null}
 
       {showRoles ? <UsersPanel onClose={() => setShowRoles(false)} /> : null}
+
+      {showPluginWallets ? <PluginWalletsPanel onClose={() => setShowPluginWallets(false)} /> : null}
 
       {/* The panel can only be opened from the notice, which only exists once
           the fetch landed, so reading the ref straight through is safe. */}
