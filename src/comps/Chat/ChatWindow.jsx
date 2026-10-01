@@ -21,7 +21,7 @@ import BlockBox from './../BlockBox';
 import JumpScare from './JumpScare';
 import ChannelStatus from './ChannelStatus';
 import ActivityLauncher from './ActivityLauncher';
-import { ROOM, IN_MAIN } from '../../utils/room.js';
+import { ROOM, IN_MAIN, arrivalNotice } from '../../utils/room.js';
 import { ACTIVITIES, openEvent, closeEvent } from './../activities';
 import { activityPanel } from './../activityPanels';
 
@@ -344,6 +344,10 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       // the fetch behind it lands).
       whatsNewRef.current.joined = true;
       maybeShowWhatsNew();
+
+      // Sent here by the server (see goToRoom): say why, once.
+      const arrived = arrivalNotice();
+      if (arrived) pushMessages({ message: arrived, type: 'error', count: Math.random() });
 
       // Extract plain string fields before handleStates JSON.parses and possibly
       // converts them to booleans/null (e.g. topic="true" → true, which React won't render)
@@ -863,7 +867,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         <ManagerPanel
           title='Ban List'
           onClose={() => setShowBanList(false)}
-          loadUrl='/channel/bans'
+          loadUrl={'/channel/bans?channel=' + encodeURIComponent(channelName)}
           deleteUrl='/channel/unban'
           deleteLabel='Unban'
           emptyText='No active bans.'

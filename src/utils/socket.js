@@ -1,3 +1,5 @@
+import { goToRoom } from './room.js';
+
 // Heartbeat: the browser only fires 'close' on a clean TCP teardown, so a socket
 // that dies silently (laptop sleep, a NAT/router dropping an idle connection, or a
 // crashed origin behind Cloudflare that never propagates the close) keeps reporting
@@ -165,9 +167,10 @@ const socket = {
     if (wasConnected) for (const cb of this._disconnectCbs) cb(e);
 
     // Server-side rejections we shouldn't hammer with reconnects: 4003 is a
-    // ban/kick, 4004 is whitelist mode. (/preconnect normally blocks these before a
-    // socket opens; this covers a socket closed post-upgrade.)
-    if (e && (e.code === 4003 || e.code === 4004)) this._shouldReconnect = false;
+    // ban/kick, 4004 is whitelist mode, 4006 is being sent to another room (the
+    // goRoom event that came first is already loading it). (/preconnect normally
+    // blocks these before a socket opens; this covers a socket closed post-upgrade.)
+    if (e && (e.code === 4003 || e.code === 4004 || e.code === 4006)) this._shouldReconnect = false;
 
     if (this._shouldReconnect) this._scheduleReconnect();
   },
@@ -338,6 +341,12 @@ const socket = {
   },
 
   _fireRejection (message) {
+    // Banned from this room, with that kind of ban going to /degen: go there
+    // instead of showing the refusal.
+    if (message && message.redirect) {
+      goToRoom(message.redirect, { from: message.from, kind: message.kind });
+      return;
+    }
     const text = (message && message.message) || 'Unable to connect.';
     for (const cb of this._rejectionCbs) cb(text);
   },

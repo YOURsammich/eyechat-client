@@ -271,6 +271,18 @@ const COMMANDS = {
     params: ['name'],
   },
   rooms: {},
+  // Banworld (feedback #39) and room mods; permissions are checked server-side.
+  degen: {
+    params: ['nick'],
+  },
+  degenbans: {},
+  degenban: {
+    params: ['kind', 'state'],
+  },
+  roommod: {
+    params: ['action', 'nick'],
+  },
+  roommods: {},
   whitelist: {
     params: ['state'],
   },

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ROOM, IN_MAIN } from './utils/room.js';
+import { ROOM, IN_MAIN, goToRoom } from './utils/room.js';
 
 import Store from './utils/store';
 import socket from './utils/socket';
@@ -186,6 +186,12 @@ function App() {
 
     // Register before init() so a rejection from the in-flight preconnect is caught.
     socket.onRejected((message) => setRejection(message));
+
+    // Sent to another room by the server: to /degen by a ban or a mod, or back to
+    // main by a ban from /degen. The socket closes right after (4006).
+    socket.on('goRoom', ({ room, from, kind } = {}) => {
+      if (typeof room === 'string' && room) goToRoom(room, { from, kind });
+    });
 
     socket.init({ getActiveChannel: () => ROOM }).then((ok) => {
       if (!ok) return;
