@@ -5,6 +5,7 @@ import AvatarDisplay from './AvatarDisplay.jsx';
 import WhatsNew from './WhatsNew.jsx';
 import ActivityInvite from './ActivityInvite.jsx';
 import DraggableWindow from '../DraggableWindow.jsx';
+import { isBlockedFont } from '../../utils/fonts.js';
 
 
 // Does this message name `nick`? Case-insensitive: people type each other's
@@ -1212,7 +1213,8 @@ const fonts = {};
 // Inject a Google-Fonts stylesheet for a family once (idempotent). Fonts render
 // with `display=swap`, so text repaints in the real font as soon as it loads.
 export function loadFont (fontFamily) {
-  if (!fontFamily || fonts[fontFamily]) return;
+  // A blacklisted font is never fetched (feedback #48).
+  if (!fontFamily || fonts[fontFamily] || isBlockedFont(fontFamily)) return;
   fonts[fontFamily] = true;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
@@ -1281,6 +1283,8 @@ function getMsgCss (compName, value) {
     return { color: '#181818', textShadow: shadows.join(', ') };
   } else if (compName == 'font') {
     const fontFamily = value.slice(1, -1);
+    // Blacklisted: the text keeps the normal font (feedback #48).
+    if (isBlockedFont(fontFamily)) return {};
     loadFont(fontFamily);
     return { fontFamily };
   }

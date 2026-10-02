@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ROOM, IN_MAIN, goToRoom } from './utils/room.js';
+import { setBlockedFonts } from './utils/fonts.js';
 
 import Store from './utils/store';
 import socket from './utils/socket';
@@ -170,9 +171,11 @@ function App() {
 
     socket.on('setState', (data) => {
       if (data[0] === 'showPluginBar') setShowPluginBar(data[1]);
+      if (data[0] === 'blockedFonts') setBlockedFonts(data[1]);
     });
 
     socket.on('channelInfo', (channelInfo) => {
+      if (Array.isArray(channelInfo.blockedFonts)) setBlockedFonts(channelInfo.blockedFonts);
       if (channelInfo.showPluginBar !== undefined) {
         setShowPluginBar(channelInfo.showPluginBar);
       }

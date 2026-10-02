@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { ParsedContent, preloadFontsFromText } from '../Chat/Messages';
+import FontPicker from '../FontPicker';
 import { composeTextStyle } from '../../utils/textstyle';
 
 // The styles a text style can carry, in the same token language message bodies
@@ -148,18 +149,11 @@ function TextStyleEditor({ user, emojis }) {
         </div>
       </div>
 
-      <label className='cosField'>
+      <div className='cosField'>
         <span className='cosFieldLabel'>Font</span>
-        {/* Any Google Fonts family name; it is fetched on demand by loadFont. */}
-        <input
-          className='stdInput'
-          placeholder='e.g. Comic Neue'
-          maxLength={40}
-          value={state.font}
-          onChange={e => patch({ font: e.target.value.replace(/[|$]/g, '') })}
-        />
-        <span className='cosHint'>Any Google Fonts family name.</span>
-      </label>
+        {/* Every Google Font, searchable, each shown in its own font. */}
+        <FontPicker value={state.font} onChange={font => patch({ font })} />
+      </div>
 
       {styleStr && <div className='cosRaw'>{styleStr}</div>}
 

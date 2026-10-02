@@ -865,3 +865,64 @@
 .psMore:hover { background: #ffffff0f; color: #eee; }
 .psMore .material-symbols-outlined { font-size: 17px; }
 .psMoreChevron { margin-left: auto; }
+
+/* ─── Font picker (comps/FontPicker.jsx, feedback #48) ─────────────────────── */
+/* Every Google Font, searchable, each name in its own font. */
+.fontPicker {
+  position: relative;
+}
+.fontPickerCurrent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 15px;
+}
+.fontPickerCurrent .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-size: 18px;
+  opacity: 0.7;
+}
+.fontPickerPanel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1b1b1b;
+  border: 1px solid #333;
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+}
+.fontPickerPanel .stdInput {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+}
+.fontPickerList {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.fontPickerRow {
+  padding: 6px 8px;
+  font-size: 17px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fontPickerRow:hover {
+  background: #2a2a2a;
+}
+.fontPickerRow.selected {
+  background: #1a3a5c;
+}
+.fontPickerEmpty {
+  padding: 8px;
+  color: #888;
+  font-size: 13px;
+}

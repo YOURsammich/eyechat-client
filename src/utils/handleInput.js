@@ -1,5 +1,6 @@
 import { composeTextStyle, pickTextStyle } from './textstyle';
 import { ACTIVITIES, activityCommandNames, openEvent } from '../comps/activities';
+import { canonicalFont, isBlockedFont } from './fonts.js';
 
 // Parse a single hex color (3- or 6-digit, leading "#" optional) into an
 // [r, g, b] triple normalized to 0..1, or null if it isn't valid hex.
@@ -144,8 +145,16 @@ const COMMANDS = {
     params: ['font'],
     parseMethod: 'leaveSpace',
     handler (params, {store, user, addMessage}) {
-      // A Google Font name (e.g. "Comic Neue"); "/font none" clears it.
-      const font = params.font === 'none' ? null : params.font;
+      // A Google Font name (e.g. "Comic Neue"); "/font none" clears it. The
+      // server checks a registered user's choice; a guest's is only local, so
+      // it's checked here against the same list.
+      let font = params.font === 'none' ? null : params.font;
+      if (font && !user?.registered) {
+        const real = canonicalFont(font);
+        const why = !real ? `"${font}" isn't a Google Font.` : isBlockedFont(real) ? `${real} has been blacklisted.` : null;
+        if (why) { addMessage?.({ message: why, type: 'error', noparse: true, count: Math.random() }); return; }
+        font = real;
+      }
       if (user?.registered) saveTextStyle(user, { font }, addMessage);
       else store.setState('font', font ?? '');
     }
@@ -276,6 +285,16 @@ const COMMANDS = {
     params: ['nick'],
   },
   degenbans: {},
+  // Font blacklist (feedback #48), admins only (checked server-side).
+  blockfont: {
+    params: ['font'],
+    parseMethod: 'leaveSpace',
+  },
+  unblockfont: {
+    params: ['font'],
+    parseMethod: 'leaveSpace',
+  },
+  blockedfonts: {},
   degenban: {
     params: ['kind', 'state'],
   },
