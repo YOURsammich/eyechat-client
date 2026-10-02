@@ -3,6 +3,8 @@ import PropTypes from 'prop-types';
 import handleInput from '../utils/handleInput';
 import DraggableWindow from './DraggableWindow';
 import { ROOM } from '../utils/room.js';
+import FontPicker from './FontPicker';
+import { getMyFont, setMyFont } from '../utils/myFont.js';
 import CosmeticsPanel from './Cosmetics/CosmeticsPanel';
 import { useTrustedPlugins, setPluginTrusted } from './CodeRunner/pluginTrust';
 import {
@@ -634,6 +636,12 @@ SettingsRow.propTypes = {
   children: PropTypes.node,
 };
 
+// "My font" (feedback #42): saved in this browser; see utils/myFont.js.
+function MyFontPicker() {
+  const [font, setFont] = useState(getMyFont);
+  return <FontPicker value={font} onChange={(f) => { setFont(f); setMyFont(f); }} />;
+}
+
 function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave, changeJoinLeave, cursorMode, changeCursorMode, user }) {
   // The account's own value, straight off the live userlist entry — the server
   // broadcasts a userStateChange for it, so a save from another tab lands here
@@ -679,6 +687,12 @@ function Settings({ toggles, toggleStateChange, layout, changeLayout, joinLeave,
         {displayToggles.map(toggleRow)}
         <SettingsRow label='layout'>
           <Segmented options={LAYOUTS} value={layout} onChange={changeLayout} />
+        </SettingsRow>
+        <SettingsRow
+          label='my font'
+          note="Replaces the room's font on this device only. Other people's own fonts still show."
+        >
+          <MyFontPicker />
         </SettingsRow>
         <SettingsRow
           label='join/leave'

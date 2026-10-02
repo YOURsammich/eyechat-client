@@ -295,6 +295,11 @@ const COMMANDS = {
     parseMethod: 'leaveSpace',
   },
   blockedfonts: {},
+  // The room's font (feedback #42); "/channelfont none" clears it.
+  channelfont: {
+    params: ['font'],
+    parseMethod: 'leaveSpace',
+  },
   degenban: {
     params: ['kind', 'state'],
   },

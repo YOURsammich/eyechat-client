@@ -4,7 +4,7 @@ import Messages, {
   ParsedContent, mentionsNick,
   clampStyleLimit, setStyleLimit,
   clampMessageHeight, effectiveMessageHeight, setMessageMaxHeight,
-  setEffectsEnabled,
+  setEffectsEnabled, loadFont,
 } from './Messages';
 import InputBar from './InputBar';
 import LiveCursors from './LiveCursors';
@@ -22,10 +22,46 @@ import JumpScare from './JumpScare';
 import ChannelStatus from './ChannelStatus';
 import ActivityLauncher from './ActivityLauncher';
 import { ROOM, IN_MAIN, arrivalNotice } from '../../utils/room.js';
+import { getMyFont } from '../../utils/myFont.js';
+import { isBlockedFont } from '../../utils/fonts.js';
 import { ACTIVITIES, openEvent, closeEvent } from './../activities';
 import { activityPanel } from './../activityPanels';
 
-const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'cursors', 'filteredWords', 'checkTrust', 'proxyBlock']);
+const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'cursors', 'filteredWords', 'checkTrust', 'proxyBlock', 'channelfont']);
+
+// The page's own font, read before any room font replaces it (see useRoomFont).
+let pageFont = null;
+
+// The room's font (/channelfont), or "My font" if this screen has one set,
+// applied to the whole page (feedback #42). Text with its own text-style font
+// keeps it, since that's set on the text itself. Blacklisted fonts are skipped.
+function useRoomFont(roomFont) {
+  const [myFont, setMine] = useState(getMyFont);
+  const [, setBlockedVersion] = useState(0);
+
+  useEffect(() => {
+    const onMine = () => setMine(getMyFont());
+    const onBlocked = () => setBlockedVersion(v => v + 1);
+    window.addEventListener('myfont:change', onMine);
+    window.addEventListener('fonts:blocked', onBlocked);
+    return () => {
+      window.removeEventListener('myfont:change', onMine);
+      window.removeEventListener('fonts:blocked', onBlocked);
+    };
+  }, []);
+
+  const font = [myFont, roomFont].find(f => typeof f === 'string' && f && !isBlockedFont(f)) || '';
+
+  useEffect(() => {
+    if (pageFont === null) pageFont = getComputedStyle(document.body).fontFamily || 'sans-serif';
+    if (font) {
+      loadFont(font);
+      document.body.style.fontFamily = `'${font}', ${pageFont}`;
+    } else {
+      document.body.style.fontFamily = '';
+    }
+  }, [font]);
+}
 
 // How many messages stay in the DOM. Every one of them is a live React element
 // holding parsed markup, images and embeds, so an untrimmed log is a session-long
@@ -137,7 +173,9 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
     hats: [],
     cursors: [],
     filteredWords: {},
+    channelfont: '',
   });
+  useRoomFont(channelState.channelfont);
 
   const blurredRef = useRef(false);
   const unreadRef = useRef(0);
@@ -358,11 +396,12 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
       // values so the badges never read a null.
       const checkTrust = Number(channelInfo.checkTrust) || 0;
       const proxyBlock = channelInfo.proxyBlock ?? 'off';
+      const channelfont = channelInfo.channelfont ?? '';
 
       if (Array.isArray(channelInfo.blocks)) setBlocks(channelInfo.blocks);
 
       const parsed = store.handleStates(channelInfo);
-      setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg, checkTrust, proxyBlock }));
+      setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg, checkTrust, proxyBlock, channelfont }));
     });
 
     // The server sends the whole list on every change (including from another
@@ -441,7 +480,8 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
         }
         return {
           ...prev,
-          [key]: typeof value === 'object' ? { ...(prev[key] || {}), ...value } : value
+          // null clears a setting (typeof null is 'object', so it must not merge).
+          [key]: value !== null && typeof value === 'object' ? { ...(prev[key] || {}), ...value } : value
         };
       });
     });
