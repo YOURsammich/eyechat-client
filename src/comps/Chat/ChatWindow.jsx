@@ -98,9 +98,14 @@ function formatSeen(ms) {
 const mentionAudio = typeof Audio !== 'undefined' ? new Audio('/audio/Bwoop.wav') : null;
 
 // `plugins` (copecloud's public apps), `onOpenPlugin`, `openPlugin` (the one
-// showing) and `onBrowsePlugins` (opens the plugins drawer) are only for the
+// showing) and `onBrowsePlugins` (opens the plugin panel) are only for the
 // Play menu, which lists plugins below the built-in games; App owns them all.
-function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store, plugins, onOpenPlugin, openPlugin, onBrowsePlugins }) {
+// `onShowPlugins` is set when there's no plugin bar to use (a phone, or a
+// viewer who hid it), and puts a plugins button in the header.
+function ChatWindow({
+  socket, userlist, channelName, user, focusOnChat, store,
+  plugins, onOpenPlugin, openPlugin, onBrowsePlugins, onShowPlugins, pluginsButtonLabel,
+}) {
   const [messages, setMessages] = useState([]);
   const [showUsers] = useState(true);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -766,6 +771,18 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store, p
             <div className='topic'>{channelState.topic}</div>
           </div>
           <div className='topBarBtns'>
+            {onShowPlugins ? (
+              <button
+                type='button'
+                className='pluginsHeaderBtn'
+                onClick={onShowPlugins}
+                title={pluginsButtonLabel}
+                aria-label={pluginsButtonLabel}
+                data-plugin-panel-toggle
+              >
+                <span className='material-symbols-outlined'>apps</span>
+              </button>
+            ) : null}
             {IN_MAIN ? <ActivityLauncher activities={activities} plugins={plugins} onOpenPlugin={onOpenPlugin} openPlugin={openPlugin} onBrowsePlugins={onBrowsePlugins} /> : null}
             <SearchBar channelName={channelName} />
             <span

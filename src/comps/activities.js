@@ -20,8 +20,8 @@
 //
 // Plugins are not in this array: they come from copecloud at runtime and open
 // the code runner, not the draggable panels below. The launcher lists them in a
-// group of their own after these, and the plugin bar (`/sidebar`,
-// channel.showPluginBar) shows them too.
+// group of their own after these, and the plugin bar (PluginRail) shows them
+// too.
 
 export const ACTIVITIES = [
   {

@@ -111,7 +111,7 @@ const SECTIONS = [
         icon: '🎨',
         title: 'Chrome and layout',
         body: 'The top bar, input bar, menu, icon bar and message bubbles each take their own color, and the layout, message height and join/leave noise are all yours to set.',
-        tags: ['/theme', '/sidebar'],
+        tags: ['/theme'],
       },
       {
         icon: '💾',
@@ -288,7 +288,6 @@ const COMMAND_NOTES = {
   hat: 'Wear one of the hats you own.',
   background: 'Change the animated background palette.',
   theme: 'Recolor one piece of the chrome — top bar, input bar, menu, icon bar or bubbles.',
-  sidebar: 'Show or hide the plugin bar for the whole room.',
 
   // Coins and play
   pay: 'Send coins to someone.',

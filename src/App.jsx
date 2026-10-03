@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, Fragment } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ROOM, IN_MAIN, goToRoom } from './utils/room.js';
 import { setBlockedFonts } from './utils/fonts.js';
@@ -11,9 +11,9 @@ import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 import PluginWindow from './comps/CodeRunner/PluginWindow';
 import { readOverrides, writeOverrides, resolveMode } from './comps/CodeRunner/pluginMode';
 import PluginConsentDialog from './comps/CodeRunner/PluginConsentDialog';
-import PluginIcon from './comps/CodeRunner/PluginIcon';
 import { noteOpened } from './comps/CodeRunner/pluginRecent';
-import PluginDrawer from './comps/CodeRunner/PluginDrawer';
+import PluginPanel from './comps/CodeRunner/PluginPanel';
+import PluginRail from './comps/CodeRunner/PluginRail';
 import { usePinnedPlugins, requestPins, pinnedThenRecent } from './comps/CodeRunner/pluginPins';
 import { parsePluginRequest, originOf } from './comps/CodeRunner/pluginBridge';
 import {
@@ -104,16 +104,39 @@ function useNarrow() {
   return narrow;
 }
 
+// Whether this viewer hid the plugin bar. Per browser; it's on by default, so
+// blocked storage just means it stays on.
+const RAIL_KEY = 'pluginRailHidden';
+
+function readRailHidden() {
+  try {
+    return localStorage.getItem(RAIL_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeRailHidden(hidden) {
+  try {
+    if (hidden) localStorage.setItem(RAIL_KEY, '1');
+    else localStorage.removeItem(RAIL_KEY);
+  } catch {
+    // the choice just won't survive a reload
+  }
+}
+
 function App() {
   // The open plugin's name, or null. Its record is looked up in `plugins`, so
   // an author changing the display mode lands on the next fetch without the
   // viewer having to reopen anything.
   const [showApp, setShowApp] = useState(null);
-  const [showPluginBar, setShowPluginBar] = useState(false);
   const [userlist, setUserlist] = useState([]);
   const [userID, setUserID] = useState(null);
   const [plugins, setPlugins] = useState([]);
-  const [showDrawer, setShowDrawer] = useState(false);
+  // The plugin bar (PluginRail) is each viewer's to hide; it's on until they
+  // do. The panel is the bar opened out (or, on a phone, a sheet).
+  const [railHidden, setRailHidden] = useState(readRailHidden);
+  const [panelOpen, setPanelOpen] = useState(false);
   const pinnedPlugins = usePinnedPlugins();
   const narrow = useNarrow();
   // Per-plugin viewer overrides of the author's display mode.
@@ -193,15 +216,11 @@ function App() {
     });
 
     socket.on('setState', (data) => {
-      if (data[0] === 'showPluginBar') setShowPluginBar(data[1]);
       if (data[0] === 'blockedFonts') setBlockedFonts(data[1]);
     });
 
     socket.on('channelInfo', (channelInfo) => {
       if (Array.isArray(channelInfo.blockedFonts)) setBlockedFonts(channelInfo.blockedFonts);
-      if (channelInfo.showPluginBar !== undefined) {
-        setShowPluginBar(channelInfo.showPluginBar);
-      }
     });
 
     // After an automatic reconnect, rejoin the channel so the server re-adds us
@@ -466,9 +485,28 @@ function App() {
     });
   }
 
-  // Stable, so the drawer's listeners aren't rebound on every render.
-  const openDrawer = useCallback(() => setShowDrawer(true), []);
-  const closeDrawer = useCallback(() => setShowDrawer(false), []);
+  // Stable, so the panel's listeners aren't rebound on every render.
+  const closePanel = useCallback(() => setPanelOpen(false), []);
+
+  // "Browse all" from the Play menu: the bar opened out, bringing the bar
+  // back first if this viewer had hidden it. On a phone, the sheet.
+  const openPanel = useCallback(() => {
+    if (!narrow) showRail(true);
+    setPanelOpen(true);
+  }, [narrow]);
+
+  function showRail(show) {
+    setRailHidden(!show);
+    writeRailHidden(!show);
+    if (!show) setPanelOpen(false);
+  }
+
+  // The chat header's plugins button, when there's no bar to use: on a phone
+  // it opens the sheet, on desktop it brings the hidden bar back.
+  const headerPluginsButton = !IN_MAIN ? null
+    : narrow ? openPanel
+    : railHidden ? () => showRail(true)
+    : null;
 
   function togglePluginPanel() {
     setShowApp(open => open ? null : (lastAppRef.current || plugins[0]?.appname || null));
@@ -523,42 +561,18 @@ function App() {
 
       <div id='main-container'>
 
-        {showPluginBar && IN_MAIN ? (
-          <div className="sideBar">
-            <div className="appViewToggle" onClick={togglePluginPanel} title={showApp ? 'Close plugin' : 'Reopen last plugin'}>
-              <span className="material-symbols-outlined">code</span>
-            </div>
-            <button
-              type='button'
-              className={'pluginBrowseBtn' + (showDrawer ? ' active' : '')}
-              onClick={() => setShowDrawer(v => !v)}
-              title='All plugins'
-              aria-label='All plugins'
-              aria-expanded={showDrawer}
-              data-plugin-drawer-toggle
-            >
-              <span className='material-symbols-outlined'>apps</span>
-            </button>
-            {/* Pinned first, then a rule, then the rest in copecloud's order,
-                so tiles don't move about as plugins are opened. */}
-            <div className='pluginSelectionContainer'>
-              {sidebarPlugins.map((plugin, i) => (
-                <Fragment key={plugin.appname}>
-                  {i === pinnedOnBar && i > 0 ? <hr className='pluginSelectRule' /> : null}
-                  <button
-                    type='button'
-                    title={plugin.description ? `${plugin.appname}: ${plugin.description}` : plugin.appname}
-                    aria-label={plugin.appname}
-                    aria-pressed={plugin.appname === showApp}
-                    className={'pluginSelect' + (plugin.appname === showApp ? ' pluginSelectActive' : '')}
-                    onClick={() => setShowApp(plugin.appname)}
-                  >
-                    <PluginIcon plugin={plugin} size={40} />
-                  </button>
-                </Fragment>
-              ))}
-            </div>
-          </div>
+        {IN_MAIN && !narrow && !railHidden ? (
+          <PluginRail
+            plugins={sidebarPlugins}
+            pinnedCount={pinnedOnBar}
+            openPlugin={showApp}
+            onOpen={setShowApp}
+            onToggleLast={togglePluginPanel}
+            panelOpen={panelOpen}
+            onTogglePanel={() => setPanelOpen(v => !v)}
+            onClosePanel={closePanel}
+            onHide={() => showRail(false)}
+          />
         ) : null}
 
         {openMode === 'sidebar' || openMode === 'fullscreen' ? (
@@ -573,12 +587,13 @@ function App() {
           />
         ) : null}
 
-        {showDrawer && IN_MAIN ? (
-          <PluginDrawer
-            plugins={plugins}
+        {panelOpen && IN_MAIN && narrow ? (
+          <PluginPanel
+            sheet
+            plugins={sidebarPlugins}
             openPlugin={showApp}
             onOpen={setShowApp}
-            onClose={closeDrawer}
+            onClose={closePanel}
           />
         ) : null}
 
@@ -600,7 +615,9 @@ function App() {
             plugins={plugins}
             onOpenPlugin={setShowApp}
             openPlugin={showApp}
-            onBrowsePlugins={openDrawer}
+            onBrowsePlugins={openPanel}
+            onShowPlugins={headerPluginsButton}
+            pluginsButtonLabel={narrow ? 'Plugins' : 'Show the plugin bar'}
           />
         </div>
 

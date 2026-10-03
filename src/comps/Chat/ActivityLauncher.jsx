@@ -31,7 +31,7 @@ import { usePinnedPlugins, pinnedThenRecent } from '../CodeRunner/pluginPins';
 // so nobody mistakes one for a game of ours. Only the first few are listed,
 // the viewer's pinned and then recently opened ones first, so the room's own
 // games stay in view however big copecloud's catalogue gets; "Browse all"
-// opens the plugins drawer (`onBrowsePlugins`) for the rest. `openPlugin` is
+// opens the plugin panel (`onBrowsePlugins`) for the rest. `openPlugin` is
 // the one showing now, if any.
 export const PLUGINS_SHOWN = 5;
 

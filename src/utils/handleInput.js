@@ -406,7 +406,6 @@ const COMMANDS = {
     params: ['note'],
     parseMethod: 'leaveSpace'
   },
-  sidebar: {},
   flipcoin: {},
   ask: {
     params: ['question'],

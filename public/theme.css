@@ -61,16 +61,39 @@ a {
   }
 }
 
+/* `position: relative` so the opened-out panel can dock against its right
+   edge (.pluginPanelDocked). */
 .sideBar {
+  position: relative;
   background-color: #111;
   color: #fff;
   display: flex;
   align-items: center;
   flex-direction: column;
+  flex: none;
   height: 100%;
   z-index: 4;
   width: 65px;
 }
+
+/* at the foot: hides the bar for this viewer */
+.pluginRailHide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 50px;
+  height: 32px;
+  margin: 4px 0 8px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: #666;
+  cursor: pointer;
+}
+.pluginRailHide:hover { background-color: #222; color: #ccc; }
+.pluginRailHide:focus-visible { outline: 2px solid #8cf; }
 
 /* Scrolls once there are more tiles than fit; the padding keeps the open
    tile's ring from being clipped. */
@@ -103,7 +126,7 @@ a {
   border-top: 1px solid #3a3a3a;
 }
 
-/* opens the plugins drawer */
+/* opens the bar out into the plugin panel */
 .pluginBrowseBtn {
   display: flex;
   align-items: center;
@@ -124,35 +147,57 @@ a {
 .pluginBrowseBtn.active { background-color: #2a2a2a; color: #fff; }
 .pluginBrowseBtn:focus-visible { outline: 2px solid #8cf; }
 
-/* ─── Plugins drawer (CodeRunner/PluginDrawer.jsx) ────────────────────────── */
+/* ─── Plugin panel (CodeRunner/PluginPanel.jsx) ───────────────────────────── */
 
-.pluginDrawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 40;
-  width: 360px;
-  max-width: 100vw;
+.pluginPanel {
   display: flex;
   flex-direction: column;
-  background: #1c1c1c;
-  border-left: 1px solid #333;
-  box-shadow: -6px 0 18px rgba(0, 0, 0, 0.45);
   color: #ddd;
 }
 
-.pluginDrawerHeader {
+/* Desktop: the bar opened out. Same colour as the bar and no border between
+   them, so they read as one surface getting wider; the shadow is on the far
+   side only. Lays over a docked plugin and the chat rather than pushing them. */
+.pluginPanelDocked {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 300px;
+  background: #111;
+  border-right: 1px solid #262626;
+  box-shadow: 8px 0 18px rgba(0, 0, 0, 0.5);
+  animation: pluginPanelOut 0.14s ease-out;
+}
+
+@keyframes pluginPanelOut {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pluginPanelDocked { animation: none; }
+}
+
+/* A phone: the whole screen, opened from the chat header. */
+.pluginPanelSheet {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: #141414;
+}
+
+.pluginPanelHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 12px 8px 16px;
 }
 
-.pluginDrawerTitle { font-size: 16px; font-weight: 600; color: #eee; }
-.pluginDrawerCount { color: #777; font-weight: 400; font-size: 13px; margin-left: 4px; }
+.pluginPanelTitle { font-size: 16px; font-weight: 600; color: #eee; }
+.pluginPanelCount { color: #777; font-weight: 400; font-size: 13px; margin-left: 4px; }
 
-.pluginDrawerClose {
+.pluginPanelClose {
   display: flex;
   padding: 4px;
   border: none;
@@ -161,9 +206,9 @@ a {
   color: #aaa;
   cursor: pointer;
 }
-.pluginDrawerClose:hover { background: #2a2a2a; color: #fff; }
+.pluginPanelClose:hover { background: #2a2a2a; color: #fff; }
 
-.pluginDrawerSearch {
+.pluginPanelSearch {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -174,9 +219,9 @@ a {
   background: #141414;
   color: #888;
 }
-.pluginDrawerSearch:focus-within { border-color: #39f; }
+.pluginPanelSearch:focus-within { border-color: #39f; }
 
-.pluginDrawerSearch input {
+.pluginPanelSearch input {
   flex: 1;
   min-width: 0;
   padding: 9px 0;
@@ -188,9 +233,9 @@ a {
   font-size: 14px;
 }
 
-.pluginDrawerBody { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+.pluginPanelBody { flex: 1; overflow-y: auto; padding-bottom: 12px; }
 
-.pluginDrawerHeading {
+.pluginPanelHeading {
   margin: 10px 16px 4px;
   color: #777;
   font-size: 11px;
@@ -199,13 +244,13 @@ a {
   letter-spacing: 0.5px;
 }
 
-.pluginDrawerList { list-style: none; margin: 0; padding: 0; }
+.pluginPanelList { list-style: none; margin: 0; padding: 0; }
 
-.pluginDrawerRow { display: flex; align-items: center; }
-.pluginDrawerRow:hover { background: #262626; }
-.pluginDrawerRowOpen { background: #26303b; box-shadow: inset 3px 0 0 #39f; }
+.pluginPanelRow { display: flex; align-items: center; }
+.pluginPanelRow:hover { background: #262626; }
+.pluginPanelRowOpen { background: #26303b; box-shadow: inset 3px 0 0 #39f; }
 
-.pluginDrawerOpen {
+.pluginPanelOpen {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -220,10 +265,10 @@ a {
   cursor: pointer;
 }
 
-.pluginDrawerText { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.pluginDrawerName { color: #eee; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pluginDrawerOwner { color: #808080; font-size: 12px; }
-.pluginDrawerDesc {
+.pluginPanelText { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.pluginPanelName { color: #eee; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pluginPanelOwner { color: #808080; font-size: 12px; }
+.pluginPanelDesc {
   color: #8a8a8a;
   font-size: 12px;
   line-height: 1.35;
@@ -233,9 +278,9 @@ a {
   line-clamp: 2;
   overflow: hidden;
 }
-.pluginDrawerCoins { flex: none; font-size: 18px; color: #e6c34a; }
+.pluginPanelCoins { flex: none; font-size: 18px; color: #e6c34a; }
 
-.pluginDrawerPin {
+.pluginPanelPin {
   display: flex;
   flex: none;
   margin-right: 8px;
@@ -246,22 +291,19 @@ a {
   color: #666;
   cursor: pointer;
 }
-.pluginDrawerPin:hover { color: #ddd; background: #333; }
-.pluginDrawerPin.pinned { color: #8cf; }
-.pluginDrawerPin.pinned .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+.pluginPanelPin:hover { color: #ddd; background: #333; }
+.pluginPanelPin.pinned { color: #8cf; }
+.pluginPanelPin.pinned .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
 
-.pluginDrawerOpen:focus-visible,
-.pluginDrawerPin:focus-visible,
-.pluginDrawerClose:focus-visible { outline: 2px solid #8cf; outline-offset: -2px; }
+.pluginPanelOpen:focus-visible,
+.pluginPanelPin:focus-visible,
+.pluginPanelClose:focus-visible { outline: 2px solid #8cf; outline-offset: -2px; }
 
-.pluginDrawerEmpty { margin: 24px 16px; color: #888; font-size: 14px; line-height: 1.5; }
+.pluginPanelEmpty { margin: 24px 16px; color: #888; font-size: 14px; line-height: 1.5; }
 
-/* a phone: the whole screen, with bigger rows to tap */
-@media (max-width: 768px) {
-  .pluginDrawer { width: 100vw; border-left: none; }
-  .pluginDrawerOpen { padding-top: 11px; padding-bottom: 11px; }
-  .pluginDrawerPin { padding: 10px; }
-}
+/* the phone sheet: bigger rows to tap */
+.pluginPanelSheet .pluginPanelOpen { padding-top: 11px; padding-bottom: 11px; }
+.pluginPanelSheet .pluginPanelPin { padding: 10px; }
 
 .pluginSelect {
   background-color: #333;
@@ -2859,6 +2901,22 @@ a {
 }
 .activityBtn:hover { background: #ffffff1c; border-color: #ffffff33; color: #fff; }
 .activityBtn .material-symbols-outlined { font-size: 19px; }
+
+/* Plugins, when there's no plugin bar to reach them by: a phone, or a viewer
+   who hid the bar. Styled as Play's sibling. */
+.pluginsHeaderBtn {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  margin-right: 6px;
+  border: 1px solid #ffffff1f;
+  border-radius: 6px;
+  background: #ffffff0f;
+  color: #cfcfcf;
+  cursor: pointer;
+}
+.pluginsHeaderBtn:hover { background: #ffffff1c; border-color: #ffffff33; color: #fff; }
+.pluginsHeaderBtn .material-symbols-outlined { font-size: 19px; }
 
 /* The label is the difference between an icon people guess at and a door they
    read. First thing to go when the header runs out of room. */
