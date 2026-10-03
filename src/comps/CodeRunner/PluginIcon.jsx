@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-// A plugin's icon, wherever plugins are listed (the plugin bar, the Play menu).
+// A plugin's icon, wherever plugins are listed (the plugin bar and its panel).
 // Its author uploads it on copecloud, which serves it from the plugin host and
 // puts the URL on the plugin's record as `icon`. Without one, or if it fails to
 // load, the plugin gets the first letter of its name on a colour worked out

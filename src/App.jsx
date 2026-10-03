@@ -463,8 +463,8 @@ function App() {
   const sidebarPlugins = pinnedThenRecent(plugins, pinnedPlugins, []);
   const pinnedOnBar = sidebarPlugins.filter(p => pinnedPlugins.includes(p.appname)).length;
 
-  // The Play menu lists recently opened plugins first. Only once one is
-  // actually showing: a plugin declined at the consent dialog doesn't count.
+  // The plugin panel's Recent section. Only once a plugin is actually
+  // showing: one declined at the consent dialog doesn't count.
   const shownApp = openMode ? openPlugin.appname : null;
   useEffect(() => { if (shownApp) noteOpened(shownApp); }, [shownApp]);
 
@@ -488,8 +488,8 @@ function App() {
   // Stable, so the panel's listeners aren't rebound on every render.
   const closePanel = useCallback(() => setPanelOpen(false), []);
 
-  // "Browse all" from the Play menu: the bar opened out, bringing the bar
-  // back first if this viewer had hidden it. On a phone, the sheet.
+  // The Play menu's "Player-made games": the bar opened out, bringing the
+  // bar back first if this viewer had hidden it. On a phone, the sheet.
   const openPanel = useCallback(() => {
     if (!narrow) showRail(true);
     setPanelOpen(true);
@@ -612,9 +612,6 @@ function App() {
             user={myUser}
             focusOnChat={true}
             store={storeRef.current}
-            plugins={plugins}
-            onOpenPlugin={setShowApp}
-            openPlugin={showApp}
             onBrowsePlugins={openPanel}
             onShowPlugins={headerPluginsButton}
             pluginsButtonLabel={narrow ? 'Plugins' : 'Show the plugin bar'}

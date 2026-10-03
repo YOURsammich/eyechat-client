@@ -2,8 +2,8 @@ import { useSyncExternalStore } from 'react';
 import socket from '../../utils/socket';
 
 // The plugins this viewer has pinned, in the order they pinned them. They
-// lead the plugin bar and the Play menu, and have their own section in the
-// drawer. A logged-in account's pins live on the server (pluginPins.js there)
+// lead the plugin bar and have their own section in the plugin panel. A
+// logged-in account's pins live on the server (pluginPins.js there)
 // and arrive as `pluginPinList`; a guest has no account, so the server says
 // `account: false` and their pins are kept in this browser instead.
 

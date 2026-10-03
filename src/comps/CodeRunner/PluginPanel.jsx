@@ -12,10 +12,11 @@ import { readRecent } from './pluginRecent';
 // shares its colour, so it reads as the bar getting wider; it lays over a
 // docked plugin and the chat rather than pushing them about. On a phone, where
 // there is no bar, it is a full-screen sheet (`sheet`) opened from the chat
-// header. Opened by the bar's grid button and the Play menu's "Browse all".
+// header. Opened by the bar's grid button and the Play menu's "Player-made
+// games" row.
 //
 // Picking a plugin opens it and folds the panel away. The pin button beside
-// each row pins it to the bar and the top of the Play menu.
+// each row pins it to the top of the bar.
 
 export const RECENT_SHOWN = 5;
 
@@ -63,7 +64,7 @@ function PluginRow({ plugin, isOpen, pinned, onOpen }) {
         onClick={() => setPinned(plugin.appname, !pinned)}
         aria-pressed={pinned}
         aria-label={(pinned ? 'Unpin ' : 'Pin ') + plugin.appname}
-        title={pinned ? 'Unpin' : 'Pin to the plugin bar and the top of Play'}
+        title={pinned ? 'Unpin' : 'Pin to the top of the plugin bar'}
       >
         <span className='material-symbols-outlined'>push_pin</span>
       </button>

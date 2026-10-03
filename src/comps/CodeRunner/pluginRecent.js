@@ -1,6 +1,6 @@
-// The plugins this viewer opened lately, newest first, so the Play menu can
-// lead with them instead of copecloud's arbitrary order. Per browser, like the
-// display-mode overrides in pluginMode.js; nothing breaks without it.
+// The plugins this viewer opened lately, newest first, for the plugin panel's
+// Recent section. Per browser, like the display-mode overrides in
+// pluginMode.js; nothing breaks without it.
 
 const KEY = 'pluginRecent';
 const MAX = 10;

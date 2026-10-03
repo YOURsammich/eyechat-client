@@ -2,10 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ACTIVITIES, ACTIVITY_KINDS, openEvent } from '../activities';
-import PluginIcon from '../CodeRunner/PluginIcon';
-import { wantsWallet } from '../CodeRunner/pluginTrust';
-import { readRecent } from '../CodeRunner/pluginRecent';
-import { usePinnedPlugins, pinnedThenRecent } from '../CodeRunner/pluginPins';
 
 // The one entry point to everything the room can *do* — games and shared tools.
 // Lives in the chat header because that is the only surface about the room right
@@ -25,19 +21,11 @@ import { usePinnedPlugins, pinnedThenRecent } from '../CodeRunner/pluginPins';
 // over the `activity` socket event. An empty object is the normal case and the
 // menu still opens — it just has nothing to report.
 //
-// Below the built-in groups come plugins: copecloud's public apps, written by
-// other people. They open the plugin panel (`onOpenPlugin`) rather than an
-// activity panel, and each row says whose it is and whether it can take coins,
-// so nobody mistakes one for a game of ours. Only the first few are listed,
-// the viewer's pinned and then recently opened ones first, so the room's own
-// games stay in view however big copecloud's catalogue gets; "Browse all"
-// opens the plugin panel (`onBrowsePlugins`) for the rest. `openPlugin` is
-// the one showing now, if any.
-export const PLUGINS_SHOWN = 5;
-
-function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin = null, onBrowsePlugins }) {
+// Plugins aren't listed here: the plugin bar is their one home. Someone who
+// comes looking for player-made games gets a single row at the foot that opens
+// the bar's plugin panel (`onShowPlugins`).
+function ActivityLauncher({ activities, onShowPlugins }) {
   const [open, setOpen] = useState(false);
-  const pins = usePinnedPlugins();
   const [pos, setPos] = useState({ top: 51, right: 8 });
   const btnRef = useRef(null);
   const menuRef = useRef(null);
@@ -74,13 +62,8 @@ function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin =
     setOpen(false);
   }
 
-  function launchPlugin(appname) {
-    onOpenPlugin?.(appname);
-    setOpen(false);
-  }
-
-  function browse() {
-    onBrowsePlugins?.();
+  function showPlugins() {
+    onShowPlugins?.();
     setOpen(false);
   }
 
@@ -89,12 +72,6 @@ function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin =
   // alone, so what recruits a player is seeing that a game is already up.
   const liveCount = ACTIVITIES.filter(a => a.live?.(activities[a.id])).length;
 
-  // recents are read when the menu renders, so a plugin opened from the
-  // plugin bar counts too
-  const shownPlugins = open
-    ? pinnedThenRecent(plugins, pins, readRecent()).slice(0, PLUGINS_SHOWN)
-    : [];
-
   return (
     <>
       <button
@@ -102,7 +79,7 @@ function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin =
         className={'activityBtn' + (liveCount ? ' hasLive' : '')}
         ref={btnRef}
         onClick={toggle}
-        title='Games, tools and plugins'
+        title='Games and tools'
         aria-haspopup='menu'
         aria-expanded={open}
       >
@@ -154,51 +131,6 @@ function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin =
             );
           })}
 
-          {plugins.length && onOpenPlugin ? (
-            <div className='activityGroup'>
-              <div className='activityGroupLabel'>Plugins</div>
-              {shownPlugins.map(p => (
-                <button
-                  type='button'
-                  className={'activityItem' + (p.appname === openPlugin ? ' activityItemOpen' : '')}
-                  role='menuitem'
-                  key={p.appname}
-                  title={p.appname}
-                  aria-current={p.appname === openPlugin ? 'true' : undefined}
-                  onClick={() => launchPlugin(p.appname)}
-                >
-                  <PluginIcon plugin={p} size={24} className='activityItemPluginIcon' />
-                  <span className='activityItemText'>
-                    <span className='activityItemLabel'>
-                      {p.appname}
-                      {p.owner ? <span className='activityItemOwner'> by {p.owner}</span> : null}
-                    </span>
-                    {p.description
-                      ? <span className='activityItemBlurb'>{p.description}</span>
-                      : null}
-                  </span>
-                  {wantsWallet(p) ? (
-                    <span
-                      className='material-symbols-outlined activityItemCoins'
-                      title='Can take coins from you once you allow it'
-                      aria-label='Uses your coins'
-                    >paid</span>
-                  ) : null}
-                </button>
-              ))}
-              {onBrowsePlugins ? (
-                <button
-                  type='button'
-                  className='activityBrowseAll'
-                  role='menuitem'
-                  onClick={browse}
-                >
-                  Browse all {plugins.length} plugins
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
           {/* The same games, on their own page: for playing without the chat
               open, or on a second screen. It is the one row that leaves the
               room, so it sits apart from the rows that open something here. */}
@@ -231,6 +163,21 @@ function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin =
               <span className='activityItemBlurb'>Drawings saved off the board — upvote them, watch them replay.</span>
             </span>
           </a>
+          {/* Player-made games live in the plugin bar; this only points there. */}
+          {onShowPlugins ? (
+            <button
+              type='button'
+              className='activityHubLink activityPluginsLink'
+              role='menuitem'
+              onClick={showPlugins}
+            >
+              <span className='material-symbols-outlined activityItemIcon'>extension</span>
+              <span className='activityItemText'>
+                <span className='activityItemLabel'>Player-made games</span>
+                <span className='activityItemBlurb'>Games other people have made, in the plugin bar.</span>
+              </span>
+            </button>
+          ) : null}
         </div>,
         document.body,
       )}

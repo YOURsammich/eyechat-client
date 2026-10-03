@@ -18,10 +18,9 @@
 // different surface with a different job. The test is whether two people can be
 // *in* it at once.
 //
-// Plugins are not in this array: they come from copecloud at runtime and open
-// the code runner, not the draggable panels below. The launcher lists them in a
-// group of their own after these, and the plugin bar (PluginRail) shows them
-// too.
+// Plugins are not in this array: they come from copecloud at runtime, open the
+// code runner rather than the draggable panels below, and live in the plugin
+// bar (PluginRail). The launcher only points there, from one row at its foot.
 
 export const ACTIVITIES = [
   {
