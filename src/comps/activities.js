@@ -21,7 +21,8 @@
 //
 // Plugins are not in this array: they come from copecloud at runtime, open the
 // code runner rather than the draggable panels below, and live in the plugin
-// bar (PluginRail). The Play picker only points there, from a link at its foot.
+// bar (PluginRail). The Play picker ranks them alongside these games
+// (Chat/gameRanking.js turns a plugin into the same shape).
 
 export const ACTIVITIES = [
   {

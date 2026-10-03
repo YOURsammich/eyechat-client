@@ -111,6 +111,17 @@ function writeRailHidden(hidden) {
   }
 }
 
+// Public apps come back as records, not just names: the plugin bar needs each
+// one's display mode, icon and description, and the Play picker how many
+// people have it open (`playing`). Fetched on connect, and again each time
+// Play opens so those counts are fresh.
+function fetchPlugins() {
+  return fetch(COPE_CLOUD + 'getPublicApps')
+    .then(res => res.json())
+    .then(res => (Array.isArray(res) ? res : null))
+    .catch(() => null);
+}
+
 function App() {
   // The open plugin's name, or null. Its record is looked up in `plugins`, so
   // an author changing the display mode lands on the next fetch without the
@@ -120,11 +131,16 @@ function App() {
   const [userID, setUserID] = useState(null);
   const [plugins, setPlugins] = useState([]);
   // The plugin bar (PluginRail) is each viewer's to hide; it's on until they
-  // do. The panel is the bar opened out (or, on a phone, a sheet).
+  // do. `panelOpen` is the bar widened out to show more, or on a phone (where
+  // there is no bar) the plugins sheet.
   const [railHidden, setRailHidden] = useState(readRailHidden);
   const [panelOpen, setPanelOpen] = useState(false);
   const pinnedPlugins = usePinnedPlugins();
   const narrow = useNarrow();
+  // A failed fetch keeps the list we had rather than emptying the bar.
+  const loadPlugins = useCallback(() => {
+    fetchPlugins().then(list => { if (list) setPlugins(list); });
+  }, []);
   // Per-plugin viewer overrides of the author's display mode.
   const [modeOverrides, setModeOverrides] = useState(readOverrides);
   // Set when /preconnect refuses us (ban, rate-limit, whitelist mode); shows a
@@ -133,7 +149,6 @@ function App() {
 
   const storeRef = useRef(null);
   const iframeRef = useRef(null);
-  const lastAppRef = useRef(null);
   const myUserRef = useRef(null);
   // A plugin's payment on its way to the server, held until the plugin has its
   // answer (one at a time).
@@ -228,12 +243,7 @@ function App() {
       if (!ok) return;
       socket.emit('joinChannel');
 
-      // Public apps come back as records, not just names, because the plugin
-      // bar needs each one's display mode as well as its name.
-      fetch(COPE_CLOUD + 'getPublicApps')
-        .then(res => res.json())
-        .then(res => setPlugins(Array.isArray(res) ? res : []))
-        .catch(() => {});
+      loadPlugins();
     });
 
     window.addEventListener('message', (e) => {
@@ -425,10 +435,6 @@ function App() {
       .catch(() => { styleAdopted.current = false; });
   }, [myUser?.registered, myUser?.color, myUser?.font, myUser?.glow, myUser?.style]);
 
-  // Reopening the bar should bring back what you last had open rather than
-  // nothing, so remember it while it is up.
-  useEffect(() => { if (showApp) lastAppRef.current = showApp; }, [showApp]);
-
   const openPlugin = plugins.find(p => p.appname === showApp) || null;
   openPluginRef.current = openPlugin;
 
@@ -452,7 +458,12 @@ function App() {
   // The plugin panel's Recent section. Only once a plugin is actually
   // showing: one declined at the consent dialog doesn't count.
   const shownApp = openMode ? openPlugin.appname : null;
-  useEffect(() => { if (shownApp) noteOpened(shownApp); }, [shownApp]);
+  useEffect(() => {
+    if (!shownApp) return;
+    noteOpened(shownApp);
+    // and it counts toward the Play picker's "popular lately"
+    socket.emit('gameOpened', { kind: 'plugin', id: shownApp });
+  }, [shownApp]);
 
   // The plugin that asked is gone once the viewer closes or switches away; its
   // answer (if the server still sends one) has nowhere to go, and the next
@@ -471,15 +482,8 @@ function App() {
     });
   }
 
-  // Stable, so the panel's listeners aren't rebound on every render.
+  // Stable, so the sheet's listeners aren't rebound on every render.
   const closePanel = useCallback(() => setPanelOpen(false), []);
-
-  // The Play menu's "Player-made games": the bar opened out, bringing the
-  // bar back first if this viewer had hidden it. On a phone, the sheet.
-  const openPanel = useCallback(() => {
-    if (!narrow) showRail(true);
-    setPanelOpen(true);
-  }, [narrow]);
 
   function showRail(show) {
     setRailHidden(!show);
@@ -490,13 +494,9 @@ function App() {
   // The chat header's plugins button, when there's no bar to use: on a phone
   // it opens the sheet, on desktop it brings the hidden bar back.
   const headerPluginsButton = !IN_MAIN ? null
-    : narrow ? openPanel
+    : narrow ? () => setPanelOpen(true)
     : railHidden ? () => showRail(true)
     : null;
-
-  function togglePluginPanel() {
-    setShowApp(open => open ? null : (lastAppRef.current || plugins[0]?.appname || null));
-  }
 
   const pluginProps = openPlugin && {
     pluginName: openPlugin.appname,
@@ -553,10 +553,8 @@ function App() {
             pinnedCount={pinnedOnBar}
             openPlugin={showApp}
             onOpen={setShowApp}
-            onToggleLast={togglePluginPanel}
-            panelOpen={panelOpen}
-            onTogglePanel={() => setPanelOpen(v => !v)}
-            onClosePanel={closePanel}
+            expanded={panelOpen}
+            onToggleExpanded={() => setPanelOpen(v => !v)}
             onHide={() => showRail(false)}
           />
         ) : null}
@@ -575,7 +573,6 @@ function App() {
 
         {panelOpen && IN_MAIN && narrow ? (
           <PluginPanel
-            sheet
             plugins={sidebarPlugins}
             openPlugin={showApp}
             onOpen={setShowApp}
@@ -598,7 +595,9 @@ function App() {
             user={myUser}
             focusOnChat={true}
             store={storeRef.current}
-            onBrowsePlugins={openPanel}
+            plugins={plugins}
+            onOpenPlugin={setShowApp}
+            onRefreshPlugins={loadPlugins}
             onShowPlugins={headerPluginsButton}
             pluginsButtonLabel={narrow ? 'Plugins' : 'Show the plugin bar'}
           />

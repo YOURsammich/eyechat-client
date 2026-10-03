@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { ACTIVITIES, openEvent } from '../activities';
 import GamePicker from './GamePicker';
 import useNarrow from '../../utils/useNarrow';
+import socket from '../../utils/socket';
 
 // The one entry point to everything the room can *do* — games and shared tools.
 // Lives in the chat header because that is the only surface about the room right
@@ -25,15 +26,32 @@ import useNarrow from '../../utils/useNarrow';
 // over the `activity` socket event. An empty object is the normal case and the
 // picker still opens — it just has nothing to report.
 //
-// Plugins aren't listed here: the plugin bar is their one home. Someone who
-// comes looking for player-made games gets a single link at the foot that opens
-// the bar's plugin panel (`onShowPlugins`).
-function ActivityLauncher({ activities, onShowPlugins }) {
+// Player-made games (copecloud plugins, `plugins`) are ranked alongside the
+// home games, by who's playing and what's featured (gameRanking.js). The
+// server keeps the featured list and what's been popular lately: asked for
+// each time the picker opens (`gamesInfo`), and pushed to everyone when an
+// admin (`isAdmin`) features a game (`gamesFeatured`). Plugin player counts
+// come from copecloud, so the plugin list is refetched too
+// (`onRefreshPlugins`). A plugin opens through `onOpenPlugin`.
+function ActivityLauncher({ activities, plugins = [], onOpenPlugin, onRefreshPlugins, isAdmin = false }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 51, right: 8 });
+  const [featured, setFeatured] = useState([]);
+  const [popular, setPopular] = useState([]);
   const btnRef = useRef(null);
   const menuRef = useRef(null);
   const narrow = useNarrow();
+
+  useEffect(() => {
+    const offs = [
+      socket.on('gamesInfo', (data) => {
+        setFeatured(Array.isArray(data?.featured) ? data.featured : []);
+        setPopular(Array.isArray(data?.popular) ? data.popular : []);
+      }),
+      socket.on('gamesFeatured', (list) => setFeatured(Array.isArray(list) ? list : [])),
+    ];
+    return () => offs.forEach(off => off && off());
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -59,31 +77,41 @@ function ActivityLauncher({ activities, onShowPlugins }) {
       const r = btnRef.current.getBoundingClientRect();
       setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
     }
+    if (!open) {
+      // fresh rankings and player counts each time it opens
+      socket.emit('gamesInfo');
+      onRefreshPlugins?.();
+    }
     setOpen(v => !v);
   }
 
-  function launch(id) {
-    window.dispatchEvent(new CustomEvent(openEvent(id)));
+  function launch(game) {
+    if (game.kind === 'plugin') onOpenPlugin?.(game.id);
+    else window.dispatchEvent(new CustomEvent(openEvent(game.id)));
     setOpen(false);
   }
 
-  function showPlugins() {
-    onShowPlugins?.();
-    setOpen(false);
+  function toggleFeatured(game, on) {
+    socket.emit('gameFeature', { kind: game.kind, id: game.id, featured: on });
   }
 
   // How many activities have something happening in them. Drives the badge,
   // which is the whole reason the button is worth looking at: nobody starts UNO
   // alone, so what recruits a player is seeing that a game is already up.
-  const liveCount = ACTIVITIES.filter(a => a.live?.(activities[a.id])).length;
+  const liveCount = ACTIVITIES.filter(a => a.live?.(activities[a.id])).length
+    + plugins.filter(p => p.playing > 0).length;
 
   const picker = (
     <GamePicker
       ref={menuRef}
       sheet={narrow}
       activities={activities}
+      plugins={plugins}
+      featured={featured}
+      popular={popular}
+      isAdmin={isAdmin}
       onLaunch={launch}
-      onShowPlugins={onShowPlugins ? showPlugins : null}
+      onToggleFeatured={toggleFeatured}
       onClose={() => setOpen(false)}
       style={narrow ? undefined : { top: pos.top, right: pos.right }}
     />
@@ -96,7 +124,7 @@ function ActivityLauncher({ activities, onShowPlugins }) {
         className={'activityBtn' + (liveCount ? ' hasLive' : '')}
         ref={btnRef}
         onClick={toggle}
-        title='Games and tools'
+        title='Games'
         aria-haspopup='menu'
         aria-expanded={open}
       >

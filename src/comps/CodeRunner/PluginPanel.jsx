@@ -1,22 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 import PluginIcon from './PluginIcon';
 import { wantsWallet } from './pluginTrust';
 import { usePinnedPlugins, setPinned } from './pluginPins';
 import { readRecent } from './pluginRecent';
 
-// The plugin bar, opened out: every plugin on copecloud, with a search box,
-// then the viewer's pinned and recent plugins, then all of them by name.
+// Plugins on a phone, where there is no plugin bar: a full-screen sheet with
+// a search box, then the viewer's pinned and recent plugins, then all of them
+// by name. Opened from the chat header's plugins button. (On desktop the bar
+// itself widens out instead; see PluginRail.)
 //
-// On desktop it docks against the right edge of the bar (PluginRail) and
-// shares its colour, so it reads as the bar getting wider; it lays over a
-// docked plugin and the chat rather than pushing them about. On a phone, where
-// there is no bar, it is a full-screen sheet (`sheet`) opened from the chat
-// header. Opened by the bar's grid button and the Play menu's "Player-made
-// games" row.
-//
-// Picking a plugin opens it and folds the panel away. The pin button beside
-// each row pins it to the top of the bar.
+// Picking a plugin opens it and closes the sheet. The pin button beside each
+// row pins it to the top of the bar.
 
 export const RECENT_SHOWN = 5;
 
@@ -92,31 +87,17 @@ function Section({ title, plugins, openPlugin, pins, onOpen }) {
   );
 }
 
-function PluginPanel({ plugins = [], openPlugin = null, onOpen, onClose, sheet = false }) {
+function PluginPanel({ plugins = [], openPlugin = null, onOpen, onClose }) {
   const [query, setQuery] = useState('');
   const pins = usePinnedPlugins();
-  const panelRef = useRef(null);
-  const inputRef = useRef(null);
 
+  // The search box isn't focused: on a phone that would throw up the keyboard
+  // over the list someone opened the sheet to look at.
   useEffect(() => {
-    // Ready to type on desktop. Not on a phone, where focusing would throw up
-    // the keyboard over the list someone opened the sheet to look at.
-    if (!sheet) inputRef.current?.focus();
     function onKey(e) { if (e.key === 'Escape') onClose(); }
-    // A click outside closes it, as the Play menu does; not one on the button
-    // that toggles it, which would close it and open it again.
-    function onDoc(e) {
-      if (!panelRef.current || panelRef.current.contains(e.target)) return;
-      if (e.target.closest?.('[data-plugin-panel-toggle]')) return;
-      onClose();
-    }
     document.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onDoc);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onDoc);
-    };
-  }, [onClose, sheet]);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   function open(appname) {
     onOpen(appname);
@@ -136,29 +117,17 @@ function PluginPanel({ plugins = [], openPlugin = null, onOpen, onClose, sheet =
   const shared = { openPlugin, pins, onOpen: open };
 
   return (
-    <div
-      className={'pluginPanel ' + (sheet ? 'pluginPanelSheet' : 'pluginPanelDocked')}
-      ref={panelRef}
-      role='dialog'
-      aria-label='Plugins'
-    >
+    <div className='pluginPanel pluginPanelSheet' role='dialog' aria-label='Plugins'>
       <div className='pluginPanelHeader'>
         <span className='pluginPanelTitle'>Plugins <span className='pluginPanelCount'>{plugins.length}</span></span>
-        <button
-          type='button'
-          className='pluginPanelClose'
-          onClick={onClose}
-          aria-label={sheet ? 'Close' : 'Fold away'}
-          title={sheet ? 'Close' : 'Fold away'}
-        >
-          <span className='material-symbols-outlined'>{sheet ? 'close' : 'left_panel_close'}</span>
+        <button type='button' className='pluginPanelClose' onClick={onClose} aria-label='Close' title='Close'>
+          <span className='material-symbols-outlined'>close</span>
         </button>
       </div>
 
       <div className='pluginPanelSearch'>
         <span className='material-symbols-outlined' aria-hidden='true'>search</span>
         <input
-          ref={inputRef}
           type='search'
           value={query}
           onChange={e => setQuery(e.target.value)}

@@ -4,7 +4,8 @@
 // which is the thing that recruits a second player.
 //
 // Used by the chat's Play picker (GamePicker) and the games hub (games.jsx);
-// its styles are public/gamecards.css, which both pages load.
+// its styles are public/gamecards.css, which both pages load. A plugin is
+// drawn by the same card once gameRanking.js has given it the same shape.
 //
 // `wide` is a strip, for tools rather than games. `open` marks a game whose
 // panel is already up (the hub can have several). `href` makes the card a link
@@ -15,7 +16,9 @@ function GameCard({ activity, state, onLaunch, wide = false, open = false, href,
   const live = !!activity.live?.(state);
   const chips = activity.chips?.(state) ?? [];
   const action = open ? 'Open' : (activity.action?.(state) ?? 'Open');
-  const { from = '#333', to = '#555', glyph = activity.icon } = activity.art ?? {};
+  // A built-in game's art is a gradient and a symbol; a plugin's is its
+  // author's icon, or its letter, on a gradient of its own (gameRanking.js).
+  const { from = '#333', to = '#555', glyph = activity.icon, image, letter } = activity.art ?? {};
 
   const className = 'gameCard'
     + (wide ? ' gameCardWide' : '')
@@ -25,7 +28,9 @@ function GameCard({ activity, state, onLaunch, wide = false, open = false, href,
   const face = (
     <>
       <span className='gameCardArt' style={{ backgroundImage: `linear-gradient(135deg, ${from}, ${to})` }} aria-hidden='true'>
-        <span className='material-symbols-outlined gameCardGlyph'>{glyph}</span>
+        {image ? <img className='gameCardImage' src={image} alt='' draggable={false} />
+          : letter ? <span className='gameCardLetter'>{letter}</span>
+          : <span className='material-symbols-outlined gameCardGlyph'>{glyph}</span>}
         {live ? <span className='gameCardLiveDot' /> : null}
       </span>
       <span className='gameCardBody'>

@@ -53,7 +53,11 @@ a {
   background: black;
 }
 
-/* ─── Sidebar ─────────────────────────────────────────────────────────────── */
+/* ─── Plugin bar (CodeRunner/PluginRail.jsx) ──────────────────────────────── */
+/* A column of plugin tiles that widens in place, like the menu bar on the
+   right: the tiles keep their spot and grow labels beside them. Folded, each
+   row is a 50px tile centred in the 65px bar; widened, the same tile sits at
+   the same x with the row running on to its right. */
 
 @media (max-width: 768px) {
   .sideBar {
@@ -61,53 +65,94 @@ a {
   }
 }
 
-/* `position: relative` so the opened-out panel can dock against its right
-   edge (.pluginPanelDocked). */
 .sideBar {
-  position: relative;
   background-color: #111;
   color: #fff;
   display: flex;
-  align-items: center;
   flex-direction: column;
   flex: none;
   height: 100%;
   z-index: 4;
   width: 65px;
+  overflow: hidden;
+  transition: width 0.15s ease;
 }
 
-/* at the foot: hides the bar for this viewer */
-.pluginRailHide {
+.sideBar.expanded {
+  width: 290px;
+  border-right: 1px solid #222;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sideBar { transition: none; }
+}
+
+.railTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 45px;
+  padding: 0 7.5px;
+  border-bottom: 1px solid #222;
+}
+
+.railToggle {
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
   width: 50px;
-  height: 32px;
-  margin: 4px 0 8px;
+  height: 34px;
   padding: 0;
   border: none;
   border-radius: 8px;
   background: none;
-  color: #666;
+  color: #aaa;
   cursor: pointer;
 }
-.pluginRailHide:hover { background-color: #222; color: #ccc; }
-.pluginRailHide:focus-visible { outline: 2px solid #8cf; }
+.railToggle:hover { background-color: #222; color: #fff; }
+.railToggle:focus-visible { outline: 2px solid #8cf; }
+
+.railTitle { color: #eee; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.railCount { color: #777; font-weight: 400; font-size: 12.5px; margin-left: 3px; }
+
+.railSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin: 10px 10px 2px;
+  padding: 0 9px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #0b0b0b;
+  color: #777;
+}
+.railSearch:focus-within { border-color: #39f; }
+.railSearch .material-symbols-outlined { font-size: 19px; }
+.railSearch input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: #eee;
+  font: inherit;
+  font-size: 13.5px;
+}
 
 /* Scrolls once there are more tiles than fit; the padding keeps the open
    tile's ring from being clipped. */
 .pluginSelectionContainer {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 5px;
   flex: 1;
   min-height: 0;
-  width: 100%;
   margin-top: 8px;
   padding: 2px 0 8px;
-  box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
   /* thin but visible, so it's clear there are more below */
@@ -115,68 +160,129 @@ a {
   scrollbar-color: #444 transparent;
 }
 
-.pluginSelect { flex: none; }
+.railItem {
+  display: flex;
+  align-items: center;
+  flex: none;
+  padding: 0 7.5px;
+}
 
-/* between pinned plugins and the rest */
+.pluginSelect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background-color: #333;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pluginSelect:hover { background-color: #444; }
+.pluginSelect:focus-visible { outline: 2px solid #8cf; outline-offset: 1px; }
+
+/* The icon fills most of the tile, so the open one is ringed rather than
+   filled. */
+.pluginSelectActive,
+.pluginSelectActive:hover {
+  background-color: #39f;
+  box-shadow: 0 0 0 2px #39f;
+}
+
+/* Widened: the tile becomes the start of a row. The icon stays put (5px in
+   from the row's edge, as it sat in the tile) and the words follow it. */
+.sideBar.expanded .pluginSelect {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 8px 0 5px;
+  background-color: transparent;
+}
+.sideBar.expanded .pluginSelect:hover { background-color: #1e1e1e; }
+.sideBar.expanded .pluginSelectActive,
+.sideBar.expanded .pluginSelectActive:hover {
+  background-color: #1b2a3b;
+  box-shadow: inset 0 0 0 1px #2f6db3;
+}
+
+.railItemText { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.railItemName { color: #eee; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.railItemMeta { color: #808080; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.railItemCoins { flex: none; font-size: 17px; color: #e6c34a; }
+
+.railPin {
+  display: flex;
+  flex: none;
+  margin-left: 2px;
+  padding: 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #555;
+  cursor: pointer;
+}
+.railPin .material-symbols-outlined { font-size: 18px; }
+.railPin:hover { color: #ddd; background: #262626; }
+.railPin.pinned { color: #8cf; }
+.railPin.pinned .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+.railPin:focus-visible { outline: 2px solid #8cf; }
+
+/* between pinned plugins and the rest: a rule folded, a heading widened */
 .pluginSelectRule {
   flex: none;
+  align-self: center;
   width: 32px;
   margin: 3px 0;
   border: none;
   border-top: 1px solid #3a3a3a;
 }
 
-/* opens the bar out into the plugin panel */
-.pluginBrowseBtn {
+.railHeading {
+  flex: none;
+  margin: 6px 14px 0;
+  color: #666;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.railEmpty { margin: 14px; color: #888; font-size: 13px; line-height: 1.45; }
+
+/* at the foot: hides the bar for this viewer */
+.pluginRailHide {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
   flex: none;
-  width: 50px;
-  height: 36px;
-  margin-top: 6px;
-  padding: 0;
+  height: 34px;
+  margin: 4px 7.5px 8px;
+  padding: 0 15px;
   border: none;
   border-radius: 8px;
   background: none;
-  color: #bbb;
+  color: #555;
+  font: inherit;
+  font-size: 12.5px;
   cursor: pointer;
 }
+.pluginRailHide .material-symbols-outlined { font-size: 20px; }
+.pluginRailHide:hover { background-color: #222; color: #ccc; }
+.pluginRailHide:focus-visible { outline: 2px solid #8cf; }
 
-.pluginBrowseBtn:hover,
-.pluginBrowseBtn.active { background-color: #2a2a2a; color: #fff; }
-.pluginBrowseBtn:focus-visible { outline: 2px solid #8cf; }
-
-/* ─── Plugin panel (CodeRunner/PluginPanel.jsx) ───────────────────────────── */
+/* ─── Plugins sheet, phones (CodeRunner/PluginPanel.jsx) ──────────────────── */
 
 .pluginPanel {
   display: flex;
   flex-direction: column;
   color: #ddd;
-}
-
-/* Desktop: the bar opened out. Same colour as the bar and no border between
-   them, so they read as one surface getting wider; the shadow is on the far
-   side only. Lays over a docked plugin and the chat rather than pushing them. */
-.pluginPanelDocked {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 100%;
-  width: 300px;
-  background: #111;
-  border-right: 1px solid #262626;
-  box-shadow: 8px 0 18px rgba(0, 0, 0, 0.5);
-  animation: pluginPanelOut 0.14s ease-out;
-}
-
-@keyframes pluginPanelOut {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pluginPanelDocked { animation: none; }
 }
 
 /* A phone: the whole screen, opened from the chat header. */
@@ -304,58 +410,6 @@ a {
 /* the phone sheet: bigger rows to tap */
 .pluginPanelSheet .pluginPanelOpen { padding-top: 11px; padding-bottom: 11px; }
 .pluginPanelSheet .pluginPanelPin { padding: 10px; }
-
-.pluginSelect {
-  background-color: #333;
-  height: 50px;
-  width: 50px;
-  padding: 0;
-  border: none;
-  border-radius: 10px;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.pluginSelect:hover {
-  background-color: #444;
-}
-
-.pluginSelect:focus-visible {
-  outline: 2px solid #8cf;
-  outline-offset: 1px;
-}
-
-/* The icon fills most of the tile, so the open one is ringed rather than
-   filled. */
-.pluginSelectActive,
-.pluginSelectActive:hover {
-  background-color: #39f;
-  box-shadow: 0 0 0 2px #39f;
-}
-
-.appViewToggle {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  height: 45px;
-  width: 50px;
-  border-bottom: 1px solid #333;
-}
-
-.appViewToggle span {
-  padding: 0px;
-  height: 30px;
-  width: 30px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 8px;
-}
 
 /* ─── Chat Window ─────────────────────────────────────────────────────────── */
 
@@ -3011,7 +3065,75 @@ a {
 }
 .gamePickerLink:hover { color: #fff; text-decoration: none; }
 .gamePickerLink .material-symbols-outlined { font-size: 16px; }
-.gamePickerPlugins { margin-left: auto; color: #8cf; }
+.gamePickerAll { margin-right: auto; color: #8cf; }
+
+.gamePickerNote { margin: -2px 2px 10px; color: #888; font-size: 12.5px; line-height: 1.4; }
+
+.gamePickerBack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 2px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #bbb;
+  font: inherit;
+  cursor: pointer;
+}
+.gamePickerBack:hover { background: #26262b; color: #fff; }
+.gamePickerBack .material-symbols-outlined { font-size: 18px; }
+.gamePickerCount { color: #666; font-weight: 400; margin-left: 2px; }
+
+.gamePickerSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0 10px;
+  border: 1px solid #33333a;
+  border-radius: 8px;
+  background: #121214;
+  color: #777;
+}
+.gamePickerSearch:focus-within { border-color: #39f; }
+.gamePickerSearch input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: #eee;
+  font: inherit;
+  font-size: 13.5px;
+}
+
+/* A card with its star over the art's top-left corner: a button for admins
+   (feature / stop featuring), a badge for everyone else. */
+.gameCardSlot { position: relative; display: flex; min-width: 0; }
+.gameCardSlot > .gameCard { flex: 1; }
+
+.gameFeatureBtn {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  padding: 3px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.55);
+}
+button.gameFeatureBtn { cursor: pointer; opacity: 0; transition: opacity 0.12s; }
+.gameCardSlot:hover button.gameFeatureBtn,
+button.gameFeatureBtn:focus-visible,
+.gameFeatureBtn.on { opacity: 1; }
+.gameFeatureBtn .material-symbols-outlined { font-size: 17px; }
+.gameFeatureBtn.on { color: #facc15; }
+.gameFeatureBtn.on .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+button.gameFeatureBtn:hover { background: rgba(0, 0, 0, 0.6); color: #fff; }
+button.gameFeatureBtn.on:hover { color: #fde68a; }
 
 /* A phone: a sheet up from the bottom over a dimmed chat, two cards a row. */
 .gamePickerBackdrop {
@@ -3040,7 +3162,7 @@ a {
 }
 
 .gamePickerSheet .gamePickerGrid { grid-template-columns: repeat(2, 1fr); }
-.gamePickerSheet .gamePickerPlugins { margin-left: 0; }
+.gamePickerSheet .gamePickerAll { margin-right: 0; width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   .gamePicker, .gamePickerSheet { animation: none; }

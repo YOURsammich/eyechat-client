@@ -97,13 +97,13 @@ function formatSeen(ms) {
 // Sound played when your nick is mentioned in a new chat message.
 const mentionAudio = typeof Audio !== 'undefined' ? new Audio('/audio/Bwoop.wav') : null;
 
-// `onBrowsePlugins` opens the plugin panel, for the Play menu's
-// "Player-made games" row. `onShowPlugins` is set when there's no plugin bar
-// to use (a phone, or a viewer who hid it), and puts a plugins button in the
-// header.
+// `plugins`, `onOpenPlugin` and `onRefreshPlugins` are for the Play picker,
+// which ranks player-made games alongside the home ones; App owns them.
+// `onShowPlugins` is set when there's no plugin bar to use (a phone, or a
+// viewer who hid it), and puts a plugins button in the header.
 function ChatWindow({
   socket, userlist, channelName, user, focusOnChat, store,
-  onBrowsePlugins, onShowPlugins, pluginsButtonLabel,
+  plugins, onOpenPlugin, onRefreshPlugins, onShowPlugins, pluginsButtonLabel,
 }) {
   const [messages, setMessages] = useState([]);
   const [showUsers] = useState(true);
@@ -530,8 +530,12 @@ function ChatWindow({
     const bound = ACTIVITIES.flatMap((a) => {
       // Games and the whiteboard live in main: elsewhere their commands say so
       // instead of opening a window the server won't play along with.
+      // An opened game counts toward the Play picker's "popular lately".
       const onOpen = IN_MAIN ?
-        () => setOpenActivities((prev) => new Set(prev).add(a.id)) :
+        () => {
+          setOpenActivities((prev) => new Set(prev).add(a.id));
+          if (a.kind === 'game') socket.emit('gameOpened', { kind: 'activity', id: a.id });
+        } :
         () => pushMessages({ message: 'Games and the whiteboard are only in the main room.', type: 'error', count: Math.random() });
       const onClose = () => setOpenActivities((prev) => {
         const next = new Set(prev);
@@ -782,7 +786,15 @@ function ChatWindow({
                 <span className='material-symbols-outlined'>apps</span>
               </button>
             ) : null}
-            {IN_MAIN ? <ActivityLauncher activities={activities} onShowPlugins={onBrowsePlugins} /> : null}
+            {IN_MAIN ? (
+              <ActivityLauncher
+                activities={activities}
+                plugins={plugins}
+                onOpenPlugin={onOpenPlugin}
+                onRefreshPlugins={onRefreshPlugins}
+                isAdmin={user?.trust != null && user.trust <= 1}
+              />
+            ) : null}
             <SearchBar channelName={channelName} />
             <span
               className="material-symbols-outlined mobileNavBtn"
