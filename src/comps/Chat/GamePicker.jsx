@@ -38,12 +38,12 @@ const GamePicker = forwardRef(function GamePicker(
 
       <div className='gamePickerGrid'>
         {games.map(a => (
-          <GameCard key={a.id} activity={a} state={activities[a.id]} onLaunch={onLaunch} />
+          <GameCard key={a.id} role='menuitem' activity={a} state={activities[a.id]} onLaunch={onLaunch} />
         ))}
       </div>
 
       {tools.map(a => (
-        <GameCard key={a.id} wide activity={a} state={activities[a.id]} onLaunch={onLaunch} />
+        <GameCard key={a.id} wide role='menuitem' activity={a} state={activities[a.id]} onLaunch={onLaunch} />
       ))}
 
       {/* The ways out: pages of their own, and plugins' own home. */}

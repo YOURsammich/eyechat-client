@@ -1,13 +1,14 @@
 // Everything the room can *do* as opposed to configure: games and the shared
 // tools that open in their own floating window. This array drives
 //
-//   • the launcher in the chat header (ActivityLauncher),
+//   • the game cards (GameCard) in the chat header's Play picker
+//     (ActivityLauncher) and on the games hub page,
 //   • which panel ChatWindow mounts (the component itself lives in
 //     activityPanels.js — see the note there for why they are apart),
 //   • the typed command that opens it (handleInput builds /uno, /whiteboard, /wb
 //     from `id` and `aliases` rather than hand-rolling a handler each time),
-//   • the "N live" badge and the per-row status line, from the server's
-//     `activity` events,
+//   • the "N live" badge and each card's chips, from the server's `activity`
+//     events,
 //   • the client-command section of the public features page.
 //
 // Deliberately free of React imports so that last one stays cheap: the features
@@ -20,7 +21,7 @@
 //
 // Plugins are not in this array: they come from copecloud at runtime, open the
 // code runner rather than the draggable panels below, and live in the plugin
-// bar (PluginRail). The launcher only points there, from one row at its foot.
+// bar (PluginRail). The Play picker only points there, from a link at its foot.
 
 export const ACTIVITIES = [
   {
@@ -30,29 +31,17 @@ export const ACTIVITIES = [
     icon: 'playing_cards',
     blurb: 'The card game, with a pot of coins riding on it.',
 
-    // What the launcher prints beside the label, given this activity's slice of
-    // the live state the server broadcasts. Null means "nothing going on", which
-    // is what keeps an idle launcher quiet instead of a column of zeroes.
-    status(state) {
-      const sessions = state?.sessions ?? [];
-      if (!sessions.length) return null;
-
-      const players = state.players ?? 0;
-      const open = sessions.filter(s => s.open).length;
-      // "2 waiting to start" is the line that actually recruits someone; the
-      // player count alone reads as a game you've already missed.
-      if (open) return `${open} open · ${players} playing`;
-      return `${players} playing`;
-    },
-
     // Whether this counts toward the header's "N live" badge.
     live(state) {
       return (state?.sessions?.length ?? 0) > 0;
     },
 
-    // The Play picker's card (GameCard): `art` is the band across its top,
-    // `chips` the live facts under the blurb (none when idle), `action` the
-    // word on its button. Placeholder art — swap `glyph` for an image later.
+    // The game's card (GameCard, in the Play picker and the games hub): `art`
+    // is the band across its top, `chips` the live facts under the blurb,
+    // given this activity's slice of the live state the server broadcasts
+    // (none when idle, which keeps an idle card quiet instead of a row of
+    // zeroes), and `action` the word on its button. Placeholder art — swap
+    // `glyph` for an image later.
     art: { from: '#c81d3a', to: '#f97316', glyph: 'playing_cards' },
 
     chips(state) {
@@ -80,15 +69,8 @@ export const ACTIVITIES = [
     aliases: ['ms'],
     blurb: 'One huge shared grid, everyone at once. Flags score, bombs cost.',
 
-    // There is no lobby to join — the map is always there — so the row goes
-    // quiet when nobody has clicked lately rather than always reading "0
-    // playing", and shows how far the current map has got when someone has.
-    status(state) {
-      if (!state?.players) return null;
-      const progress = state.progress ?? 0;
-      return `${state.players} playing · ${progress}% cleared`;
-    },
-
+    // There is no lobby to join — the map is always there — so it only counts
+    // as live while someone is on it.
     live(state) {
       return (state?.players ?? 0) > 0;
     },
@@ -117,15 +99,8 @@ export const ACTIVITIES = [
     aliases: ['sx', 'solve'],
     blurb: 'Ten equations, same for everyone, fastest set of answers takes the pot.',
 
-    // One lobby at a time, so the row is about that lobby: recruiting while it
-    // waits, a race while it runs, quiet in between.
-    status(state) {
-      if (!state || state.state === 'none') return null;
-      const bet = state.bet ? ` · ₵${state.bet}` : '';
-      if (state.state === 'lobby') return `${state.players} waiting · ${state.difficulty}${bet}`;
-      return `${state.players} racing · ${state.difficulty}`;
-    },
-
+    // One lobby at a time, so the card is about that lobby: recruiting while
+    // it waits, a race while it runs, quiet in between.
     live(state) {
       return !!state && state.state !== 'none';
     },
@@ -158,14 +133,6 @@ export const ACTIVITIES = [
     // `/whiteboard` comes from the id; this is the short form people actually type.
     aliases: ['wb'],
     blurb: 'One shared board. The marker gets passed around.',
-
-    status(state) {
-      if (!state?.holder) return null;
-      const waiting = state.waiting ?? 0;
-      return waiting
-        ? `${state.holder} drawing · ${waiting} waiting`
-        : `${state.holder} drawing`;
-    },
 
     live(state) {
       return !!state?.holder;

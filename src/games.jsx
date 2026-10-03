@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import socket from './utils/socket';
 import { ACTIVITIES, ACTIVITY_KINDS, getActivity, openEvent, closeEvent } from './comps/activities';
 import { activityPanel } from './comps/activityPanels';
+import GameCard from './comps/Chat/GameCard';
 
 // The games hub: every game and shared tool the room has, playable without
 // being in the chat. The chat's floating panels are mounted here unchanged,
@@ -27,34 +28,20 @@ function activityFromPath() {
   return getActivity(id) ? id : null;
 }
 
-// ─── the lobby card ──────────────────────────────────────────────────────────
+// ─── the lobby ───────────────────────────────────────────────────────────────
 
-function GameCard({ activity, state, open, onOpen }) {
-  const status = activity.status?.(state) ?? null;
-  const live = !!activity.live?.(state);
-
-  return (
-    <button
-      type='button'
-      className={'gameCard' + (live ? ' live' : '') + (open ? ' open' : '')}
-      onClick={() => onOpen(activity.id)}
-    >
-      <span className='material-symbols-outlined gameCardIcon'>{activity.icon}</span>
-      <span className='gameCardText'>
-        <span className='gameCardLabel'>{activity.label}</span>
-        <span className='gameCardBlurb'>{activity.blurb}</span>
-      </span>
-      <span className='gameCardFoot'>
-        {/* The live line is what recruits someone; an idle card just says how
-            to get in. */}
-        {status
-          ? <span className='gameCardStatus'>{status}</span>
-          : <span className='gameCardIdle'>{open ? 'Open' : 'Nobody in yet'}</span>}
-        <span className='gameCardCta'>{open ? 'Playing' : 'Play'}</span>
-      </span>
-    </button>
-  );
-}
+// The lobby's cards are the chat's Play picker cards (GameCard), so the two
+// look and read the same. The gallery isn't an activity — nothing to join —
+// but it's where the whiteboard's saved drawings live, so it gets a strip
+// beside the whiteboard's, shaped like an activity for the card.
+const GALLERY = {
+  id: 'gallery',
+  label: 'Whiteboard gallery',
+  blurb: 'Drawings saved off the board. Upvote them, watch them replay.',
+  icon: 'photo_library',
+  art: { from: '#334155', to: '#64748b', glyph: 'photo_library' },
+  action: () => 'Browse',
+};
 
 // ─── the page ────────────────────────────────────────────────────────────────
 
@@ -200,31 +187,19 @@ function App() {
         return (
           <section className='gamesSection' key={kind}>
             <h2>{label}</h2>
-            <div className='gameGrid'>
+            {/* games as cards in a grid; tools as strips, as in the picker */}
+            <div className={kind === 'game' ? 'gameGrid' : 'gameStrips'}>
               {rows.map(a => (
                 <GameCard
                   key={a.id}
+                  wide={kind !== 'game'}
                   activity={a}
                   state={activities[a.id]}
                   open={openActivities.has(a.id)}
-                  onOpen={open}
+                  onLaunch={open}
                 />
               ))}
-              {/* Not an activity — nothing to join — but it's where the
-                  whiteboard's saved drawings live, so it sits beside it. */}
-              {kind === 'tool' ? (
-                <a className='gameCard' href='/gallery' style={{ textDecoration: 'none' }}>
-                  <span className='material-symbols-outlined gameCardIcon'>photo_library</span>
-                  <span className='gameCardText'>
-                    <span className='gameCardLabel'>Whiteboard gallery</span>
-                    <span className='gameCardBlurb'>Drawings saved off the board. Upvote them, watch them replay.</span>
-                  </span>
-                  <span className='gameCardFoot'>
-                    <span className='gameCardIdle' />
-                    <span className='gameCardCta'>Open</span>
-                  </span>
-                </a>
-              ) : null}
+              {kind === 'tool' ? <GameCard wide activity={GALLERY} href='/gallery' /> : null}
             </div>
           </section>
         );

@@ -43,35 +43,16 @@
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
-/* A card is one button: the whole face opens the game. */
-.gameCard {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
-  text-align: left; padding: 18px 18px 14px;
-  background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 10px;
-  color: #ddd; font-family: inherit; cursor: pointer;
-  transition: border-color .12s, background .12s;
-}
-.gameCard:hover { background: #222; border-color: #3a3a3a; }
-.gameCard.live { border-color: #1f4d2e; }
-.gameCard.live:hover { border-color: #2c6b41; }
-.gameCard.open { border-color: #2a5a8c; }
-
-.gameCardIcon { font-size: 30px; color: #8cf; }
-.gameCardText { display: flex; flex-direction: column; gap: 4px; }
-.gameCardLabel { color: #fff; font-size: 16px; font-weight: 600; }
-.gameCardBlurb { color: #8a8a8a; font-size: 13px; line-height: 1.4; }
-
-.gameCardFoot {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%; margin-top: 6px; font-size: 12px;
-}
-.gameCardStatus { color: #4ade80; }
-.gameCardIdle { color: #555; }
-.gameCardCta {
-  padding: 4px 12px; border-radius: 6px;
-  background: #1a3a5c; border: 1px solid #2a5a8c; color: #8cf; font-weight: 500;
-}
-.gameCard.open .gameCardCta { background: #16321f; border-color: #1f4d2e; color: #4ade80; }
+/* The cards themselves are gamecards.css, shared with the chat's Play picker.
+   Here there's room for taller art, and the tools stack as strips. */
+.games .gameCardArt { height: 104px; }
+.games .gameCardGlyph { font-size: 64px; }
+.gameStrips { display: flex; flex-direction: column; gap: 10px; }
+.gameStrips .gameCardWide { margin-top: 0; }
+.gameStrips .gameCardArt { height: auto; }
+.gameStrips .gameCardGlyph { font-size: 34px; }
+/* the gallery strip is a link; search.css underlines links */
+a.gameCard, a.gameCard:hover { text-decoration: none; }
 
 /* ── Toasts ───────────────────────────────────────────────────────────────── */
 /* Where a game's notices land. In the chat they are lines in the log; there is
