@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ACTIVITIES, ACTIVITY_KINDS, openEvent } from '../activities';
+import PluginIcon from '../CodeRunner/PluginIcon';
+import { wantsWallet } from '../CodeRunner/pluginTrust';
+import { recentFirst } from '../CodeRunner/pluginRecent';
 
 // The one entry point to everything the room can *do* — games and shared tools.
 // Lives in the chat header because that is the only surface about the room right
@@ -20,8 +23,19 @@ import { ACTIVITIES, ACTIVITY_KINDS, openEvent } from '../activities';
 // `activities` is the live state, keyed by activity id, that the server pushes
 // over the `activity` socket event. An empty object is the normal case and the
 // menu still opens — it just has nothing to report.
-function ActivityLauncher({ activities }) {
+//
+// Below the built-in groups come plugins: copecloud's public apps, written by
+// other people. They open the plugin panel (`onOpenPlugin`) rather than an
+// activity panel, and each row says whose it is and whether it can take coins,
+// so nobody mistakes one for a game of ours. Only the first few are listed,
+// the viewer's recently opened ones first, so the room's own games stay in
+// view however big copecloud's catalogue gets; "Show all" lists the rest.
+// `openPlugin` is the one showing now, if any.
+export const PLUGINS_SHOWN = 5;
+
+function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin = null }) {
   const [open, setOpen] = useState(false);
+  const [allPlugins, setAllPlugins] = useState(false);
   const [pos, setPos] = useState({ top: 51, right: 8 });
   const btnRef = useRef(null);
   const menuRef = useRef(null);
@@ -50,6 +64,8 @@ function ActivityLauncher({ activities }) {
       const r = btnRef.current.getBoundingClientRect();
       setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
     }
+    // each opening starts short again
+    setAllPlugins(false);
     setOpen(v => !v);
   }
 
@@ -58,10 +74,20 @@ function ActivityLauncher({ activities }) {
     setOpen(false);
   }
 
+  function launchPlugin(appname) {
+    onOpenPlugin?.(appname);
+    setOpen(false);
+  }
+
   // How many activities have something happening in them. Drives the badge,
   // which is the whole reason the button is worth looking at: nobody starts UNO
   // alone, so what recruits a player is seeing that a game is already up.
   const liveCount = ACTIVITIES.filter(a => a.live?.(activities[a.id])).length;
+
+  // read when the menu renders, so a plugin opened from the sidebar counts too
+  const orderedPlugins = open ? recentFirst(plugins) : plugins;
+  const shownPlugins = allPlugins ? orderedPlugins : orderedPlugins.slice(0, PLUGINS_SHOWN);
+  const hiddenPlugins = orderedPlugins.length - shownPlugins.length;
 
   return (
     <>
@@ -70,7 +96,7 @@ function ActivityLauncher({ activities }) {
         className={'activityBtn' + (liveCount ? ' hasLive' : '')}
         ref={btnRef}
         onClick={toggle}
-        title='Games and tools'
+        title='Games, tools and plugins'
         aria-haspopup='menu'
         aria-expanded={open}
       >
@@ -121,6 +147,51 @@ function ActivityLauncher({ activities }) {
               </div>
             );
           })}
+
+          {plugins.length && onOpenPlugin ? (
+            <div className='activityGroup'>
+              <div className='activityGroupLabel'>Plugins</div>
+              {shownPlugins.map(p => (
+                <button
+                  type='button'
+                  className={'activityItem' + (p.appname === openPlugin ? ' activityItemOpen' : '')}
+                  role='menuitem'
+                  key={p.appname}
+                  title={p.appname}
+                  aria-current={p.appname === openPlugin ? 'true' : undefined}
+                  onClick={() => launchPlugin(p.appname)}
+                >
+                  <PluginIcon plugin={p} size={24} className='activityItemPluginIcon' />
+                  <span className='activityItemText'>
+                    <span className='activityItemLabel'>
+                      {p.appname}
+                      {p.owner ? <span className='activityItemOwner'> by {p.owner}</span> : null}
+                    </span>
+                    {p.description
+                      ? <span className='activityItemBlurb'>{p.description}</span>
+                      : null}
+                  </span>
+                  {wantsWallet(p) ? (
+                    <span
+                      className='material-symbols-outlined activityItemCoins'
+                      title='Can take coins from you once you allow it'
+                      aria-label='Uses your coins'
+                    >paid</span>
+                  ) : null}
+                </button>
+              ))}
+              {hiddenPlugins > 0 ? (
+                <button
+                  type='button'
+                  className='activityShowAll'
+                  role='menuitem'
+                  onClick={() => setAllPlugins(true)}
+                >
+                  Show all {orderedPlugins.length} plugins
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* The same games, on their own page: for playing without the chat
               open, or on a second screen. It is the one row that leaves the

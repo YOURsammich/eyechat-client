@@ -97,7 +97,10 @@ function formatSeen(ms) {
 // Sound played when your nick is mentioned in a new chat message.
 const mentionAudio = typeof Audio !== 'undefined' ? new Audio('/audio/Bwoop.wav') : null;
 
-function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store }) {
+// `plugins` (copecloud's public apps), `onOpenPlugin` and `openPlugin` (the
+// one showing) are only for the Play menu, which lists plugins below the
+// built-in games; App owns all three.
+function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store, plugins, onOpenPlugin, openPlugin }) {
   const [messages, setMessages] = useState([]);
   const [showUsers] = useState(true);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -763,7 +766,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store })
             <div className='topic'>{channelState.topic}</div>
           </div>
           <div className='topBarBtns'>
-            {IN_MAIN ? <ActivityLauncher activities={activities} /> : null}
+            {IN_MAIN ? <ActivityLauncher activities={activities} plugins={plugins} onOpenPlugin={onOpenPlugin} openPlugin={openPlugin} /> : null}
             <SearchBar channelName={channelName} />
             <span
               className="material-symbols-outlined mobileNavBtn"

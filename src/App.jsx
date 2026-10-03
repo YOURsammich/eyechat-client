@@ -11,6 +11,8 @@ import CodeRunWindow from './comps/CodeRunner/CodeRunWindow';
 import PluginWindow from './comps/CodeRunner/PluginWindow';
 import { readOverrides, writeOverrides, resolveMode } from './comps/CodeRunner/pluginMode';
 import PluginConsentDialog from './comps/CodeRunner/PluginConsentDialog';
+import PluginIcon from './comps/CodeRunner/PluginIcon';
+import { noteOpened } from './comps/CodeRunner/pluginRecent';
 import { parsePluginRequest, originOf } from './comps/CodeRunner/pluginBridge';
 import {
   isTrusted, requestTrustList, setPluginTrusted, useTrustedPlugins, useTrustLoaded, wantsWallet,
@@ -410,6 +412,11 @@ function App() {
   const openMode = openPlugin && !consentUnknown && !needsConsent
     ? resolveMode(openPlugin, modeOverrides) : null;
 
+  // The Play menu lists recently opened plugins first. Only once one is
+  // actually showing: a plugin declined at the consent dialog doesn't count.
+  const shownApp = openMode ? openPlugin.appname : null;
+  useEffect(() => { if (shownApp) noteOpened(shownApp); }, [shownApp]);
+
   // The plugin that asked is gone once the viewer closes or switches away; its
   // answer (if the server still sends one) has nowhere to go, and the next
   // plugin shouldn't be blocked behind it.
@@ -482,19 +489,22 @@ function App() {
 
         {showPluginBar && IN_MAIN ? (
           <div className="sideBar">
-            <div className="appViewToggle" onClick={togglePluginPanel}>
+            <div className="appViewToggle" onClick={togglePluginPanel} title={showApp ? 'Close plugin' : 'Reopen last plugin'}>
               <span className="material-symbols-outlined">code</span>
             </div>
             <div className='pluginSelectionContainer'>
               {plugins.map((plugin) => (
-                <div
+                <button
+                  type='button'
                   key={plugin.appname}
-                  title={plugin.appname}
+                  title={plugin.description ? `${plugin.appname}: ${plugin.description}` : plugin.appname}
+                  aria-label={plugin.appname}
+                  aria-pressed={plugin.appname === showApp}
                   className={'pluginSelect' + (plugin.appname === showApp ? ' pluginSelectActive' : '')}
                   onClick={() => setShowApp(plugin.appname)}
                 >
-                  {plugin.appname.slice(0, 2) + plugin.appname.slice(-2)}
-                </div>
+                  <PluginIcon plugin={plugin} size={40} />
+                </button>
               ))}
             </div>
           </div>
@@ -526,6 +536,9 @@ function App() {
             user={myUser}
             focusOnChat={true}
             store={storeRef.current}
+            plugins={plugins}
+            onOpenPlugin={setShowApp}
+            openPlugin={showApp}
           />
         </div>
 

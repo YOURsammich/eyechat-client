@@ -18,9 +18,10 @@
 // different surface with a different job. The test is whether two people can be
 // *in* it at once.
 //
-// The plugin bar (`/sidebar`, channel.showPluginBar) is deliberately untouched
-// by this: plugins are a separate surface that opens the code runner, not the
-// draggable panels below.
+// Plugins are not in this array: they come from copecloud at runtime and open
+// the code runner, not the draggable panels below. The launcher lists them in a
+// group of their own after these, and the plugin bar (`/sidebar`,
+// channel.showPluginBar) shows them too.
 
 export const ACTIVITIES = [
   {
