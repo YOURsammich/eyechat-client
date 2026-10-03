@@ -97,10 +97,10 @@ function formatSeen(ms) {
 // Sound played when your nick is mentioned in a new chat message.
 const mentionAudio = typeof Audio !== 'undefined' ? new Audio('/audio/Bwoop.wav') : null;
 
-// `plugins` (copecloud's public apps), `onOpenPlugin` and `openPlugin` (the
-// one showing) are only for the Play menu, which lists plugins below the
-// built-in games; App owns all three.
-function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store, plugins, onOpenPlugin, openPlugin }) {
+// `plugins` (copecloud's public apps), `onOpenPlugin`, `openPlugin` (the one
+// showing) and `onBrowsePlugins` (opens the plugins drawer) are only for the
+// Play menu, which lists plugins below the built-in games; App owns them all.
+function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store, plugins, onOpenPlugin, openPlugin, onBrowsePlugins }) {
   const [messages, setMessages] = useState([]);
   const [showUsers] = useState(true);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -766,7 +766,7 @@ function ChatWindow({ socket, userlist, channelName, user, focusOnChat, store, p
             <div className='topic'>{channelState.topic}</div>
           </div>
           <div className='topBarBtns'>
-            {IN_MAIN ? <ActivityLauncher activities={activities} plugins={plugins} onOpenPlugin={onOpenPlugin} openPlugin={openPlugin} /> : null}
+            {IN_MAIN ? <ActivityLauncher activities={activities} plugins={plugins} onOpenPlugin={onOpenPlugin} openPlugin={openPlugin} onBrowsePlugins={onBrowsePlugins} /> : null}
             <SearchBar channelName={channelName} />
             <span
               className="material-symbols-outlined mobileNavBtn"

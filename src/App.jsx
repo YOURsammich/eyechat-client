@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, Fragment } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ROOM, IN_MAIN, goToRoom } from './utils/room.js';
 import { setBlockedFonts } from './utils/fonts.js';
@@ -13,6 +13,8 @@ import { readOverrides, writeOverrides, resolveMode } from './comps/CodeRunner/p
 import PluginConsentDialog from './comps/CodeRunner/PluginConsentDialog';
 import PluginIcon from './comps/CodeRunner/PluginIcon';
 import { noteOpened } from './comps/CodeRunner/pluginRecent';
+import PluginDrawer from './comps/CodeRunner/PluginDrawer';
+import { usePinnedPlugins, requestPins, pinnedThenRecent } from './comps/CodeRunner/pluginPins';
 import { parsePluginRequest, originOf } from './comps/CodeRunner/pluginBridge';
 import {
   isTrusted, requestTrustList, setPluginTrusted, useTrustedPlugins, useTrustLoaded, wantsWallet,
@@ -86,6 +88,22 @@ function MessageEffectFilters() {
   );
 }
 
+// Phone-sized, matching the stylesheet's 768px breakpoint (where the plugin
+// bar is hidden), kept current as the window changes.
+const NARROW = '(max-width: 768px)';
+
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia?.(NARROW).matches ?? false);
+  useEffect(() => {
+    const mq = window.matchMedia?.(NARROW);
+    if (!mq) return;
+    const onChange = () => setNarrow(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
+}
+
 function App() {
   // The open plugin's name, or null. Its record is looked up in `plugins`, so
   // an author changing the display mode lands on the next fetch without the
@@ -95,6 +113,9 @@ function App() {
   const [userlist, setUserlist] = useState([]);
   const [userID, setUserID] = useState(null);
   const [plugins, setPlugins] = useState([]);
+  const [showDrawer, setShowDrawer] = useState(false);
+  const pinnedPlugins = usePinnedPlugins();
+  const narrow = useNarrow();
   // Per-plugin viewer overrides of the author's display mode.
   const [modeOverrides, setModeOverrides] = useState(readOverrides);
   // Set when /preconnect refuses us (ban, rate-limit, whitelist mode); shows a
@@ -343,6 +364,11 @@ function App() {
     if (myUser?.registered) requestTrustList();
   }, [myUser?.registered, myUser?.nick]);
 
+  // And their pins; a guest is told to keep theirs in the browser.
+  useEffect(() => {
+    if (myUser) requestPins();
+  }, [!!myUser, myUser?.registered, myUser?.nick]);
+
   // Persist a *guest* nick so a refresh keeps the same name. Registered users are
   // re-authed by their loginToken (and /preconnect refreshes their nick cookie
   // server-side), so we must NOT write their display nick here: a second tab is
@@ -409,8 +435,14 @@ function App() {
   const consentUnknown = needsWallet && (!myUser || (myUser.registered && !trustLoaded));
   const needsConsent = needsWallet && !consentUnknown && myUser.registered
     && !trustedPlugins.includes(openPlugin.appname);
+  // On a phone there's no room to dock beside the chat or float over it, so
+  // a plugin takes the whole screen, with a bar to close it.
   const openMode = openPlugin && !consentUnknown && !needsConsent
-    ? resolveMode(openPlugin, modeOverrides) : null;
+    ? (narrow ? 'fullscreen' : resolveMode(openPlugin, modeOverrides)) : null;
+
+  // The plugin bar: pinned plugins first, then the rest.
+  const sidebarPlugins = pinnedThenRecent(plugins, pinnedPlugins, []);
+  const pinnedOnBar = sidebarPlugins.filter(p => pinnedPlugins.includes(p.appname)).length;
 
   // The Play menu lists recently opened plugins first. Only once one is
   // actually showing: a plugin declined at the consent dialog doesn't count.
@@ -433,6 +465,10 @@ function App() {
       return next;
     });
   }
+
+  // Stable, so the drawer's listeners aren't rebound on every render.
+  const openDrawer = useCallback(() => setShowDrawer(true), []);
+  const closeDrawer = useCallback(() => setShowDrawer(false), []);
 
   function togglePluginPanel() {
     setShowApp(open => open ? null : (lastAppRef.current || plugins[0]?.appname || null));
@@ -492,32 +528,57 @@ function App() {
             <div className="appViewToggle" onClick={togglePluginPanel} title={showApp ? 'Close plugin' : 'Reopen last plugin'}>
               <span className="material-symbols-outlined">code</span>
             </div>
+            <button
+              type='button'
+              className={'pluginBrowseBtn' + (showDrawer ? ' active' : '')}
+              onClick={() => setShowDrawer(v => !v)}
+              title='All plugins'
+              aria-label='All plugins'
+              aria-expanded={showDrawer}
+              data-plugin-drawer-toggle
+            >
+              <span className='material-symbols-outlined'>apps</span>
+            </button>
+            {/* Pinned first, then a rule, then the rest in copecloud's order,
+                so tiles don't move about as plugins are opened. */}
             <div className='pluginSelectionContainer'>
-              {plugins.map((plugin) => (
-                <button
-                  type='button'
-                  key={plugin.appname}
-                  title={plugin.description ? `${plugin.appname}: ${plugin.description}` : plugin.appname}
-                  aria-label={plugin.appname}
-                  aria-pressed={plugin.appname === showApp}
-                  className={'pluginSelect' + (plugin.appname === showApp ? ' pluginSelectActive' : '')}
-                  onClick={() => setShowApp(plugin.appname)}
-                >
-                  <PluginIcon plugin={plugin} size={40} />
-                </button>
+              {sidebarPlugins.map((plugin, i) => (
+                <Fragment key={plugin.appname}>
+                  {i === pinnedOnBar && i > 0 ? <hr className='pluginSelectRule' /> : null}
+                  <button
+                    type='button'
+                    title={plugin.description ? `${plugin.appname}: ${plugin.description}` : plugin.appname}
+                    aria-label={plugin.appname}
+                    aria-pressed={plugin.appname === showApp}
+                    className={'pluginSelect' + (plugin.appname === showApp ? ' pluginSelectActive' : '')}
+                    onClick={() => setShowApp(plugin.appname)}
+                  >
+                    <PluginIcon plugin={plugin} size={40} />
+                  </button>
+                </Fragment>
               ))}
             </div>
           </div>
         ) : null}
 
-        {openMode === 'sidebar' ? (
+        {openMode === 'sidebar' || openMode === 'fullscreen' ? (
           <CodeRunWindow
             socket={socket}
             userlist={userlist}
             focusOnCode={false}
             draggingWindow={false}
+            fullscreen={openMode === 'fullscreen'}
             onPopOut={() => setPluginMode(openPlugin.appname, 'floating')}
             {...pluginProps}
+          />
+        ) : null}
+
+        {showDrawer && IN_MAIN ? (
+          <PluginDrawer
+            plugins={plugins}
+            openPlugin={showApp}
+            onOpen={setShowApp}
+            onClose={closeDrawer}
           />
         ) : null}
 
@@ -539,6 +600,7 @@ function App() {
             plugins={plugins}
             onOpenPlugin={setShowApp}
             openPlugin={showApp}
+            onBrowsePlugins={openDrawer}
           />
         </div>
 

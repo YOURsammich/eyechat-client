@@ -94,6 +94,175 @@ a {
 
 .pluginSelect { flex: none; }
 
+/* between pinned plugins and the rest */
+.pluginSelectRule {
+  flex: none;
+  width: 32px;
+  margin: 3px 0;
+  border: none;
+  border-top: 1px solid #3a3a3a;
+}
+
+/* opens the plugins drawer */
+.pluginBrowseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 50px;
+  height: 36px;
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: #bbb;
+  cursor: pointer;
+}
+
+.pluginBrowseBtn:hover,
+.pluginBrowseBtn.active { background-color: #2a2a2a; color: #fff; }
+.pluginBrowseBtn:focus-visible { outline: 2px solid #8cf; }
+
+/* ─── Plugins drawer (CodeRunner/PluginDrawer.jsx) ────────────────────────── */
+
+.pluginDrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  width: 360px;
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background: #1c1c1c;
+  border-left: 1px solid #333;
+  box-shadow: -6px 0 18px rgba(0, 0, 0, 0.45);
+  color: #ddd;
+}
+
+.pluginDrawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px 16px;
+}
+
+.pluginDrawerTitle { font-size: 16px; font-weight: 600; color: #eee; }
+.pluginDrawerCount { color: #777; font-weight: 400; font-size: 13px; margin-left: 4px; }
+
+.pluginDrawerClose {
+  display: flex;
+  padding: 4px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #aaa;
+  cursor: pointer;
+}
+.pluginDrawerClose:hover { background: #2a2a2a; color: #fff; }
+
+.pluginDrawerSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 8px;
+  padding: 0 10px;
+  border: 1px solid #383838;
+  border-radius: 8px;
+  background: #141414;
+  color: #888;
+}
+.pluginDrawerSearch:focus-within { border-color: #39f; }
+
+.pluginDrawerSearch input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: #eee;
+  font: inherit;
+  font-size: 14px;
+}
+
+.pluginDrawerBody { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+
+.pluginDrawerHeading {
+  margin: 10px 16px 4px;
+  color: #777;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pluginDrawerList { list-style: none; margin: 0; padding: 0; }
+
+.pluginDrawerRow { display: flex; align-items: center; }
+.pluginDrawerRow:hover { background: #262626; }
+.pluginDrawerRowOpen { background: #26303b; box-shadow: inset 3px 0 0 #39f; }
+
+.pluginDrawerOpen {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 4px 8px 16px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pluginDrawerText { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.pluginDrawerName { color: #eee; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pluginDrawerOwner { color: #808080; font-size: 12px; }
+.pluginDrawerDesc {
+  color: #8a8a8a;
+  font-size: 12px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.pluginDrawerCoins { flex: none; font-size: 18px; color: #e6c34a; }
+
+.pluginDrawerPin {
+  display: flex;
+  flex: none;
+  margin-right: 8px;
+  padding: 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #666;
+  cursor: pointer;
+}
+.pluginDrawerPin:hover { color: #ddd; background: #333; }
+.pluginDrawerPin.pinned { color: #8cf; }
+.pluginDrawerPin.pinned .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+
+.pluginDrawerOpen:focus-visible,
+.pluginDrawerPin:focus-visible,
+.pluginDrawerClose:focus-visible { outline: 2px solid #8cf; outline-offset: -2px; }
+
+.pluginDrawerEmpty { margin: 24px 16px; color: #888; font-size: 14px; line-height: 1.5; }
+
+/* a phone: the whole screen, with bigger rows to tap */
+@media (max-width: 768px) {
+  .pluginDrawer { width: 100vw; border-left: none; }
+  .pluginDrawerOpen { padding-top: 11px; padding-bottom: 11px; }
+  .pluginDrawerPin { padding: 10px; }
+}
+
 .pluginSelect {
   background-color: #333;
   height: 50px;
@@ -1309,6 +1478,38 @@ a {
 .codeRunnerActions span:hover {
   opacity: 1;
 }
+
+.codeRunnerBtn {
+  display: flex;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.codeRunnerBtn:focus-visible {
+  outline: 2px solid #8cf;
+  border-radius: 4px;
+}
+
+/* A plugin on a phone: the whole screen, over the chat, with a header big
+   enough to hit with a thumb. */
+.codeRunFull {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  background: #000;
+}
+
+.codeRunFull .codeRunnerHeader {
+  padding: 8px 12px;
+  font-size: 15px;
+}
+
+.codeRunFull .codeRunnerActions { gap: 14px; }
+.codeRunFull .codeRunnerActions span { font-size: 26px; opacity: 0.9; }
 
 .resizeBar {
   width: 10px;
@@ -2771,7 +2972,7 @@ a {
 .activityItemOpen { background: #26303b; box-shadow: inset 3px 0 0 #39f; }
 .activityItemOpen:hover { background: #2c3846; }
 
-.activityShowAll {
+.activityBrowseAll {
   display: block;
   width: 100%;
   padding: 6px 14px 8px 48px;
@@ -2783,7 +2984,7 @@ a {
   text-align: left;
   cursor: pointer;
 }
-.activityShowAll:hover { background: #2f2f2f; text-decoration: underline; }
+.activityBrowseAll:hover { background: #2f2f2f; text-decoration: underline; }
 
 /* ─── Plugin icons (CodeRunner/PluginIcon.jsx) ────────────────────────────── */
 

@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { ACTIVITIES, ACTIVITY_KINDS, openEvent } from '../activities';
 import PluginIcon from '../CodeRunner/PluginIcon';
 import { wantsWallet } from '../CodeRunner/pluginTrust';
-import { recentFirst } from '../CodeRunner/pluginRecent';
+import { readRecent } from '../CodeRunner/pluginRecent';
+import { usePinnedPlugins, pinnedThenRecent } from '../CodeRunner/pluginPins';
 
 // The one entry point to everything the room can *do* — games and shared tools.
 // Lives in the chat header because that is the only surface about the room right
@@ -28,14 +29,15 @@ import { recentFirst } from '../CodeRunner/pluginRecent';
 // other people. They open the plugin panel (`onOpenPlugin`) rather than an
 // activity panel, and each row says whose it is and whether it can take coins,
 // so nobody mistakes one for a game of ours. Only the first few are listed,
-// the viewer's recently opened ones first, so the room's own games stay in
-// view however big copecloud's catalogue gets; "Show all" lists the rest.
-// `openPlugin` is the one showing now, if any.
+// the viewer's pinned and then recently opened ones first, so the room's own
+// games stay in view however big copecloud's catalogue gets; "Browse all"
+// opens the plugins drawer (`onBrowsePlugins`) for the rest. `openPlugin` is
+// the one showing now, if any.
 export const PLUGINS_SHOWN = 5;
 
-function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin = null }) {
+function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin = null, onBrowsePlugins }) {
   const [open, setOpen] = useState(false);
-  const [allPlugins, setAllPlugins] = useState(false);
+  const pins = usePinnedPlugins();
   const [pos, setPos] = useState({ top: 51, right: 8 });
   const btnRef = useRef(null);
   const menuRef = useRef(null);
@@ -64,8 +66,6 @@ function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin =
       const r = btnRef.current.getBoundingClientRect();
       setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
     }
-    // each opening starts short again
-    setAllPlugins(false);
     setOpen(v => !v);
   }
 
@@ -79,15 +79,21 @@ function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin =
     setOpen(false);
   }
 
+  function browse() {
+    onBrowsePlugins?.();
+    setOpen(false);
+  }
+
   // How many activities have something happening in them. Drives the badge,
   // which is the whole reason the button is worth looking at: nobody starts UNO
   // alone, so what recruits a player is seeing that a game is already up.
   const liveCount = ACTIVITIES.filter(a => a.live?.(activities[a.id])).length;
 
-  // read when the menu renders, so a plugin opened from the sidebar counts too
-  const orderedPlugins = open ? recentFirst(plugins) : plugins;
-  const shownPlugins = allPlugins ? orderedPlugins : orderedPlugins.slice(0, PLUGINS_SHOWN);
-  const hiddenPlugins = orderedPlugins.length - shownPlugins.length;
+  // recents are read when the menu renders, so a plugin opened from the
+  // plugin bar counts too
+  const shownPlugins = open
+    ? pinnedThenRecent(plugins, pins, readRecent()).slice(0, PLUGINS_SHOWN)
+    : [];
 
   return (
     <>
@@ -180,14 +186,14 @@ function ActivityLauncher({ activities, plugins = [], onOpenPlugin, openPlugin =
                   ) : null}
                 </button>
               ))}
-              {hiddenPlugins > 0 ? (
+              {onBrowsePlugins ? (
                 <button
                   type='button'
-                  className='activityShowAll'
+                  className='activityBrowseAll'
                   role='menuitem'
-                  onClick={() => setAllPlugins(true)}
+                  onClick={browse}
                 >
-                  Show all {orderedPlugins.length} plugins
+                  Browse all {plugins.length} plugins
                 </button>
               ) : null}
             </div>

@@ -24,13 +24,3 @@ export function noteOpened(appname) {
     // the order just won't survive a reload
   }
 }
-
-// `plugins` with the recently opened ones first (newest first), the rest in
-// the order they came.
-export function recentFirst(plugins, recent = readRecent()) {
-  const rank = new Map(recent.map((name, i) => [name, i]));
-  return plugins
-    .map((plugin, i) => ({ plugin, i, r: rank.has(plugin.appname) ? rank.get(plugin.appname) : Infinity }))
-    .sort((a, b) => a.r - b.r || a.i - b.i)
-    .map(({ plugin }) => plugin);
-}
