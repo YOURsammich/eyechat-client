@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ROOM, IN_MAIN, goToRoom } from './utils/room.js';
 import { setBlockedFonts } from './utils/fonts.js';
+import useNarrow from './utils/useNarrow.js';
 
 import Store from './utils/store';
 import socket from './utils/socket';
@@ -88,21 +89,6 @@ function MessageEffectFilters() {
   );
 }
 
-// Phone-sized, matching the stylesheet's 768px breakpoint (where the plugin
-// bar is hidden), kept current as the window changes.
-const NARROW = '(max-width: 768px)';
-
-function useNarrow() {
-  const [narrow, setNarrow] = useState(() => window.matchMedia?.(NARROW).matches ?? false);
-  useEffect(() => {
-    const mq = window.matchMedia?.(NARROW);
-    if (!mq) return;
-    const onChange = () => setNarrow(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return narrow;
-}
 
 // Whether this viewer hid the plugin bar. Per browser; it's on by default, so
 // blocked storage just means it stays on.

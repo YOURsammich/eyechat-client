@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-import { ACTIVITIES, ACTIVITY_KINDS, openEvent } from '../activities';
+import { ACTIVITIES, openEvent } from '../activities';
+import GamePicker from './GamePicker';
+import useNarrow from '../../utils/useNarrow';
 
 // The one entry point to everything the room can *do* — games and shared tools.
 // Lives in the chat header because that is the only surface about the room right
@@ -13,22 +15,25 @@ import { ACTIVITIES, ACTIVITY_KINDS, openEvent } from '../activities';
 // something used for a few minutes an evening, and a seventh icon in the quickNav
 // bar files a game under settings.
 //
-// Positioning copies the ⋮ dropdown in ChatWindow: portaled to <body> and placed
-// from the button's own rect, so no ancestor's overflow can clip it and the
-// header does not need a stacking context.
+// What it opens is the game picker (GamePicker): cards with live status rather
+// than a list of words. Placement copies the ⋮ dropdown in ChatWindow: portaled
+// to <body> and placed from the button's own rect, so no ancestor's overflow can
+// clip it and the header does not need a stacking context. On a phone it's a
+// sheet up from the bottom instead.
 //
 // `activities` is the live state, keyed by activity id, that the server pushes
 // over the `activity` socket event. An empty object is the normal case and the
-// menu still opens — it just has nothing to report.
+// picker still opens — it just has nothing to report.
 //
 // Plugins aren't listed here: the plugin bar is their one home. Someone who
-// comes looking for player-made games gets a single row at the foot that opens
+// comes looking for player-made games gets a single link at the foot that opens
 // the bar's plugin panel (`onShowPlugins`).
 function ActivityLauncher({ activities, onShowPlugins }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 51, right: 8 });
   const btnRef = useRef(null);
   const menuRef = useRef(null);
+  const narrow = useNarrow();
 
   useEffect(() => {
     if (!open) return;
@@ -37,8 +42,8 @@ function ActivityLauncher({ activities, onShowPlugins }) {
       if (menuRef.current?.contains(e.target)) return;
       setOpen(false);
     }
-    // Escape closes too: the menu is a transient overlay, and reaching for the
-    // mouse to dismiss a menu you opened by mistake is a small, repeated cost.
+    // Escape closes too: the picker is a transient overlay, and reaching for the
+    // mouse to dismiss one you opened by mistake is a small, repeated cost.
     function onKey(e) { if (e.key === 'Escape') setOpen(false); }
 
     document.addEventListener('mousedown', onDoc);
@@ -72,6 +77,18 @@ function ActivityLauncher({ activities, onShowPlugins }) {
   // alone, so what recruits a player is seeing that a game is already up.
   const liveCount = ACTIVITIES.filter(a => a.live?.(activities[a.id])).length;
 
+  const picker = (
+    <GamePicker
+      ref={menuRef}
+      sheet={narrow}
+      activities={activities}
+      onLaunch={launch}
+      onShowPlugins={onShowPlugins ? showPlugins : null}
+      onClose={() => setOpen(false)}
+      style={narrow ? undefined : { top: pos.top, right: pos.right }}
+    />
+  );
+
   return (
     <>
       <button
@@ -89,96 +106,8 @@ function ActivityLauncher({ activities, onShowPlugins }) {
       </button>
 
       {open && createPortal(
-        <div
-          className='activityMenu'
-          ref={menuRef}
-          role='menu'
-          style={{ top: pos.top, right: pos.right }}
-        >
-          {ACTIVITY_KINDS.map(({ kind, label }) => {
-            const rows = ACTIVITIES.filter(a => a.kind === kind);
-            if (!rows.length) return null;
-
-            return (
-              <div className='activityGroup' key={kind}>
-                <div className='activityGroupLabel'>{label}</div>
-                {rows.map(a => {
-                  const state = activities[a.id];
-                  const status = a.status?.(state) ?? null;
-
-                  return (
-                    <button
-                      type='button'
-                      className='activityItem'
-                      role='menuitem'
-                      key={a.id}
-                      onClick={() => launch(a.id)}
-                    >
-                      <span className='material-symbols-outlined activityItemIcon'>{a.icon}</span>
-                      <span className='activityItemText'>
-                        <span className='activityItemLabel'>{a.label}</span>
-                        {/* The blurb is what makes this a front door rather than
-                            a list of words someone has to already know. */}
-                        <span className='activityItemBlurb'>{a.blurb}</span>
-                      </span>
-                      {status
-                        ? <span className='activityItemStatus'>{status}</span>
-                        : null}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-
-          {/* The same games, on their own page: for playing without the chat
-              open, or on a second screen. It is the one row that leaves the
-              room, so it sits apart from the rows that open something here. */}
-          <a
-            className='activityHubLink'
-            role='menuitem'
-            href='/games'
-            target='_blank'
-            rel='noopener'
-            onClick={() => setOpen(false)}
-          >
-            <span className='material-symbols-outlined activityItemIcon'>open_in_new</span>
-            <span className='activityItemText'>
-              <span className='activityItemLabel'>Games hub</span>
-              <span className='activityItemBlurb'>Play from a page of its own, without the chat.</span>
-            </span>
-          </a>
-          {/* Also a page of its own: drawings saved off the whiteboard. */}
-          <a
-            className='activityHubLink'
-            role='menuitem'
-            href='/gallery'
-            target='_blank'
-            rel='noopener'
-            onClick={() => setOpen(false)}
-          >
-            <span className='material-symbols-outlined activityItemIcon'>photo_library</span>
-            <span className='activityItemText'>
-              <span className='activityItemLabel'>Whiteboard gallery</span>
-              <span className='activityItemBlurb'>Drawings saved off the board — upvote them, watch them replay.</span>
-            </span>
-          </a>
-          {/* Player-made games live in the plugin bar; this only points there. */}
-          {onShowPlugins ? (
-            <button
-              type='button'
-              className='activityHubLink activityPluginsLink'
-              role='menuitem'
-              onClick={showPlugins}
-            >
-              <span className='material-symbols-outlined activityItemIcon'>extension</span>
-              <span className='activityItemText'>
-                <span className='activityItemLabel'>Player-made games</span>
-                <span className='activityItemBlurb'>Games other people have made, in the plugin bar.</span>
-              </span>
-            </button>
-          ) : null}
-        </div>,
+        // a phone: the sheet over a dimmed chat; a tap on the dim closes it
+        narrow ? <div className='gamePickerBackdrop'>{picker}</div> : picker,
         document.body,
       )}
     </>

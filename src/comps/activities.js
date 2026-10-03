@@ -49,6 +49,28 @@ export const ACTIVITIES = [
     live(state) {
       return (state?.sessions?.length ?? 0) > 0;
     },
+
+    // The Play picker's card (GameCard): `art` is the band across its top,
+    // `chips` the live facts under the blurb (none when idle), `action` the
+    // word on its button. Placeholder art — swap `glyph` for an image later.
+    art: { from: '#c81d3a', to: '#f97316', glyph: 'playing_cards' },
+
+    chips(state) {
+      const sessions = state?.sessions ?? [];
+      if (!sessions.length) return [];
+      const open = sessions.filter(s => s.open).length;
+      // every player in a game has put in its bet
+      const pot = sessions.reduce((sum, s) => sum + (s.bet || 0) * (s.players || 0), 0);
+      return [
+        `${state.players ?? 0} playing`,
+        open ? `${open} open to join` : null,
+        pot ? `₵${pot} in play` : null,
+      ].filter(Boolean);
+    },
+
+    action(state) {
+      return (state?.sessions ?? []).some(s => s.open) ? 'Join' : 'Start a game';
+    },
   },
   {
     id: 'minesweeper',
@@ -69,6 +91,22 @@ export const ACTIVITIES = [
 
     live(state) {
       return (state?.players ?? 0) > 0;
+    },
+
+    art: { from: '#1e3a5f', to: '#2f855a', glyph: 'bomb' },
+
+    // How far the map has got is worth showing even when nobody's on it.
+    chips(state) {
+      if (!state) return [];
+      return [
+        state.players ? `${state.players} playing` : null,
+        `${state.progress ?? 0}% cleared`,
+      ].filter(Boolean);
+    },
+
+    // there's always a map to play on
+    action(state) {
+      return state?.players ? 'Join' : 'Play';
     },
   },
   {
@@ -91,6 +129,26 @@ export const ACTIVITIES = [
     live(state) {
       return !!state && state.state !== 'none';
     },
+
+    art: { from: '#3730a3', to: '#0891b2', glyph: 'function' },
+
+    chips(state) {
+      if (!state || state.state === 'none') return [];
+      if (state.state === 'lobby') {
+        return [
+          `${state.players} waiting`,
+          state.difficulty,
+          state.bet ? `₵${state.bet} to enter` : null,
+        ].filter(Boolean);
+      }
+      return [`${state.players} racing`, state.difficulty].filter(Boolean);
+    },
+
+    action(state) {
+      if (state?.state === 'lobby') return 'Join';
+      if (state && state.state !== 'none') return 'Watch';
+      return 'Start a race';
+    },
   },
   {
     id: 'whiteboard',
@@ -111,6 +169,21 @@ export const ACTIVITIES = [
 
     live(state) {
       return !!state?.holder;
+    },
+
+    // a tool, so a strip under the game cards rather than a card
+    art: { from: '#7e22ce', to: '#db2777', glyph: 'draw' },
+
+    chips(state) {
+      if (!state?.holder) return [];
+      return [
+        `${state.holder} drawing`,
+        state.waiting ? `${state.waiting} waiting` : null,
+      ].filter(Boolean);
+    },
+
+    action(state) {
+      return state?.holder ? 'Watch' : 'Open';
     },
   },
 ];
