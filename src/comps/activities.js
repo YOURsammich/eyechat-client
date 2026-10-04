@@ -127,6 +127,35 @@ export const ACTIVITIES = [
     },
   },
   {
+    id: 'blackjack',
+    label: 'Blackjack',
+    kind: 'game',
+    icon: 'casino',
+    aliases: ['bj'],
+    blurb: 'Open a table against the house or against each other. Hit or stand.',
+
+    // Any number of tables, like UNO: live while one is open.
+    live(state) {
+      return (state?.tables?.length ?? 0) > 0;
+    },
+
+    art: { from: '#14532d', to: '#b45309', glyph: 'casino' },
+
+    chips(state) {
+      const tables = state?.tables ?? [];
+      if (!tables.length) return [];
+      const open = tables.filter(t => t.open).length;
+      return [
+        `${state.players ?? 0} at ${tables.length} table${tables.length === 1 ? '' : 's'}`,
+        open ? `${open} with a seat` : null,
+      ].filter(Boolean);
+    },
+
+    action(state) {
+      return (state?.tables ?? []).some(t => t.open) ? 'Sit down' : 'Open a table';
+    },
+  },
+  {
     id: 'whiteboard',
     label: 'Whiteboard',
     kind: 'tool',
