@@ -380,9 +380,6 @@ const COMMANDS = {
   scare: {
     params: ['nick']
   },
-  punch: {
-    params: ['nick']
-  },
   ban: {
     params: ['nick']
   },
@@ -414,6 +411,19 @@ const COMMANDS = {
   addcope: {
     params: ['answer'],
     parseMethod: 'leaveSpace'
+  },
+  // RP commands (/hug, /slap, /punch…) aren't listed here: the server sends
+  // their names and setRpCommands adds them. These three manage them.
+  addrp: {
+    params: ['command', 'line'],
+    parseMethod: 'leaveSpace'
+  },
+  delrp: {
+    params: ['command', 'number']
+  },
+  rplist: {
+    params: ['command'],
+    optional: true
   },
   // /unban has no client handler, so it emits to the server (trust-gated there).
   unban: {
@@ -553,6 +563,23 @@ const ALIASES = {
 
 for (const [alias, target] of Object.entries(ALIASES)) {
   COMMANDS[alias] = COMMANDS[target];
+}
+
+// The RP commands (feedback #59) are rows on the server, so their names arrive
+// on join and whenever a moderator adds or removes one; each becomes a plain
+// server command taking a nick. Never over a command that's already here — a
+// name only the client knows (a panel, a game) keeps its own meaning.
+const rpNames = new Set();
+
+export function setRpCommands(names) {
+  if (!Array.isArray(names)) return;
+  for (const name of rpNames) delete COMMANDS[name];
+  rpNames.clear();
+  for (const name of names) {
+    if (typeof name !== 'string' || COMMANDS[name]) continue;
+    COMMANDS[name] = { params: ['nick'] };
+    rpNames.add(name);
+  }
 }
 
 // "Usage: /pay <recipient> <amount>" — the same shape the server sends.

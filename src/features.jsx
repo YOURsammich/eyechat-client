@@ -168,8 +168,8 @@ const SECTIONS = [
       {
         icon: '👊',
         title: 'Small violence',
-        body: 'Flip a coin, punch someone (no damage is done), or — if you are an admin — arm a jump scare that waits for the target to leave the tab and come back.',
-        tags: ['/flipcoin', '/punch', '/scare'],
+        body: 'Flip a coin, punch, hug, slap, bonk or truth-nuke someone (no damage is done; /rplist has them all, and moderators add more with /addrp), or — if you are an admin — arm a jump scare that waits for the target to leave the tab and come back.',
+        tags: ['/flipcoin', '/punch', '/hug', '/slap', '/trvke', '/rplist', '/scare'],
       },
     ],
   },
@@ -295,7 +295,9 @@ const COMMAND_NOTES = {
   ask: 'Ask the Magic Cope Ball. The answer comes from the pool the room wrote.',
   addcope: 'Add an answer to the Magic Cope Ball pool.',
   flipcoin: 'Flip a coin in front of the room.',
-  punch: 'Punch someone. Nothing happens to them.',
+  addrp: 'Add a line to an RP command (/hug, /slap…), or make a new one. {me} is you, {them} the target.',
+  delrp: 'Remove one of an RP command’s lines by its number in /rplist.',
+  rplist: 'List the RP commands — /hug, /slap, /punch and the rest — or one command’s lines.',
   scare: 'Arm a jump scare on someone — it waits for them to leave the tab and come back.',
   hatdrop: 'Force a hat drop for yourself, to see what one looks like.',
 

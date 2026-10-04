@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ROOM, IN_MAIN, goToRoom } from './utils/room.js';
 import { setBlockedFonts } from './utils/fonts.js';
+import { setRpCommands } from './utils/handleInput.js';
 import useNarrow from './utils/useNarrow.js';
 
 import Store from './utils/store';
@@ -218,10 +219,12 @@ function App() {
 
     socket.on('setState', (data) => {
       if (data[0] === 'blockedFonts') setBlockedFonts(data[1]);
+      if (data[0] === 'rpCommands') setRpCommands(data[1]);
     });
 
     socket.on('channelInfo', (channelInfo) => {
       if (Array.isArray(channelInfo.blockedFonts)) setBlockedFonts(channelInfo.blockedFonts);
+      if (Array.isArray(channelInfo.rpCommands)) setRpCommands(channelInfo.rpCommands);
     });
 
     // After an automatic reconnect, rejoin the channel so the server re-adds us
