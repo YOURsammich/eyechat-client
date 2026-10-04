@@ -19,7 +19,8 @@
     window.__preconnect = fetch('/preconnect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ room: location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0] || 'main' })
+      // embedded: running inside another site's iframe, so the server must set cookies the browser will keep there
+      body: JSON.stringify({ room: location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0] || 'main', embedded: window.top !== window })
     })
       .then(res => res.json())
       .catch(err => ({ success: false, error: err }));

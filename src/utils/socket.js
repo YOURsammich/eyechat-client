@@ -77,7 +77,8 @@ const socket = {
     return {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ room: this.getActiveChannel?.() ?? 'main' })
+      // embedded: in another site's iframe, where the server has to issue cookies the browser will keep (see /preconnect)
+      body: JSON.stringify({ room: this.getActiveChannel?.() ?? 'main', embedded: window.top !== window })
     };
   },
 
