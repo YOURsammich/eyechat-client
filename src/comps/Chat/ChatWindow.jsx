@@ -21,6 +21,7 @@ import BlockBox from './../BlockBox';
 import JumpScare from './JumpScare';
 import ChannelStatus from './ChannelStatus';
 import ActivityLauncher from './ActivityLauncher';
+import CourtBar from '../Court/CourtBar';
 import { ROOM, IN_MAIN, arrivalNotice } from '../../utils/room.js';
 import { getMyFont } from '../../utils/myFont.js';
 import { isBlockedFont } from '../../utils/fonts.js';
@@ -829,6 +830,9 @@ function ChatWindow({
             )}
           </div>
         </div>
+
+        {/* Cope Court's status bar, in the court room only (feedback #58). */}
+        {ROOM === 'court' ? <CourtBar socket={socket} /> : null}
 
         <div className='chatBox' ref={chatBoxRef}>
           <div className='messageBackground' style={{ background: showFluid ? '#000' : (toggles.background ? channelState.background : '#000') }}>

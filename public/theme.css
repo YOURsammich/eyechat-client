@@ -3275,6 +3275,51 @@ button.gameFeatureBtn.on:hover { color: #fde68a; }
   .copeFresh .copeBall, .copeFresh .copeAnswer { animation: none; }
 }
 
+/* ─── Cope Court ──────────────────────────────────────────────────────────
+   The court room's status bar (comps/Court/CourtBar.jsx) and the exhibit
+   cards in the log (Messages.renderExhibit), feedback #58. */
+
+.courtBar {
+  flex: none;
+  padding: 6px 12px;
+  background: #241d12;
+  border-bottom: 1px solid #5c4a24;
+  color: #e8dcc0;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+.courtBar.idle { color: #a99a78; }
+.courtBar.voting { background: #1d1a2b; border-color: #4b3f7a; }
+.courtBar .courtAllegation { color: #c9b98f; font-style: italic; }
+.courtBar .courtStage { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; color: #d8c79c; }
+.courtBar .courtExhibits { color: #a99a78; }
+.courtBar .courtClock {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #ffd27a;
+}
+
+.message.exhibit .exhibitHead { display: block; color: #c9b98f; }
+.message.exhibit .exhibitSide { color: #a99a78; }
+.message.exhibit .exhibitQuote {
+  display: block;
+  margin: 3px 0 2px 1.2em;
+  padding: 4px 10px;
+  border-left: 3px solid #b8954a;
+  border-radius: 0 6px 6px 0;
+  background: rgba(184, 149, 74, 0.12);
+  color: #ddd;
+}
+.message.exhibit .exhibitNum { color: #a99a78; font-variant-numeric: tabular-nums; }
+.message.exhibit .exhibitImage { display: block; margin: 3px 0 2px 1.2em; }
+.message.exhibit .exhibitImage img {
+  max-width: min(320px, 100%);
+  max-height: 240px;
+  border: 2px solid #b8954a;
+  border-radius: 6px;
+}
+
 /* On mobile the header is tight (the search box is already hidden there), so
    the launcher drops to its icon and keeps the live dot. */
 @media (max-width: 768px) {

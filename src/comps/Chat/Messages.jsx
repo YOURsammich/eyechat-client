@@ -1750,6 +1750,7 @@ class Messages extends React.Component {
 
     if (message.type === 'cope') return this.renderCope(message);
     if (message.type === 'gallerysave') return this.renderGallerySave(message);
+    if (message.type === 'exhibit') return this.renderExhibit(message);
 
     // A mod's verdict on the line (see groupRows). The log folds adjacent cringed
     // messages into one run before it gets here; a single message reaching this
@@ -1834,6 +1835,42 @@ class Messages extends React.Component {
               loading='lazy'
               onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
             />
+          </a>
+        ) : null}
+      </div>
+    </CollapsibleMessage>;
+  }
+
+  // A Cope Court exhibit (feedback #58): a quoted main-room message or an
+  // image, entered by whoever held the podium. The server sends the exhibit as
+  // JSON in `message` ({ letter, by, side, kind, quote | url }) with the
+  // entrant as `nick`, like the Cope Ball line.
+  renderExhibit (message) {
+    let ex = {};
+    try {
+      ex = JSON.parse(message.message) ?? {};
+    } catch { /* malformed: an empty card beats a crash */ }
+    const emojis = this.props.emojis;
+
+    return <CollapsibleMessage className='message exhibit' key={'message-' + message.count}>
+      {this.renderTimeStamp(message)}
+      <div className='messageContent'>
+        <div className='exhibitHead'>
+          📎 <b>Exhibit {ex.letter || '?'}</b>
+          {' entered by '}{ex.by || message.nick || 'someone'}
+          {ex.side ? <span className='exhibitSide'> for the {ex.side === 'accuser' ? 'prosecution' : 'defense'}</span> : null}
+        </div>
+        {ex.kind === 'message' && ex.quote ? (
+          <blockquote className='exhibitQuote'>
+            <span className='exhibitNum'>#{ex.quote.count}</span>{' '}
+            <b className='exhibitNick'>{ex.quote.nick || 'someone'}:</b>{' '}
+            <ParsedContent text={String(ex.quote.message ?? '')} emojis={emojis} styles={copeStyles} compact />
+          </blockquote>
+        ) : null}
+        {ex.kind === 'image' && ex.url ? (
+          <a className='exhibitImage' href={ex.url} target='_blank' rel='noopener noreferrer'>
+            <img src={ex.url} alt={'Exhibit ' + (ex.letter || '')} loading='lazy'
+              onLoad={(e) => this._imageLoaded(e.target)} />
           </a>
         ) : null}
       </div>

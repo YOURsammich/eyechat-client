@@ -425,6 +425,26 @@ const COMMANDS = {
     params: ['command'],
     optional: true
   },
+  // Cope Court (feedback #58). All but /court and /dismiss only work in the
+  // court room; the server says so.
+  sue: {
+    params: ['nick', 'allegation'],
+    parseMethod: 'leaveSpace'
+  },
+  lawyer: {
+    params: ['nick']
+  },
+  accept: {},
+  decline: {},
+  yield: {},
+  rest: {},
+  exhibit: {
+    params: ['msgnum']
+  },
+  guilty: {},
+  innocent: {},
+  court: {},
+  dismiss: {},
   // /unban has no client handler, so it emits to the server (trust-gated there).
   unban: {
     params: ['target']
