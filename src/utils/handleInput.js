@@ -383,6 +383,12 @@ const COMMANDS = {
   ban: {
     params: ['nick']
   },
+  tempban: {
+    params: ['nick', 'minutes']
+  },
+  automod: {
+    params: ['state']
+  },
   banip: {
     params: ['ip']
   },

@@ -331,11 +331,13 @@ const COMMAND_NOTES = {
   // Staff
   kick: 'Disconnect someone. They can come back.',
   ban: 'Ban an account, and the IPs it connects from.',
+  tempban: 'Ban like /ban, for a number of minutes: /tempban nick 30. Lifts itself; /unban ends it early.',
   banip: 'Ban an IP directly.',
   unban: 'Lift every ban for a nick or an IP.',
   trust: 'Set an account’s trust level.',
   lock_command: 'Change the trust level a command or action requires. Cannot be locked itself — it is the way back from every other lock.',
   whitelist: 'Turn whitelist mode on or off, closing the channel to unvetted accounts.',
+  automod: 'Turn AutoMod on or off in main: an AI moderator that checks what guests and new accounts say. Its actions are listed on /mod-log.',
   proxyblock: 'Set how connections through proxies and VPNs are handled.',
   proxyscan: 'Re-check what a user is connecting through.',
   nothrottle: 'Lift rate limits for a while.',

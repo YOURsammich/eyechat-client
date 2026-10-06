@@ -1,7 +1,8 @@
-// The gate indicators in the chat header: whitelist mode and the proxy/VPN
-// block. Both are channel settings only an admin can change (/whitelist,
-// /proxyblock), but the badges are shown to everyone — a guest who can't see
-// why the room turned people away has no way to ask for access.
+// The gate indicators in the chat header: whitelist mode, the proxy/VPN block
+// and AutoMod. All are channel settings only an admin can change (/whitelist,
+// /proxyblock, /automod), but the badges are shown to everyone — a guest who
+// can't see why the room turned people away has no way to ask for access, and
+// one whose messages are being checked by an AI should be able to tell.
 //
 // Values arrive with channelInfo on join and live via setState; see ChatWindow.
 
@@ -9,16 +10,24 @@
 // src/models/channel.js. Only used in the tooltip wording.
 const PROXY_EXEMPT_TRUST = 4;
 
-export default function ChannelStatus({ checkTrust, proxyBlock }) {
+export default function ChannelStatus({ checkTrust, proxyBlock, aiMod }) {
   const whitelist = Number(checkTrust) > 0;
   // 'guests' and 'all' differ in who they turn away, so they get their own look:
   // amber outlined for guests-only, red filled for everyone unvetted.
   const proxy = proxyBlock === 'guests' || proxyBlock === 'all' ? proxyBlock : null;
+  const automod = aiMod === true || aiMod === 'true';
 
-  if (!whitelist && !proxy) return null;
+  if (!whitelist && !proxy && !automod) return null;
 
   return (
     <div className='channelStatus'>
+      {automod ? (
+        <span
+          className='material-symbols-outlined statusBadge statusAutoMod'
+          title='AutoMod is on — an AI moderator checks messages from guests and new accounts'
+        >smart_toy</span>
+      ) : null}
+
       {whitelist ? (
         <span
           className='material-symbols-outlined statusBadge statusWhitelist'

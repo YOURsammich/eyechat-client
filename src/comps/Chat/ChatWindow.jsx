@@ -28,7 +28,7 @@ import { isBlockedFont } from '../../utils/fonts.js';
 import { ACTIVITIES, openEvent, closeEvent } from './../activities';
 import { activityPanel } from './../activityPanels';
 
-const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'cursors', 'filteredWords', 'checkTrust', 'proxyBlock', 'channelfont']);
+const CHAT_STATE_KEYS = new Set(['background', 'topic', 'centermsg', 'themecolors', 'emojis', 'hats', 'cursors', 'filteredWords', 'checkTrust', 'proxyBlock', 'aiMod', 'channelfont']);
 
 // The page's own font, read before any room font replaces it (see useRoomFont).
 let pageFont = null;
@@ -173,9 +173,11 @@ function ChatWindow({
     topic: '',
     centermsg: '',
     // Gate settings behind the header badges (see ChannelStatus): whitelist
-    // cutoff (0 = off) and the proxy gate mode ('off' | 'guests' | 'all').
+    // cutoff (0 = off), the proxy gate mode ('off' | 'guests' | 'all') and
+    // whether AutoMod is on.
     checkTrust: 0,
     proxyBlock: 'off',
+    aiMod: false,
     themecolors: {},
     emojis: [],
     hats: [],
@@ -404,12 +406,13 @@ function ChatWindow({
       // values so the badges never read a null.
       const checkTrust = Number(channelInfo.checkTrust) || 0;
       const proxyBlock = channelInfo.proxyBlock ?? 'off';
+      const aiMod = channelInfo.aiMod === true;
       const channelfont = channelInfo.channelfont ?? '';
 
       if (Array.isArray(channelInfo.blocks)) setBlocks(channelInfo.blocks);
 
       const parsed = store.handleStates(channelInfo);
-      setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg, checkTrust, proxyBlock, channelfont }));
+      setChannelState(prev => ({ ...prev, ...parsed, topic, background, centermsg, checkTrust, proxyBlock, aiMod, channelfont }));
     });
 
     // The server sends the whole list on every change (including from another
@@ -770,7 +773,7 @@ function ChatWindow({
 
         <div className="chatHeader" style={{ backgroundColor: channelState.themecolors.topbarpri || '' }}>
           <div className='headerLeft'>
-            <ChannelStatus checkTrust={channelState.checkTrust} proxyBlock={channelState.proxyBlock} />
+            <ChannelStatus checkTrust={channelState.checkTrust} proxyBlock={channelState.proxyBlock} aiMod={channelState.aiMod} />
             {IN_MAIN ? null : <span className='roomName' title='This room'>/{ROOM}</span>}
             <div className='topic'>{channelState.topic}</div>
           </div>
@@ -953,6 +956,13 @@ function ChatWindow({
             { label: 'Account', render: (b) => b.account || '—' },
             { label: 'IP', render: (b) => b.remote_addr || 'hidden' },
             { label: 'Banned by', render: (b) => b.bannedBy || '—' },
+            // A /tempban (or AutoMod's) runs out on its own; null is permanent.
+            {
+              label: 'Ends',
+              render: (b) => (b.expires_at
+                ? new Date(b.expires_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+                : 'never'),
+            },
           ]}
         />
       ) : null}

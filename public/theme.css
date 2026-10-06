@@ -542,6 +542,11 @@ a {
   font-variation-settings: 'FILL' 1;
 }
 
+/* AutoMod (/automod): an AI moderator is checking guests' messages. */
+.statusAutoMod {
+  color: #5cc98a;
+}
+
 .chatBox {
   overflow-y: hidden;
   flex: 1;
