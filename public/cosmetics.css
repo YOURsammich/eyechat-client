@@ -760,6 +760,16 @@
   border-radius: 0;
 }
 
+/* The whole-nick font row (feedback #60), always shown under the per-letter tools. */
+.fb-font-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px 8px;
+  font-size: 11px;
+}
+.fb-font-row .fontPicker { flex: 1; min-width: 0; }
+
 /* ─── Style profile switcher (input bar) ──────────────────────────────────────
    Switching your whole look is the one cosmetic action worth reaching without
    leaving the conversation, so it keeps the input bar's palette button. Anything

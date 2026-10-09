@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NestMessage, messageParser, msgStyles } from './Messages';
+import FontPicker from '../FontPicker';
 
 const STYLE_TOKENS = [
   { token: '/*', label: 'B',  title: 'Bold' },
@@ -200,7 +201,7 @@ function FlairBuilder({ onApply, emojis, user }) {
           <span
             key={i}
             className={`fb-char${selection && i >= selection.start && i < selection.end ? ' sel' : ''}`}
-            style={getCharDisplayStyle(charStyles[i])}
+            style={{ ...getCharDisplayStyle(charStyles[i]), ...(font ? { fontFamily: `'${font}', sans-serif` } : null) }}
             onMouseDown={e => onCharMouseDown(i, e)}
             onMouseEnter={() => onCharMouseEnter(i)}
           >
@@ -254,6 +255,12 @@ function FlairBuilder({ onApply, emojis, user }) {
       ) : (
         <div className='fb-select-hint'>Click or drag to select characters</div>
       )}
+
+      {/* One font for the whole nick (feedback #60), so it isn't tied to the selection. */}
+      <div className='fb-font-row'>
+        <span className='fb-color-label'>Font</span>
+        <FontPicker value={font} onChange={setFont} />
+      </div>
 
       <div className='fb-footer'>
         <div className='fb-preview'>
