@@ -6,6 +6,7 @@ import WhatsNew from './WhatsNew.jsx';
 import ActivityInvite from './ActivityInvite.jsx';
 import DraggableWindow from '../DraggableWindow.jsx';
 import { isBlockedFont } from '../../utils/fonts.js';
+import { parseVideoLink, autoplayUrl, VIDEO_SITE_NAMES } from '../../utils/videoEmbed.js';
 
 
 // Does this message name `nick`? Case-insensitive: people type each other's
@@ -1006,8 +1007,9 @@ function LinkMsg (props) {
 
   const imageType = hasExtension(href, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
-  const isMP4 = hasExtension(href, ['mp4']);
-  const isYouTube = href.includes('youtube.com/watch') || href.includes('youtu.be/');
+  // A video link gets an inline player under it (feedback #62). Compact
+  // messages (/part reasons) stay a plain link, like a labeled one.
+  const video = !imageType && !props.compact ? parseVideoLink(href) : null;
 
   return (<>
   <a href={href} target='_blank' rel="noopener noreferrer">{
@@ -1030,17 +1032,66 @@ function LinkMsg (props) {
     </div> : href
   }</a>
   {' '}
-  
-  {(isMP4 || isYouTube) ? <a target='_blank' rel="noopener noreferrer" onClick={(e) => {
-    props.setOverlay({
-      href: href,
-      type: isYouTube ? 'youtube' : 'video'
-    });
-  }}>[embed]</a> : null}
-
-
+  {video ? <InlineVideo
+    // Keyed by the link so a different video in the same spot starts fresh
+    // (no stale "failed" or "loaded" state carried over).
+    key={href}
+    video={video}
+    setOverlay={props.setOverlay}
+    _imageLoaded={props._imageLoaded}
+  /> : null}
 </>);
 
+}
+
+// The inline player under a video link. A video file is a <video> that only
+// fetches its first frame (preload=metadata) and plays when clicked. The sites
+// start as a card and load their iframe on click, so a log full of YouTube
+// links doesn't spin up a dozen players. The pop-out button hands the same
+// parsed link to EmbedOverlay. Every box is a fixed 16:9, so nothing jumps;
+// _imageLoaded is still told when content lands, the way images do, to keep the
+// log pinned to the bottom.
+function InlineVideo ({ video, setOverlay, _imageLoaded }) {
+  const [failed, setFailed] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const site = VIDEO_SITE_NAMES[video.kind];
+
+  // A file that won't play (a .mov codec this browser lacks, a dead link):
+  // drop the player and leave the plain link above it.
+  if (failed) return null;
+
+  // _imageLoaded reads `.height`, which on a <video> or <iframe> is the height
+  // attribute (unset, so 0) rather than the rendered size.
+  const loaded = (e) => _imageLoaded?.({ height: e.currentTarget.offsetHeight });
+
+  let player;
+  if (video.kind === 'file') {
+    player = <video src={video.embedUrl} preload='metadata' controls playsInline
+      onLoadedMetadata={loaded}
+      onError={() => setFailed(true)}
+    />;
+  } else if (playing) {
+    player = <iframe src={autoplayUrl(video)} title={site + ' video player'}
+      allow='autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture; web-share'
+      allowFullScreen
+      onLoad={loaded}
+    />;
+  } else {
+    // A button, not an svg icon: the log's click handler reads className as a
+    // string, which an svg element doesn't have.
+    player = <button type='button' className='videoEmbedCard' title={'Play ' + site + ' video'}
+      onClick={() => setPlaying(true)}>
+      {video.thumb ? <img src={video.thumb} alt='' loading='lazy' onLoad={(e) => _imageLoaded?.(e.target)} /> : null}
+      <span className='videoEmbedPlay'>{'▶'}</span>
+      {video.thumb ? null : <span className='videoEmbedSite'>{site}</span>}
+    </button>;
+  }
+
+  return <span className='videoEmbed'>
+    <span className='videoEmbedBox'>{player}</span>
+    {setOverlay ? <button type='button' className='videoEmbedPopout' title='Pop out'
+      onClick={() => setOverlay(video)}>{'⧉'}</button> : null}
+  </span>;
 }
 
 // A word/phrase the channel filters replaces on display. The raw message keeps
@@ -1291,29 +1342,33 @@ function getMsgCss (compName, value) {
   return styles[value] || {};
 }
 
-// A YouTube link or video file opened from chat: a normal chat window (solid
-// bar, drag by the bar with mouse or finger) that opens in the middle of the
-// screen every time, with the player in a 16:9 box that shrinks on phones.
+// A video link popped out of chat: a normal chat window (solid bar, drag by the
+// bar with mouse or finger) that opens in the middle of the screen every time,
+// with the player in a 16:9 box that shrinks on phones. `src` is the object
+// parseVideoLink returned (utils/videoEmbed.js), the same one the inline player
+// was built from.
 function EmbedOverlay (props) {
   const { src } = props;
-  const isYouTube = src.type == 'youtube';
+  const site = VIDEO_SITE_NAMES[src.kind] ?? 'Video';
   return <DraggableWindow
     centered
-    title={isYouTube ? 'YouTube' : 'Video'}
+    title={site}
     onClose={() => props.setOverlay(null)}
     width='min(528px, calc(100vw - 32px))'
     bodyStyle={{ padding: 0, overflow: 'hidden' }}
   >
     <div className='embed-frame'>
-      {isYouTube ? <iframe
-        src={'https://www.youtube.com/embed/' + (src.href.includes('youtu.be/') ? src.href.split('youtu.be/')[1].split('?')[0] : new URL(src.href).searchParams.get('v'))}
-        title="YouTube video player"
-        frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-      ></iframe> : null}
-
-      {src.type == 'video' ? <video src={src.href} controls></video> : null}
+      {src.kind == 'file'
+        ? <video src={src.embedUrl} controls></video>
+        : <iframe
+          // Keyed so popping out a different video replaces the player.
+          key={src.embedUrl}
+          src={src.embedUrl}
+          title={site + ' video player'}
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; fullscreen; picture-in-picture; web-share"
+          allowFullScreen
+        ></iframe>}
     </div>
   </DraggableWindow>;
 }

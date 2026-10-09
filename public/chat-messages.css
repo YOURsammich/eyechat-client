@@ -409,3 +409,99 @@
     will-change: auto;
   }
 }
+
+/* ─── Inline video player (feedback #62) ───────────────────────────────────
+   InlineVideo in Messages.jsx: a 16:9 box under a video link, with a pop-out
+   button beside it that opens the same video in EmbedOverlay. Built from spans
+   so `.message div { display: inline }` never reaches it; `.message` in front
+   beats `.message img`'s 256px cap on the YouTube thumbnail. */
+
+.message .videoEmbed {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  margin: 4px 0 2px;
+  white-space: normal;
+}
+
+.message .videoEmbedBox {
+  position: relative;
+  display: block;
+  width: min(320px, calc(100vw - 96px));
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.message .videoEmbedBox video,
+.message .videoEmbedBox iframe,
+.message .videoEmbedCard {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* The click-to-load card: the YouTube thumbnail, or just the site's name,
+   under a play button. */
+.message .videoEmbedCard {
+  position: relative;
+  padding: 0;
+  background: #111;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.message .videoEmbedCard img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.message .videoEmbedPlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 52px;
+  height: 36px;
+  line-height: 36px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  font-size: 18px;
+  text-shadow: none;
+}
+
+.message .videoEmbedCard:hover .videoEmbedPlay {
+  background: #c00;
+}
+
+.message .videoEmbedSite {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  font-size: 0.85em;
+  color: #bbb;
+}
+
+.message .videoEmbedPopout {
+  padding: 2px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #bbb;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.message .videoEmbedPopout:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
