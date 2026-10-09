@@ -21,19 +21,30 @@ const fmtTime = (ms) => new Intl.DateTimeFormat('en', { dateStyle: 'short', time
 // embed overlay) — none apply on the static search page.
 const noop = () => {};
 
+// Moderated messages are shown here, not collapsed as in the chat: this is
+// where a mod's call gets checked. A cringed one is drawn in full under a tag;
+// a deleted one arrives blanked from the server and gets the chat's stub.
+const deletedText = (m) => '<message deleted by ' + (m.moderatedBy || 'a moderator') + '>';
+
+function ModTag({ m }) {
+  if (m.moderation !== 'cringe') return null;
+  return <span className='modtag'>marked cringe{m.moderatedBy ? ' by ' + m.moderatedBy : ''}</span>;
+}
+
 // A message rendered exactly like the chat: mirrors Messages.jsx renderMessage /
 // renderNick / renderMessageContent, but reusing the shared parser + NestMessage
 // + AvatarDisplay so styling stays identical and in one place.
 function ChatMessage({ m, emojis, highlight, onJump }) {
   const flair = messageParser.parse(m.flair || m.nick || '', msgStyles);
   const textContent = messageParser.getTextContent(flair);
-  const body = messageParser.parse(markGreentext(m.message || ''), msgStyles);
+  const deleted = m.moderation === 'deleted';
+  const body = deleted ? null : messageParser.parse(markGreentext(m.message || ''), msgStyles);
 
   let avatar = null;
   try { avatar = m.avatar ? (typeof m.avatar === 'string' ? JSON.parse(m.avatar) : m.avatar) : null; } catch { avatar = null; }
 
   return (
-    <div className={'message chat' + (highlight ? ' hit-chat' : '')} id={'m-' + m.count}>
+    <div className={'message chat' + (highlight ? ' hit-chat' : '') + (deleted ? ' deletedStub' : '')} id={'m-' + m.count}>
       <div className='time' title={'#' + m.count + ' — jump'} onClick={() => onJump(m.count)}>{fmtTime(m.time)} </div>
       <div className='nick'>
         {avatar ? <AvatarDisplay avatar={avatar} /> : null}
@@ -43,7 +54,10 @@ function ChatMessage({ m, emojis, highlight, onJump }) {
           : <NestMessage message={flair} emojis={emojis} _imageLoaded={noop} renderMessage={() => null} setOverlay={noop} />}{': '}
       </div>
       <div className='messageContent'>
-        <NestMessage message={body} emojis={emojis} _imageLoaded={noop} renderMessage={() => null} setOverlay={noop} />
+        <ModTag m={m} />
+        {deleted
+          ? deletedText(m)
+          : <NestMessage message={body} emojis={emojis} _imageLoaded={noop} renderMessage={() => null} setOverlay={noop} />}
       </div>
     </div>
   );
@@ -51,14 +65,16 @@ function ChatMessage({ m, emojis, highlight, onJump }) {
 
 // The clean "card" rendering (message as plain text, sortable metadata).
 function CardMessage({ m, highlight, onJump }) {
+  const deleted = m.moderation === 'deleted';
   return (
     <div className={'msg' + (highlight ? ' hit' : '')} id={'m-' + m.count}>
       <div className='msg-head'>
         <span className='msg-nick'>{m.nick || 'anon'}</span>
         <span className='msg-time'>{timeAgo(m.time)}</span>
+        <ModTag m={m} />
         <button className='msg-num' onClick={() => onJump(m.count)}>#{m.count}</button>
       </div>
-      <div className='msg-body'>{m.message}</div>
+      <div className={'msg-body' + (deleted ? ' msg-deleted' : '')}>{deleted ? deletedText(m) : m.message}</div>
     </div>
   );
 }
@@ -160,6 +176,12 @@ function App() {
   }
 
   const jumpTo = (count) => loadContext('/search/context?count=' + count, count, 'Around message #' + count);
+
+  // /search?count=N opens on that message: /mod-log links here.
+  useEffect(() => {
+    const n = parseInt(new URLSearchParams(window.location.search).get('count'), 10);
+    if (!isNaN(n)) { setNum(String(n)); jumpTo(n); }
+  }, []);
 
   function jumpNum() {
     const n = parseInt(num, 10);

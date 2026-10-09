@@ -69,3 +69,8 @@ input:focus { border-color: #555; }
 .chatview .message.hit-chat { outline: 1px solid #2a5a8c; border-radius: 4px; }
 
 .empty { text-align: center; color: #555; padding: 48px; }
+
+/* Moderated messages: a cringed one in full under this tag, a deleted one as
+   the chat's "<message deleted by X>" stub (.deletedStub, chat-messages.css). */
+.modtag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px solid #5a4a2a; border-radius: 3px; color: #c9a45c; font-size: 11px; font-style: normal; vertical-align: middle; }
+.msg-deleted { color: #8a8a8a; font-style: italic; }
