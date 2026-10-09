@@ -32,12 +32,15 @@ import DraggableWindow from '../DraggableWindow';
 const HIDDEN = -1;
 const FLAG = -2;
 const EXPLODED = -3;
+const COIN_FLAG = -4;            // the copecoin, flagged — a flag drawn as a coin
+const COIN_LOST = -5;            // the copecoin, blown up — a crater with a burnt coin
 
 const MAX_CELL = 24;             // CSS px per cell when there is room
 const MIN_CELL = 11;             // below this a number is unreadable; scroll instead
 const LONG_PRESS_MS = 350;       // touch: hold to flag
 const POP_MS = 900;              // how long a "+1" / "−10" floats over its cell
 const BANNER_MS = 7000;          // how long the "map cleared" line stays up
+const COIN_TOAST_MS = 6000;      // how long the copecoin line stays up
 
 // The classic number colours, on a dark ground.
 const NUMBER_COLORS = ['', '#5aa0ff', '#5fcf6b', '#ff6b6b', '#b48cff', '#ff9c5a', '#4dd0e1', '#e0e0e0', '#9e9e9e'];
@@ -66,8 +69,34 @@ function pointsColor(n, neutral = '#bbb') {
   return n > 0 ? '#7fe08a' : n < 0 ? '#ff6b6b' : neutral;
 }
 
+// What the flagger of the copecoin is told (ms:coin). Only they hear it.
+function coinToastText(c) {
+  if (c.amount > 0) return `You found the copecoin! +${c.amount} coins`;
+  if (c.guest) return 'You found the copecoin! Register an account to collect copecoins.';
+  return 'You found the copecoin, but you need a positive score on this map to collect it.';
+}
+
 // ─── drawing ─────────────────────────────────────────────────────────────────
 // `cs` is the cell size in CSS px; everything scales from it.
+
+// A round coin centred in the cell: a rim, a face, and a "C" stamped on it.
+// The burnt one is the same coin in soot colours.
+function drawCoin(ctx, cs, px, py, burnt) {
+  const cx = px + cs / 2, cy = py + cs / 2, r = cs * 0.32;
+  ctx.fillStyle = burnt ? '#2b2420' : '#b8860b';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = burnt ? '#4a3d33' : '#ffd24a';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.78, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = burnt ? '#1a1512' : '#b8860b';
+  ctx.font = `bold ${Math.round(cs * 0.42)}px ${MONO}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('C', cx, cy + 1);
+}
 
 function drawCell(ctx, cs, x, y, v, hover) {
   const px = x * cs, py = y * cs;
@@ -89,12 +118,13 @@ function drawCell(ctx, cs, x, y, v, hover) {
     return;
   }
 
-  if (v === EXPLODED) {
+  if (v === EXPLODED || v === COIN_LOST) {
     ctx.fillStyle = '#7a1f1f';
     ctx.fillRect(px, py, cs, cs);
     ctx.strokeStyle = '#1b1b1b';
     ctx.lineWidth = 1;
     ctx.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
+    if (v === COIN_LOST) { drawCoin(ctx, cs, px, py, true); return; }
     ctx.fillStyle = '#111';
     ctx.beginPath();
     ctx.arc(px + cs / 2, py + cs / 2, cs * 0.28, 0, Math.PI * 2);
@@ -112,6 +142,8 @@ function drawCell(ctx, cs, x, y, v, hover) {
   ctx.fillStyle = '#2a2a2a';
   ctx.fillRect(px, py + cs - bevel, cs, bevel);
   ctx.fillRect(px + cs - bevel, py, bevel, cs);
+
+  if (v === COIN_FLAG) drawCoin(ctx, cs, px, py, false);
 
   if (v === FLAG) {
     // Pole plus a pennant. A flag on this board is always a real mine.
@@ -161,6 +193,7 @@ function MinesweeperPanel({ socket, user, onClose }) {
   const [meta, setMeta] = useState(null);   // { mapId, mines, flagged, exploded, safeRevealed, safeTotal }
   const [scores, setScores] = useState([]);
   const [banner, setBanner] = useState(null);
+  const [coinToast, setCoinToast] = useState(null);     // our ms:coin, while it's up
   const [flagMode, setFlagMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);       // the rules overlay, behind the ? button
   const [lastPoints, setLastPoints] = useState(null);   // our most recent scoring click, flashed beside our score
@@ -347,17 +380,22 @@ function MinesweeperPanel({ socket, user, onClose }) {
       // the −10 came from.
       const at = data.at || data.changed?.[0];
       if (at && (data.points || data.by !== myNick)) {
-        const boom = data.points < 0 && data.changed?.find(c => c.v === EXPLODED);
+        const boom = data.points < 0 && data.changed?.find(c => c.v === EXPLODED || c.v === COIN_LOST);
         const spot = boom || at;
         addPop(spot.x, spot.y, data.points, !!boom, data.by || '');
       }
       if (data.by === myNick && data.points) setLastPoints({ points: data.points, at: Date.now() });
     });
 
+    // Sent to the copecoin's flagger only, so no nick check needed.
+    const offCoin = socket.on('ms:coin', (data) => {
+      if (data) setCoinToast({ ...data, at: Date.now() });
+    });
+
     const offReconnect = socket.onReconnect ? socket.onReconnect(requestSync) : null;
     requestSync();
     return () => {
-      offSnapshot(); offUpdate();
+      offSnapshot(); offUpdate(); offCoin();
       if (offReconnect) offReconnect();
       if (popTimerRef.current) cancelAnimationFrame(popTimerRef.current);
       // The sync above is what told the launcher we're playing; this is what
@@ -373,6 +411,12 @@ function MinesweeperPanel({ socket, user, onClose }) {
     const id = setTimeout(() => setBanner(null), BANNER_MS);
     return () => clearTimeout(id);
   }, [banner]);
+
+  useEffect(() => {
+    if (!coinToast) return;
+    const id = setTimeout(() => setCoinToast(null), COIN_TOAST_MS);
+    return () => clearTimeout(id);
+  }, [coinToast]);
 
   useEffect(() => {
     if (!lastPoints) return;
@@ -530,6 +574,18 @@ function MinesweeperPanel({ socket, user, onClose }) {
           </div>
         )}
 
+        {/* the copecoin line, for whoever flagged it: gold when it paid, grey when it didn't */}
+        {coinToast && (
+          <div style={{
+            padding: '6px 10px', borderRadius: 4, fontSize: 13,
+            ...(coinToast.amount > 0
+              ? { background: '#3b3214', border: '1px solid #b8860b', color: '#ffd24a' }
+              : { background: '#2a2a2a', border: '1px solid #555', color: '#ddd' }),
+          }}>
+            {coinToastText(coinToast)}
+          </div>
+        )}
+
         {/* the grid and the scoreboard beside it; the scoreboard drops below on narrow screens */}
         <div style={{ display: 'flex', gap: 12, minWidth: 0, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div ref={wrapRef} style={{ flex: '1 1 600px', minWidth: 0, position: 'relative' }}>
@@ -571,6 +627,11 @@ function MinesweeperPanel({ socket, user, onClose }) {
                     Flag a mine <b style={{ color: '#7fe08a' }}>+1</b><br />
                     Flag a safe cell <b style={{ color: '#ff6b6b' }}>−1</b> (and it opens)<br />
                     Click a mine <b style={{ color: '#ff6b6b' }}>−10</b> (the map carries on)
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    One mine on every map is a hidden <b style={{ color: '#ffd24a' }}>copecoin</b>. Flag it
+                    while your score on the map is above 0 and it pays <b style={{ color: '#ffd24a' }}>100 coins</b>.
+                    Blow it up and it's gone.
                   </div>
                   <div style={{ marginTop: 8 }}>
                     <b>Left click</b> opens a cell. <b>Right click</b> or <b>hold</b> flags it.
