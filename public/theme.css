@@ -974,9 +974,23 @@ a {
   padding: 8px 10px;
 }
 
-/* Pin the expand/collapse toggle to the bottom of the bar. */
+/* Pin the expand/collapse toggle to the bottom of the bar, with the Feedback
+   link (feedback #107) sitting just above it. */
 .navToggle {
   margin-top: auto;
+}
+.navFeedback {
+  margin-top: auto;
+}
+.navFeedback ~ .navToggle {
+  margin-top: 5px;
+}
+.navFeedback a {
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .menuContent {

@@ -101,6 +101,13 @@ function Menu({ themeColor, sidebarColor, socket, userlist, toggles, toggleState
             <span className="material-symbols-outlined">{m.icon}</span>
           </li>
         ))}
+        {/* Always on screen (feedback #107). A link, not a section: it opens the board. */}
+        <li className='navBtn navFeedback' title='Feedback'>
+          <a href='/feedback' target='_blank' rel='noreferrer'>
+            <span className='navLabel'>Feedback</span>
+            <span className='material-symbols-outlined'>feedback</span>
+          </a>
+        </li>
         <li className='navBtn navToggle' onClick={() => setNavExpanded(e => !e)} title={navExpanded ? 'Collapse' : 'Expand'}>
           <span className="material-symbols-outlined">{navExpanded ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left'}</span>
         </li>
