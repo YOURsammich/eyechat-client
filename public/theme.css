@@ -2945,6 +2945,21 @@ a {
   order: -1;
 }
 
+/* ─── /echo preview line (feedback #109) ───────────────────────────────────
+   /echo draws a message only on the sender's screen. Stripes and a tag keep it
+   from passing for something the room actually saw. */
+.message.echo {
+  background: repeating-linear-gradient(-45deg, rgba(255,255,255,0.05) 0 8px, transparent 8px 16px);
+  border-radius: 4px;
+}
+.message.echo .echoTag {
+  margin-left: 8px;
+  font-size: 11px;
+  opacity: 0.6;
+  font-style: italic;
+  white-space: nowrap;
+}
+
 .search-input::placeholder { color: black; opacity: 1; }
 
 /* ─── Activity launcher ───────────────────────────────────────────────────

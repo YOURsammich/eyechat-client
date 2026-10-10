@@ -244,6 +244,8 @@ const COMMANDS = {
         flairOverRide: 0,
         nostyle: 0,
         time: Date.now(),
+        // Marks the line as a preview in Messages (feedback #109).
+        echo: true,
         // Local-only, so there's no message number to quote; a random count
         // still gives the render cache and React key something unique.
         count: Math.random()

@@ -1968,13 +1968,15 @@ class Messages extends React.Component {
     // pixels without moving hit targets, so a filtered button would take clicks
     // several pixels from where it appears.
     return <CollapsibleMessage
-      className={'message' + (message.type ? ' ' + message.type : '') + (found ? ' foundMessage' : '') + fxClasses(message)}
+      className={'message' + (message.type ? ' ' + message.type : '') + (found ? ' foundMessage' : '') + (message.echo ? ' echo' : '') + fxClasses(message)}
       key={'message-' + message.count}
     >
       { found ? <div className='foundBy'>{'findmsg by ' + found}</div> : null }
       { found ? this.renderMsgNum(message) : this.renderTimeStamp(message) }
       { message.type == 'chat' ? this.renderNick(message) : null }
       { this.renderMessageContent(message) }
+      {/* /echo is a local preview (feedback #109): say so, or it passes for a sent message. */}
+      { message.echo ? <span className='echoTag'>echo · only you see this</span> : null }
     </CollapsibleMessage>
   }
 
