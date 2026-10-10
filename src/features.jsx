@@ -321,6 +321,7 @@ const COMMAND_NOTES = {
   // Account
   change_password: 'Change your password.',
   whois: 'Look up what is known about an account.',
+  whoami: 'Your own /whois.',
   weather: 'Pull a weather report for a place into the chat.',
 
   // Living with people

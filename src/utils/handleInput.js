@@ -398,6 +398,7 @@ const COMMANDS = {
   whois: {
     params: ['nick']
   },
+  whoami: {},
   theme: {
     params: ['id', 'color']
   },
