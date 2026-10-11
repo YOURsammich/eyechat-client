@@ -8,8 +8,9 @@
 //   none / over   →  the "new game" form (with the last result above it)
 //   lobby         →  who's in, the buy-in, Join / Leave, the host's Start
 //   countdown     →  3-2-1
-//   playing       →  the current problem and an answer box, our clock, and a
-//                    progress line per opponent
+//   playing       →  the current problem and an answer box, our clock, a
+//                    private scratch pad, and the race track: a lane and a
+//                    horse per player (feedback #87)
 //
 // Only `sx:state` (public: progress, no answers) goes to the room; the problem
 // text and the right/wrong verdict come to the player alone. The clock is
@@ -55,6 +56,70 @@ function fmtClock(ms) {
   return `${m}:${s}`;
 }
 
+// One colour per lane, in join order (feedback #87).
+const LANE_COLORS = ['#e8a33d', '#4fb3ff', '#e05a7a', '#62d26f', '#b07cff', '#ffd84a', '#3dd6c6', '#ff7f50'];
+
+// 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+// The race track (feedback #87): a lane per player, a horse that moves a step
+// for every problem they get right, and at the line their place. Places go by
+// final time (penalties in), the same order the pot is paid in, so a later
+// finisher with fewer misses can still move ahead.
+function RaceTrack({ state, myNick, serverNow }) {
+  const finished = state.players.filter(p => p.done).sort((a, b) => a.time - b.time);
+  return (
+    <div className='sxTrack' style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      {state.players.map((p, i) => {
+        const color = LANE_COLORS[i % LANE_COLORS.length];
+        const frac = Math.min(1, p.index / state.total);
+        const place = p.done ? finished.indexOf(p) + 1 : 0;
+        const clock = p.done ? fmtClock(p.time)
+          : p.forfeited ? 'left'
+          : fmtClock(serverNow() - state.startAt + p.penalties * state.penaltyMs);
+        return (
+          <div key={p.nick} data-testid='sx-lane' style={{ opacity: p.forfeited ? 0.45 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: MONO, marginBottom: 2 }}>
+              <span style={{ color, fontWeight: p.nick === myNick ? 'bold' : 'normal' }}>
+                {p.nick}{p.nick === myNick ? ' (you)' : ''}
+              </span>
+              <span style={{ color: '#aaa' }}>
+                {place ? <b style={{ color: '#7fe08a' }}>{ordinal(place)} · </b> : null}
+                {p.forfeited ? 'left' : `${p.index}/${state.total}`} · {clock}
+                {p.penalties > 0 && <span style={{ color: '#ff6b6b' }}> +{p.penalties}</span>}
+              </span>
+            </div>
+            <div style={{
+              position: 'relative', height: 22, borderRadius: 11, background: '#181818',
+              border: '1px solid #2c2c2c', marginRight: 14,
+              // the finish line: a checkered strip at the right end
+              backgroundImage: 'repeating-linear-gradient(0deg, #ddd 0 4px, #222 4px 8px)',
+              backgroundSize: '4px 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px top',
+            }}>
+              <div style={{
+                position: 'absolute', left: 0, top: 0, bottom: 0, width: `${frac * 100}%`,
+                background: color, opacity: 0.35, borderRadius: 11, transition: 'width .4s ease',
+              }} />
+              <span
+                aria-hidden='true'
+                style={{
+                  position: 'absolute', top: -1, left: `calc(${frac * 100}% - ${frac * 22}px)`,
+                  fontSize: 18, lineHeight: '22px', transition: 'left .4s ease',
+                  // the emoji faces left; the race runs right
+                  transform: 'scaleX(-1)', filter: p.forfeited ? 'grayscale(1)' : undefined,
+                }}
+              >🏇</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SolveXPanel({ socket, user, onClose }) {
   const myNick = user?.nick || (typeof window !== 'undefined' && window.store ? window.store.get('nick') : undefined);
   const myCoins = user?.coins ?? 0;
@@ -65,6 +130,10 @@ function SolveXPanel({ socket, user, onClose }) {
   const [value, setValue] = useState('');
   const [difficulty, setDifficulty] = useState('easy');
   const [bet, setBet] = useState('0');
+  // The scratch pad (feedback #87): private working, never sent. Kept across
+  // problems so working carries over, cleared when the game ends.
+  const [scratch, setScratch] = useState('');
+  const [scratchOpen, setScratchOpen] = useState(false);
   const [, setTick] = useState(0);                 // re-render driver for the clocks
 
   const offsetRef = useRef(0);                      // serverNow - Date.now(), from the last state
@@ -88,7 +157,7 @@ function SolveXPanel({ socket, user, onClose }) {
       setValue('');
     });
     const offAnswered = socket.on('sx:answered', (a) => setVerdict({ ...a, at: Date.now() }));
-    const offOver = socket.on('sx:over', () => setProblem(null));
+    const offOver = socket.on('sx:over', () => { setProblem(null); setScratch(''); });
 
     const offReconnect = socket.onReconnect ? socket.onReconnect(requestSync) : null;
     requestSync();
@@ -232,23 +301,27 @@ function SolveXPanel({ socket, user, onClose }) {
     );
   }
 
-  function renderProgress() {
-    const others = state.players.filter(p => p.nick !== myNick);
-    if (!others.length) return null;
+  function renderScratchPad() {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12, color: '#aaa', fontFamily: MONO }}>
-        {others.map(p => (
-          <div key={p.nick}>
-            <span style={{ color: '#ddd' }}>{p.nick}</span>
-            {' · '}
-            {p.forfeited ? 'left' : `${p.index}/${state.total}`}
-            {' · '}
-            {p.done ? <span style={{ color: '#7fe08a' }}>{fmtClock(p.time)}</span>
-              : p.forfeited ? '—'
-              : fmtClock(serverNow() - state.startAt + p.penalties * state.penaltyMs)}
-            {p.penalties > 0 && <span style={{ color: '#ff6b6b' }}> +{p.penalties}</span>}
-          </div>
-        ))}
+      <div>
+        <button
+          type='button'
+          onClick={() => setScratchOpen(o => !o)}
+          aria-expanded={scratchOpen}
+          style={{ ...btn, padding: '2px 10px', fontSize: 12 }}
+        >
+          {scratchOpen ? '▾' : '▸'} Scratch pad
+        </button>
+        {scratchOpen && (
+          <textarea
+            value={scratch}
+            onChange={e => setScratch(e.target.value)}
+            placeholder='Working out — only you see this.'
+            rows={5}
+            spellCheck={false}
+            style={{ ...input, display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, fontFamily: MONO, resize: 'vertical' }}
+          />
+        )}
       </div>
     );
   }
@@ -298,6 +371,7 @@ function SolveXPanel({ socket, user, onClose }) {
               ? <span style={{ color: '#7fe08a' }}>✓ correct</span>
               : <span style={{ color: '#ff6b6b' }}>✗ +{state.penaltyMs / 1000}s — try again</span>)}
           </div>
+          {renderScratchPad()}
         </form>
       );
     }
@@ -305,7 +379,7 @@ function SolveXPanel({ socket, user, onClose }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {main}
-        {renderProgress()}
+        <RaceTrack state={state} myNick={myNick} serverNow={serverNow} />
         {me && !me.done && !me.forfeited && (
           <div><button onClick={quit} style={btnDanger} title='Forfeit — your buy-in stays in the pot'>Give up</button></div>
         )}
