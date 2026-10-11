@@ -10,7 +10,9 @@
 //   countdown     →  3-2-1
 //   playing       →  the current problem and an answer box, our clock, a
 //                    private scratch pad, and the race track: a lane and a
-//                    horse per player (feedback #87)
+//                    horse per player (feedback #87); someone watching gets
+//                    the track and a card per player with their problem and
+//                    their answer box as they type (feedback #95)
 //
 // Only `sx:state` (public: progress, no answers) goes to the room; the problem
 // text and the right/wrong verdict come to the player alone. The clock is
@@ -136,8 +138,13 @@ function SolveXPanel({ socket, user, onClose }) {
   const [scratchOpen, setScratchOpen] = useState(false);
   const [, setTick] = useState(0);                 // re-render driver for the clocks
 
+  // Spectating (feedback #95): nick -> { index, text, typing, verdict, at },
+  // from sx:spectate. Only someone not in the race is sent these.
+  const [cards, setCards] = useState({});
+
   const offsetRef = useRef(0);                      // serverNow - Date.now(), from the last state
   const inputRef = useRef(null);
+  const typingRef = useRef({ timer: null, value: '', index: null });
 
   const serverNow = () => Date.now() + offsetRef.current;
 
@@ -151,6 +158,11 @@ function SolveXPanel({ socket, user, onClose }) {
       setState(s);
       // A problem from a previous game must not linger over a new lobby.
       setProblem(p => (p && s.id !== p.id) ? null : p);
+      setCards(c => Object.values(c).some(x => x.id !== s.id) ? {} : c);
+    });
+    const offSpectate = socket.on('sx:spectate', (c) => {
+      if (!c?.nick) return;
+      setCards(prev => ({ ...prev, [c.nick]: { ...c, at: Date.now() } }));
     });
     const offProblem = socket.on('sx:problem', (p) => {
       setProblem(p);
@@ -162,7 +174,8 @@ function SolveXPanel({ socket, user, onClose }) {
     const offReconnect = socket.onReconnect ? socket.onReconnect(requestSync) : null;
     requestSync();
     return () => {
-      offState(); offProblem(); offAnswered(); offOver();
+      offState(); offProblem(); offAnswered(); offOver(); offSpectate();
+      clearTimeout(typingRef.current.timer);
       if (offReconnect) offReconnect();
       socket.emit('sx:leave', {});
     };
@@ -203,8 +216,26 @@ function SolveXPanel({ socket, user, onClose }) {
     if (!racing) return;
     const v = value.trim();
     if (!/^-?\d+$/.test(v)) return;       // integers only; anything else is a typo, not an answer
+    // A typing update still waiting would put the old text back on the cards.
+    clearTimeout(typingRef.current.timer);
+    typingRef.current.timer = null;
     socket.emit('sx:answer', { index: problem.index, value: Number(v) });
     setValue('');
+  };
+
+  // The answer box as typed, for spectators (feedback #95): at most every
+  // TYPING_MS, always ending on what's in the box. The server throttles too.
+  const TYPING_MS = 200;
+  const typed = (v) => {
+    setValue(v);
+    const t = typingRef.current;
+    t.value = v;
+    t.index = problem?.index;
+    if (t.timer) return;
+    t.timer = setTimeout(() => {
+      t.timer = null;
+      socket.emit('sx:typing', { index: t.index, value: t.value });
+    }, TYPING_MS);
   };
 
   // ── screens ──────────────────────────────────────────────────────────────────
@@ -326,12 +357,67 @@ function SolveXPanel({ socket, user, onClose }) {
     );
   }
 
+  // A card per player for spectators (feedback #95): their problem and their
+  // answer box, live. A wrong answer flashes the card red, a right one green
+  // as the next problem comes up.
+  function renderCards() {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
+        {state.players.map((p, i) => {
+          const color = LANE_COLORS[i % LANE_COLORS.length];
+          const c = cards[p.nick];
+          const flash = c?.verdict && Date.now() - c.at < FEEDBACK_MS ? c.verdict : null;
+          return (
+            <div
+              key={p.nick}
+              data-testid='sx-card'
+              data-flash={flash || undefined}
+              style={{
+                border: `1px solid ${flash === 'wrong' ? '#ff6b6b' : flash === 'right' ? '#7fe08a' : '#333'}`,
+                borderLeft: `3px solid ${color}`,
+                background: flash === 'wrong' ? 'rgba(255,107,107,.12)' : flash === 'right' ? 'rgba(127,224,138,.10)' : '#1a1a1a',
+                borderRadius: 4, padding: '6px 8px', opacity: p.forfeited ? 0.5 : 1,
+                transition: 'background .3s, border-color .3s',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color, fontWeight: 'bold' }}>{p.nick}</span>
+                <span style={muted}>
+                  {p.forfeited ? 'left' : p.done ? `done ${fmtClock(p.time)}` : `problem ${p.index + 1} of ${state.total}`}
+                </span>
+              </div>
+              {!p.done && !p.forfeited && (
+                <>
+                  <div style={{ fontFamily: MONO, fontSize: 15, color: '#fff', textAlign: 'center', padding: '6px 0' }}>
+                    {c?.text ?? '…'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', fontFamily: MONO }}>
+                    <span style={{ color: '#aaa' }}>x =</span>
+                    <span style={{ ...input, minWidth: 60, textAlign: 'center', fontFamily: MONO, color: flash === 'wrong' ? '#ff6b6b' : '#ddd' }}>
+                      {c?.typing || ' '}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   function renderRace() {
     const elapsed = me ? serverNow() - state.startAt + me.penalties * state.penaltyMs : 0;
 
     let main;
     if (!me) {
-      main = <div style={{ ...muted, padding: '8px 0' }}>A race is on — you're watching. The next lobby opens when it ends.</div>;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={muted}>A race is on — you're watching. The next lobby opens when it ends.</div>
+          <RaceTrack state={state} myNick={myNick} serverNow={serverNow} />
+          {renderCards()}
+        </div>
+      );
     } else if (me.forfeited) {
       main = <div style={{ ...muted, padding: '8px 0' }}>You left the race.</div>;
     } else if (me.done) {
@@ -359,7 +445,7 @@ function SolveXPanel({ socket, user, onClose }) {
             <input
               ref={inputRef}
               value={value}
-              onChange={e => setValue(e.target.value)}
+              onChange={e => typed(e.target.value)}
               inputMode='numeric'
               autoComplete='off'
               style={{ ...input, width: 110, fontSize: 20, fontFamily: MONO, textAlign: 'center' }}
