@@ -81,22 +81,69 @@ function TrustCell({ command, helpers }) {
   );
 }
 
+// The audit log's tick (feedback #67): every use of a ticked command is
+// recorded on /audit-log. Admins only — the column isn't there for anyone else.
+function LogCell({ command, helpers }) {
+  const [saving, setSaving] = useState(false);
+
+  async function save(logged) {
+    setSaving(true);
+    helpers.setError('');
+    try {
+      const res = await fetch('/channel/commands/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: command.name, logged }),
+      });
+      const data = await res.json();
+      if (data.error) helpers.setError(data.error);
+      else if (data.command) helpers.patch(command.name, data.command);
+    } catch {
+      helpers.setError('Could not save.');
+    }
+    setSaving(false);
+  }
+
+  return (
+    <input
+      type='checkbox'
+      checked={!!command.logged}
+      disabled={saving}
+      onChange={(e) => save(e.target.checked)}
+      title={command.logged ? 'Every use is logged — untick to stop' : 'Tick to log every use'}
+      aria-label={`Log ${command.kind === 'action' ? command.label : '/' + command.name}`}
+    />
+  );
+}
+
 // Every command — plus the non-command actions gated the same way, such as
 // adding and removing word filters — and the trust level each requires, in the
 // same draggable shell as the ban list. Admins can retune a level in place; the
-// same change is available as /lock_command <name> <level>.
+// same change is available as /lock_command <name> <level>. Admins also get the
+// Log column and a link to the audit log (feedback #67).
 export default function CommandsPanel({ onClose }) {
+  const [canEdit, setCanEdit] = useState(false);
+
+  const columns = [
+    { label: 'Command', render: (c) => <NameCell command={c} /> },
+    { label: 'Requires', render: (c, helpers) => <TrustCell command={c} helpers={helpers} /> },
+  ];
+  if (canEdit) columns.push({ label: 'Log', width: 50, render: (c, helpers) => <LogCell command={c} helpers={helpers} /> });
+
   return (
     <ManagerPanel
       title='Commands — Trust Levels'
       onClose={onClose}
       loadUrl='/channel/commands'
       emptyText='No commands.'
-      width={520}
-      columns={[
-        { label: 'Command', render: (c) => <NameCell command={c} /> },
-        { label: 'Requires', render: (c, helpers) => <TrustCell command={c} helpers={helpers} /> },
-      ]}
+      width={canEdit ? 560 : 520}
+      onLoad={(data) => setCanEdit(!!data?.canEdit)}
+      header={canEdit ? (
+        <a href='/audit-log' target='_blank' rel='noreferrer' style={{ fontSize: 12 }}>
+          Open the audit log
+        </a>
+      ) : null}
+      columns={columns}
     />
   );
 }
