@@ -1392,6 +1392,19 @@ a {
   max-height: 64px;
 }
 
+/* The picker for anyone who can't drag a file in (feedback #104). Tight, so
+   icon, line, "or" and button still fit the 93px box. */
+.emojiFileContainer .orText {
+  font-size: 11px;
+  opacity: .7;
+  margin: 2px 0;
+}
+
+.emojiFileContainer .chooseFileBtn {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
 .emojiIdField {
   display: flex;
   flex: 1;

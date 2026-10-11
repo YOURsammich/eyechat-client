@@ -6,6 +6,7 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
   const fileRef = useRef(null);
   const imageSrcRef = useRef(null);
   const inputRef = useRef(null);
+  const pickerRef = useRef(null);
 
   useEffect(() => {
     if (emojiUpload && inputRef.current && fileRef.current) {
@@ -16,9 +17,9 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
 
   function onDragOver(e) { e.preventDefault(); }
 
-  function onDrop(e) {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0] || e.dataTransfer.items?.[0]?.getAsFile();
+  // A dropped or picked file: read it for the preview, and the effect above
+  // fills the name box from its file name.
+  function takeFile(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -27,6 +28,18 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
       setEmojiUpload(true);
     };
     reader.readAsDataURL(file);
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    takeFile(e.dataTransfer.files?.[0] || e.dataTransfer.items?.[0]?.getAsFile());
+  }
+
+  // The "Choose file" button, for anyone who can't drag (feedback #104).
+  function onPick(e) {
+    takeFile(e.target.files?.[0]);
+    // Cleared so picking the same file again still fires a change.
+    e.target.value = '';
   }
 
   function renderEmojiUploadForm() {
@@ -51,8 +64,20 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
           <div className='emojiFileContainer' onDragOver={onDragOver} onDrop={onDrop}>
             {emojiUpload
               ? <img src={imageSrcRef.current} />
-              : <><span className="material-symbols-outlined">upload_file</span>Drag or Drop to upload</>
+              : <>
+                <span className="material-symbols-outlined">upload_file</span>Drag or Drop to upload
+                <span className='orText'>or</span>
+                <button type='button' className='stdBtn chooseFileBtn' onClick={() => pickerRef.current?.click()}>Choose file</button>
+              </>
             }
+            <input
+              type='file'
+              ref={pickerRef}
+              accept='image/png,image/jpeg,image/gif,image/webp'
+              onChange={onPick}
+              style={{ display: 'none' }}
+              data-testid='emoji-file-picker'
+            />
           </div>
           <label style={{ display: 'flex', flexDirection: 'column', paddingTop: '10px' }}>
             <div className='emojiIdField'>
