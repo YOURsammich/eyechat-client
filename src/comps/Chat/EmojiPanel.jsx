@@ -10,6 +10,19 @@ import { useEmojiFavourites, setPinned, emojiSections, MAX_PINS } from './emojiF
 // several can go in; a right-click pins or unpins it, as does the star on each
 // (accounts only). Typing ":" still opens the small popup (Emojis.jsx), not this.
 
+// How "All emoji" is sorted, remembered in this browser.
+const SORT_KEY = 'emojiPanelSort';
+const SORTS = { used: 'Most used', name: 'A to Z' };
+
+function readSort() {
+  try {
+    const v = localStorage.getItem(SORT_KEY);
+    return v in SORTS ? v : 'used';
+  } catch {
+    return 'used';
+  }
+}
+
 function EmojiCell({ emoji, pinned, canPin, full, onPick }) {
   const toggle = () => { if (pinned || !full) setPinned(emoji.id, !pinned); };
   const star = canPin ? (
@@ -49,13 +62,21 @@ export default function EmojiPanel({ emojis, addMessage, onPick, onClose }) {
   const favs = useEmojiFavourites();
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [sort, setSort] = useState(readSort);
+
+  function changeSort(value) {
+    setSort(value);
+    try { localStorage.setItem(SORT_KEY, value); } catch { /* not remembered */ }
+  }
 
   const q = query.trim().toLowerCase();
   const shown = useMemo(
     () => (q ? (emojis ?? []).filter(e => e.id.toLowerCase().includes(q)) : (emojis ?? [])),
     [emojis, q]
   );
-  const { pinned, used, all } = useMemo(() => emojiSections(shown, favs), [shown, favs]);
+  // A guest has no most-used, so theirs is always A to Z.
+  const sortBy = favs.account ? sort : 'name';
+  const { pinned, used, all } = useMemo(() => emojiSections(shown, favs, 24, sortBy), [shown, favs, sortBy]);
   const pinSet = new Set(favs.pins);
   const full = favs.pins.length >= MAX_PINS;
 
@@ -97,6 +118,14 @@ export default function EmojiPanel({ emojis, addMessage, onPick, onClose }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          {favs.account ? (
+            <label className='emojiPanelSort'>
+              Sort all emoji:
+              <select value={sort} onChange={(e) => changeSort(e.target.value)}>
+                {Object.entries(SORTS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+          ) : null}
           <div className='emojiPanelBody'>
             {section('Pinned', pinned, 'pinned')}
             {section('Most used', used, 'used')}
