@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import AvatarDisplay from './AvatarDisplay.jsx';
 import WhatsNew from './WhatsNew.jsx';
 import ActivityInvite from './ActivityInvite.jsx';
+import PollCard from './PollCard.jsx';
 import DraggableWindow from '../DraggableWindow.jsx';
 import { isBlockedFont } from '../../utils/fonts.js';
 import { parseVideoLink, autoplayUrl, VIDEO_SITE_NAMES } from '../../utils/videoEmbed.js';
@@ -1806,6 +1807,7 @@ class Messages extends React.Component {
     if (message.type === 'cope') return this.renderCope(message);
     if (message.type === 'gallerysave') return this.renderGallerySave(message);
     if (message.type === 'exhibit') return this.renderExhibit(message);
+    if (message.type === 'poll') return this.renderPoll(message);
 
     // A mod's verdict on the line (see groupRows). The log folds adjacent cringed
     // messages into one run before it gets here; a single message reaching this
@@ -1928,6 +1930,19 @@ class Messages extends React.Component {
               onLoad={(e) => this._imageLoaded(e.target)} />
           </a>
         ) : null}
+      </div>
+    </CollapsibleMessage>;
+  }
+
+  // A /qpoll card (feedback #106). The line's text is the poll's id; PollCard
+  // reads the poll from its own store, which keeps it live after this row is
+  // cached.
+  renderPoll (message) {
+    const id = Number(message.message);
+    return <CollapsibleMessage className='message poll' key={'message-' + message.count}>
+      {this.renderTimeStamp(message)}
+      <div className='messageContent'>
+        {Number.isInteger(id) ? <PollCard id={id} maker={message.nick} /> : null}
       </div>
     </CollapsibleMessage>;
   }

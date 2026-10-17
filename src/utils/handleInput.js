@@ -454,6 +454,16 @@ const COMMANDS = {
   innocent: {},
   court: {},
   dismiss: {},
+  // /qpoll [time] question|a,b,c (feedback #106): the whole line is one param;
+  // the server splits it. /closepoll takes an optional poll id.
+  qpoll: {
+    params: ['poll'],
+    parseMethod: 'leaveSpace'
+  },
+  closepoll: {
+    params: ['id'],
+    optional: true
+  },
   // /unban has no client handler, so it emits to the server (trust-gated there).
   unban: {
     params: ['target']

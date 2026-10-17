@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import handleInput from '../../utils/handleInput';
 import { PM } from './PM_Client.jsx';
 import EmojiMini from './Emojis';
+import PollBuilder from './PollBuilder';
 import ProfileSwitcher from '../Cosmetics/ProfileSwitcher';
 import GifPicker from './GifPicker';
 
@@ -35,6 +36,7 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
   const [showConvos] = useState(false);
   const [showStyle, setShowStyle] = useState(false);
   const [showGif, setShowGif] = useState(false);
+  const [showPoll, setShowPoll] = useState(false);
   const [gifInitialQuery, setGifInitialQuery] = useState(null);
 
   const inputBarRef = useRef(null);
@@ -483,6 +485,10 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
         }}
         onClose={() => { setShowGif(false); setGifInitialQuery(null); }}
       /> : null}
+      {showPoll ? <PollBuilder
+        onPost={(text) => handleInputFn(text)}
+        onClose={() => setShowPoll(false)}
+      /> : null}
       {showStyle ? <ProfileSwitcher
         user={user}
         emojis={emoji}
@@ -550,6 +556,16 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
           >
             <span style={{ fontSize: '20px' }} className="material-symbols-outlined">gif</span>
           </div>
+          {/* The /qpoll builder (feedback #106): registered users only, like the command. */}
+          {user?.registered ? (
+            <div
+              className={'inputBarBtn' + (showPoll ? ' inputBarBtn--active' : '')}
+              title='Make a poll'
+              onClick={() => setShowPoll(s => !s)}
+            >
+              <span style={{ fontSize: '20px' }} className="material-symbols-outlined">ballot</span>
+            </div>
+          ) : null}
           <div className='noSelect inputBarBtn' onClick={() => { /* setShowConvos(s => !s) */ }}>
             <span style={{ fontSize: '20px' }} className="material-symbols-outlined">forum</span>
           </div>
