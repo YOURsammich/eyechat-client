@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
+import DraggableWindow from '../DraggableWindow.jsx';
 import { usePoll, vote } from './polls';
 
 // A /qpoll card (feedback #106): the question, one button per answer, and once
-// you've voted (or it's closed) a bar, a count and the voters under each answer.
-// The poll comes from the polls store, not from the chat line, which only
-// carries its id. Styles are scoped under .message.poll (chat-messages.css),
-// since `.message div { display: inline }` would flatten an unscoped card.
-
-// Voters listed under an answer before the rest fold into "+N more".
-export const VOTERS_SHOWN = 8;
+// you've voted (or it's closed) a bar and a count on each. Who voted for what
+// is in its own window, opened from the "N votes" at the bottom, so the card
+// stays small. The poll comes from the polls store, not from the chat line,
+// which only carries its id. Styles are scoped under .message.poll
+// (chat-messages.css), since `.message div { display: inline }` would flatten
+// an unscoped card.
 
 function useNow(active) {
   const [now, setNow] = useState(() => Date.now());
@@ -29,27 +29,47 @@ function left(ms) {
   return `${s}s`;
 }
 
-function Voters({ list }) {
-  const [all, setAll] = useState(false);
-  if (!list.length) return null;
-  const shown = all ? list : list.slice(0, VOTERS_SHOWN);
-  const more = list.length - shown.length;
+// Who voted for what: each answer with its count and its voters, in the order
+// they voted. Live, like the card: it reads the same poll.
+export function PollVoters({ poll, onClose }) {
   return (
-    <div className='pollVoters'>
-      {shown.join(', ')}
-      {more > 0
-        ? <>{', '}<button type='button' className='pollMore' onClick={() => setAll(true)}>+{more} more</button></>
-        : null}
-    </div>
+    <DraggableWindow title={'Votes · ' + poll.question} onClose={onClose} width='min(340px, 92vw)' centered>
+      <div className='pollVotersPanel'>
+        {poll.answers.map((answer, i) => (
+          <div key={i} className={'pollVotersAnswer' + (poll.mine === i ? ' mine' : '')}>
+            <div className='pollVotersHead'>
+              <span className='pollVotersName'>{answer}</span>
+              <span className='pollVotersCount'>{poll.counts[i]}</span>
+            </div>
+            <div className='pollVotersList'>
+              {poll.voters[i].length ? poll.voters[i].join(', ') : <span className='none'>nobody</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </DraggableWindow>
   );
 }
 
-Voters.propTypes = { list: PropTypes.arrayOf(PropTypes.string).isRequired };
+PollVoters.propTypes = {
+  poll: PropTypes.object.isRequired,
+  onClose: PropTypes.func.isRequired,
+};
 
-export default function PollCard({ id, maker }) {
+export default function PollCard({ id, maker, onGrow }) {
   const poll = usePoll(id);
   const open = poll && !poll.closed;
   const now = useNow(!!(open && poll.closesAt));
+  const [showVoters, setShowVoters] = useState(false);
+  const cardRef = useRef(null);
+  const loaded = !!poll;
+
+  // The card mounts as a one-line placeholder and grows when its poll arrives,
+  // after the log has already scrolled for the placeholder. Say so, the way an
+  // image does when it loads, so a reader at the bottom stays at the bottom.
+  useLayoutEffect(() => {
+    if (loaded && cardRef.current) onGrow?.({ height: cardRef.current.offsetHeight });
+  }, [loaded]);
 
   if (!poll) {
     return <div className='pollCard pollLoading'>Poll by <b>{maker || 'someone'}</b>…</div>;
@@ -60,16 +80,11 @@ export default function PollCard({ id, maker }) {
   const status = poll.closed
     ? 'closed'
     : poll.closesAt ? `closes in ${left(poll.closesAt - now)}` : 'open';
-
-  let foot = `${total} vote${total === 1 ? '' : 's'}`;
-  if (open) {
-    if (poll.mine != null) foot += ` · you voted ${poll.answers[poll.mine]}`;
-    else if (poll.canVote) foot += ' · click to vote';
-    else foot += ' · log in to vote';
-  }
+  const votes = `${total} vote${total === 1 ? '' : 's'}`;
+  const hint = open && poll.mine == null ? (poll.canVote ? ' · click to vote' : ' · log in to vote') : '';
 
   return (
-    <div className={'pollCard' + (poll.closed ? ' closed' : '')}>
+    <div className={'pollCard' + (poll.closed ? ' closed' : '')} ref={cardRef}>
       <div className='pollHead'>
         <span className='material-symbols-outlined'>ballot</span>
         Poll by <b>{poll.nick}</b> · {status}
@@ -82,22 +97,26 @@ export default function PollCard({ id, maker }) {
         const mine = poll.mine === i;
         const won = poll.closed && shown && total > 0 && count === Math.max(...poll.counts);
         return (
-          <div key={i} className='pollRow'>
-            <button
-              type='button'
-              className={'pollAns' + (mine ? ' mine' : '') + (won ? ' won' : '')}
-              disabled={!poll.canVote}
-              onClick={() => { if (poll.canVote && !mine) vote(poll.id, i); }}
-            >
-              {shown ? <span className='bar' style={{ width: pct + '%' }} /> : null}
-              <span className='pollAnsText'>{mine ? '✓ ' : ''}{answer}</span>
-              {shown ? <span className='pct'>{count} · {pct}%</span> : null}
-            </button>
-            {shown ? <Voters list={poll.voters[i]} /> : null}
-          </div>
+          <button
+            key={i}
+            type='button'
+            className={'pollAns' + (mine ? ' mine' : '') + (won ? ' won' : '')}
+            disabled={!poll.canVote}
+            onClick={() => { if (poll.canVote && !mine) vote(poll.id, i); }}
+          >
+            {shown ? <span className='bar' style={{ width: pct + '%' }} /> : null}
+            <span className='pollAnsText'>{mine ? '✓ ' : ''}{answer}</span>
+            {shown ? <span className='pct'>{count} · {pct}%</span> : null}
+          </button>
         );
       })}
-      <div className='pollFoot'>{foot}</div>
+      <div className='pollFoot'>
+        {shown && total
+          ? <button type='button' className='pollVotesBtn' title='See who voted for what' onClick={() => setShowVoters(true)}>{votes}</button>
+          : votes}
+        {hint}
+      </div>
+      {showVoters && shown ? <PollVoters poll={poll} onClose={() => setShowVoters(false)} /> : null}
     </div>
   );
 }
@@ -105,4 +124,5 @@ export default function PollCard({ id, maker }) {
 PollCard.propTypes = {
   id: PropTypes.number.isRequired,
   maker: PropTypes.string,
+  onGrow: PropTypes.func,
 };

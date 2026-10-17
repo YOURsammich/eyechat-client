@@ -526,7 +526,6 @@
 .message.poll .pollHead .material-symbols-outlined { font-size: 16px; }
 .message.poll .pollHead .pollId { margin-left: auto; }
 .message.poll .pollQ { display: block; font-weight: 700; font-size: 15px; color: #fff; margin-bottom: 8px; word-break: break-word; }
-.message.poll .pollRow { display: block; }
 .message.poll .pollAns {
   position: relative;
   display: flex;
@@ -556,9 +555,18 @@
 .message.poll .pollCard.closed .pollAns:not(.won) { opacity: .7; }
 .message.poll .pollCard.closed .pollAns.won { border-color: #4c4; }
 .message.poll .pollCard.closed .pollAns.won .bar { background: rgba(68, 204, 68, .3); }
-.message.poll .pollVoters { display: block; margin: -2px 0 6px 10px; font-size: 12px; color: #9aa; word-break: break-word; }
-.message.poll .pollMore { background: none; border: none; padding: 0; color: #8cf; font: inherit; cursor: pointer; }
 .message.poll .pollFoot { display: block; font-size: 12px; color: #999; margin-top: 6px; }
+.message.poll .pollVotesBtn { background: none; border: none; padding: 0; color: #8cf; font: inherit; cursor: pointer; text-decoration: underline; }
+
+/* Who voted for what, in its own window (PollVoters in PollCard.jsx). Portaled
+   out of the log, so no .message prefix needed. */
+.pollVotersPanel { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; max-height: 60vh; overflow-y: auto; font-size: 13px; color: #ddd; }
+.pollVotersAnswer { border-left: 3px solid #444; padding-left: 8px; }
+.pollVotersAnswer.mine { border-left-color: #39f; }
+.pollVotersHead { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; color: #fff; }
+.pollVotersCount { color: #aaa; }
+.pollVotersList { margin-top: 2px; color: #9aa; word-break: break-word; }
+.pollVotersList .none { color: #666; font-style: italic; }
 
 /* The Poll button's builder, a popup over the input like the GIF picker. */
 .pollBuilder {
