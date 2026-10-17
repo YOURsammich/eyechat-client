@@ -10,6 +10,12 @@ import { useEmojiFavourites, setPinned, emojiSections, MAX_PINS } from './emojiF
 // several can go in; a right-click pins or unpins it, as does the star on each
 // (accounts only). Typing ":" still opens the small popup (Emojis.jsx), not this.
 
+// Prod has thousands of emoji, so "All" renders this many at first and this
+// many more each time you scroll near its end, instead of every cell on open.
+// (The images are lazy as well: only the ones near view are fetched.)
+export const BATCH = 200;
+const NEAR_END = 600;
+
 function EmojiCell({ emoji, pinned, canPin, full, onPick }) {
   const toggle = () => { if (pinned || !full) setPinned(emoji.id, !pinned); };
   const star = canPin ? (
@@ -49,6 +55,7 @@ export default function EmojiPanel({ emojis, addMessage, onPick, onClose }) {
   const favs = useEmojiFavourites();
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [limit, setLimit] = useState(BATCH);
 
   const q = query.trim().toLowerCase();
   const shown = useMemo(
@@ -95,12 +102,20 @@ export default function EmojiPanel({ emojis, addMessage, onPick, onClose }) {
             type='text'
             placeholder='Search emoji'
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setLimit(BATCH); }}
           />
-          <div className='emojiPanelBody'>
+          <div
+            className='emojiPanelBody'
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (limit < all.length && el.scrollTop + el.clientHeight > el.scrollHeight - NEAR_END) {
+                setLimit(l => l + BATCH);
+              }
+            }}
+          >
             {section('Pinned', pinned, 'pinned')}
             {section('Most used', used, 'used')}
-            {section(q ? 'All matching' : 'All emoji', all, 'all')}
+            {section(q ? 'All matching' : 'All emoji', all.slice(0, limit), 'all')}
             {!all.length ? <div className='emojiPanelNone'>No emoji match “{query.trim()}”.</div> : null}
           </div>
         </>
