@@ -67,13 +67,12 @@ export function orderEmojis(emojis, favs = state) {
 }
 
 // The side panel's sections from the room's emoji: Pinned, Most used (the top
-// `top`, leaving out what's pinned) and All, every one, sorted by `sort`:
-// 'used' (your most used first, the rest A to Z) or 'name' (A to Z).
-export function emojiSections(emojis, favs = state, top = 24, sort = 'used') {
+// `top`, leaving out what's pinned) and All (A to Z, every one).
+export function emojiSections(emojis, favs = state, top = 24) {
   const byId = new Map(emojis.map(e => [e.id, e]));
   const pinned = favs.pins.map(id => byId.get(id)).filter(Boolean);
   const pinSet = new Set(favs.pins);
   const used = favs.used.filter(u => !pinSet.has(u.id)).map(u => byId.get(u.id)).filter(Boolean).slice(0, top);
-  const all = sort === 'used' ? orderEmojis(emojis, { pins: [], used: favs.used }) : [...emojis].sort(byName);
+  const all = [...emojis].sort(byName);
   return { pinned, used, all };
 }
