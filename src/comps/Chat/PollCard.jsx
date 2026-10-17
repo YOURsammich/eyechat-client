@@ -3,7 +3,8 @@ import PropTypes from 'prop-types';
 import DraggableWindow from '../DraggableWindow.jsx';
 import { usePoll, vote } from './polls';
 
-// A /qpoll card (feedback #106): the question, one button per answer, and once
+// A /qpoll card (feedback #106), on its maker's line like anything they say
+// (Messages.renderPoll puts their nick before it): the question, one button per answer, and once
 // you've voted (or it's closed) a bar and a count on each. Who voted for what
 // is in its own window, opened from the "N votes" at the bottom, so the card
 // stays small. The poll comes from the polls store, not from the chat line,
@@ -56,7 +57,7 @@ PollVoters.propTypes = {
   onClose: PropTypes.func.isRequired,
 };
 
-export default function PollCard({ id, maker, onGrow }) {
+export default function PollCard({ id, onGrow }) {
   const poll = usePoll(id);
   const open = poll && !poll.closed;
   const now = useNow(!!(open && poll.closesAt));
@@ -72,7 +73,7 @@ export default function PollCard({ id, maker, onGrow }) {
   }, [loaded]);
 
   if (!poll) {
-    return <div className='pollCard pollLoading'>Poll by <b>{maker || 'someone'}</b>…</div>;
+    return <div className='pollCard pollLoading'>Poll…</div>;
   }
 
   const shown = !!poll.counts;
@@ -87,7 +88,7 @@ export default function PollCard({ id, maker, onGrow }) {
     <div className={'pollCard' + (poll.closed ? ' closed' : '')} ref={cardRef}>
       <div className='pollHead'>
         <span className='material-symbols-outlined'>ballot</span>
-        Poll by <b>{poll.nick}</b> · {status}
+        Poll · {status}
         <span className='pollId' title={'Poll id, for /closepoll ' + poll.id}>#{poll.id}</span>
       </div>
       <div className='pollQ'>{poll.question}</div>
@@ -123,6 +124,5 @@ export default function PollCard({ id, maker, onGrow }) {
 
 PollCard.propTypes = {
   id: PropTypes.number.isRequired,
-  maker: PropTypes.string,
   onGrow: PropTypes.func,
 };

@@ -1943,8 +1943,9 @@ class Messages extends React.Component {
     if (!Number.isInteger(id)) return null;
     return <CollapsibleMessage className='message poll' key={'message-' + message.count}>
       {this.renderTimeStamp(message)}
+      {this.renderNick(message)}
       <div className='messageContent'>
-        <PollCard id={id} maker={message.nick} onGrow={(box) => this._imageLoaded(box)} />
+        <PollCard id={id} onGrow={(box) => this._imageLoaded(box)} />
       </div>
     </CollapsibleMessage>;
   }
