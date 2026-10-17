@@ -1936,13 +1936,15 @@ class Messages extends React.Component {
 
   // A /qpoll card (feedback #106). The line's text is the poll's id; PollCard
   // reads the poll from its own store, which keeps it live after this row is
-  // cached.
+  // cached. The old chat logged its polls under the same type with a random
+  // string id; those have no card to show, so they show nothing.
   renderPoll (message) {
     const id = Number(message.message);
+    if (!Number.isInteger(id)) return null;
     return <CollapsibleMessage className='message poll' key={'message-' + message.count}>
       {this.renderTimeStamp(message)}
       <div className='messageContent'>
-        {Number.isInteger(id) ? <PollCard id={id} maker={message.nick} onGrow={(box) => this._imageLoaded(box)} /> : null}
+        <PollCard id={id} maker={message.nick} onGrow={(box) => this._imageLoaded(box)} />
       </div>
     </CollapsibleMessage>;
   }
