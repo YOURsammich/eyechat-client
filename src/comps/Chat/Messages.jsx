@@ -1657,9 +1657,17 @@ class Messages extends React.Component {
   _imageLoaded (image) {
     // console.log('image loaded', image.height);
     const messageCon = this.messageCon.current;
-    const scrollBottom = messageCon.scrollTop + messageCon.clientHeight;
+    // A smooth scroll to the bottom that's still on its way counts as being
+    // there. Without this, when several things grow at once (the poll cards in
+    // a backlog all filling in together), the first starts a scroll, scrollTop
+    // hasn't moved yet when the next one asks, and the first one's growth reads
+    // as the reader having scrolled up, so the log stops short of the bottom.
+    const scrollBottom = Math.max(messageCon.scrollTop + messageCon.clientHeight, this.scrollingTo ?? 0);
     if ((messageCon.scrollHeight - scrollBottom) - this.scrollAccum - 150 < image.height) {
       // console.log('scrolling to bottom');
+      this.scrollingTo = messageCon.scrollHeight;
+      if (this.scrollingToReset) clearTimeout(this.scrollingToReset);
+      this.scrollingToReset = setTimeout(() => { this.scrollingTo = null; }, 1000);
       messageCon.scrollTo({
         top: messageCon.scrollHeight,
         behavior: 'smooth'
