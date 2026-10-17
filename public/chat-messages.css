@@ -515,7 +515,6 @@
   /* After the maker's nick on the same line, like what they say; it wraps
      under the nick when the line is too narrow. */
   display: inline-block;
-  vertical-align: top;
   width: 380px;
   max-width: 100%;
   box-sizing: border-box;
