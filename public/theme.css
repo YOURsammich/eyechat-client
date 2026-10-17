@@ -1490,6 +1490,12 @@ a {
   cursor: pointer;
 }
 
+.emojiPanelHint {
+  margin: 0 12px 6px;
+  font-size: 12px;
+  color: #bbb;
+}
+
 .emojiPanelSearch {
   margin: 0 10px 6px;
   padding: 6px 8px;
