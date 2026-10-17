@@ -17,6 +17,7 @@ import { noteOpened } from './comps/CodeRunner/pluginRecent';
 import PluginPanel from './comps/CodeRunner/PluginPanel';
 import PluginRail from './comps/CodeRunner/PluginRail';
 import { usePinnedPlugins, requestPins, pinnedThenRecent } from './comps/CodeRunner/pluginPins';
+import { requestFavourites } from './comps/Chat/emojiFavourites';
 import { parsePluginRequest, originOf } from './comps/CodeRunner/pluginBridge';
 import {
   isTrusted, requestTrustList, setPluginTrusted, useTrustedPlugins, useTrustLoaded, wantsWallet,
@@ -385,6 +386,11 @@ function App() {
   // And their pins; a guest is told to keep theirs in the browser.
   useEffect(() => {
     if (myUser) requestPins();
+  }, [!!myUser, myUser?.registered, myUser?.nick]);
+
+  // And their pinned and most-used emoji (feedback #102); a guest has neither.
+  useEffect(() => {
+    if (myUser) requestFavourites();
   }, [!!myUser, myUser?.registered, myUser?.nick]);
 
   // Persist a *guest* nick so a refresh keeps the same name. Registered users are

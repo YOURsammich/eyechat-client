@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import handleInput from '../../utils/handleInput';
 import { PM } from './PM_Client.jsx';
 import EmojiMini from './Emojis';
+import EmojiPanel from './EmojiPanel';
+import { useEmojiFavourites, orderEmojis } from './emojiFavourites';
 import PollBuilder from './PollBuilder';
 import ProfileSwitcher from '../Cosmetics/ProfileSwitcher';
 import GifPicker from './GifPicker';
@@ -38,10 +40,26 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
   const [showGif, setShowGif] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
   const [gifInitialQuery, setGifInitialQuery] = useState(null);
+  const [showEmojiPanel, setShowEmojiPanel] = useState(false);
+  // Pinned and most-used emoji lead the ":" popup (feedback #102).
+  const emojiFavs = useEmojiFavourites();
 
   const inputBarRef = useRef(null);
   const historyRef = useRef([]);
   const historyIndexRef = useRef(-1);
+
+  // Where the caret last was in the message box, so the emoji panel can put an
+  // emoji there after its search box has taken the focus.
+  const savedRangeRef = useRef(null);
+  useEffect(() => {
+    const onSelection = () => {
+      const sel = window.getSelection();
+      const el = inputBarRef.current;
+      if (sel?.rangeCount && el && el.contains(sel.anchorNode)) savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    };
+    document.addEventListener('selectionchange', onSelection);
+    return () => document.removeEventListener('selectionchange', onSelection);
+  }, []);
 
   useEffect(() => {
     inputBarRef.current.focus();
@@ -136,6 +154,35 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
       el.appendChild(img);
     }
     el.focus();
+  }
+
+  // The emoji panel's pick: a chip at the caret (or at the end, if the caret
+  // was never in the box), the caret after it. The focus stays where it is, so
+  // someone typing in the panel's search box keeps their place there.
+  function insertEmojiAtCaret(id, imageName) {
+    const el = inputBarRef.current;
+    const img = document.createElement('img');
+    img.src = '/images/emojis/' + imageName;
+    img.dataset.emojiId = ':' + id + ':';
+    img.className = 'inputEmojiChip';
+    img.alt = ':' + id + ':';
+    let range = savedRangeRef.current;
+    if (!range || !el.contains(range.startContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+    }
+    range.deleteContents();
+    range.insertNode(img);
+    range.setStartAfter(img);
+    range.collapse(true);
+    savedRangeRef.current = range.cloneRange();
+    if (!document.activeElement?.closest?.('.emojiPanel')) {
+      el.focus();
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
   }
 
   function convertEmojiSyntaxToChips() {
@@ -233,8 +280,10 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
     const word = input.substring(wordStart, wordEnd).toLowerCase();
     if ((input[wordStart - 1] !== ' ' && input[wordStart - 1] !== ':' && input[wordStart - 1] !== '$') && wordStart !== 0) return null;
     if (word.startsWith(':') && (!word.endsWith(':') || word.length === 1)) {
-      return emoji?.filter(a => a.id.toLowerCase().includes(word.slice(1)))
-        .map(a => ({ id: a.id, replaceWith: ':' + a.id + ':', imageName: a.imageName })) ?? null;
+      const matches = emoji?.filter(a => a.id.toLowerCase().includes(word.slice(1)));
+      if (!matches) return null;
+      return orderEmojis(matches, emojiFavs)
+        .map(a => ({ id: a.id, replaceWith: ':' + a.id + ':', imageName: a.imageName }));
     }
     return null;
   }
@@ -440,13 +489,10 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
     convertEmojiSyntaxToChips();
   }
 
+  // The smiley opens the side panel (feedback #102); ":" still opens the popup.
   function handleEmojiClick() {
-    if (emojis) {
-      setEmojis(null); setInputAuto(null); setGhostText('');
-    } else {
-      const matches = getEmojis(':', 1);
-      setEmojis(matches); setInputAuto(matches); setInputIndex(0);
-    }
+    if (emojis) { setEmojis(null); setInputAuto(null); setGhostText(''); }
+    setShowEmojiPanel(s => !s);
   }
 
   return (
@@ -467,6 +513,13 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
           insertEmojiChip(id, emojiObj.imageName, wordStart, wordEnd);
           setInputAuto(null); setEmojis(null); setGhostText('');
         }}
+      /> : null}
+
+      {showEmojiPanel ? <EmojiPanel
+        emojis={emoji}
+        addMessage={addMessage}
+        onPick={(e) => insertEmojiAtCaret(e.id, e.imageName)}
+        onClose={() => setShowEmojiPanel(false)}
       /> : null}
 
       {inputAuto?.length && !emojis ? (
@@ -535,7 +588,7 @@ function InputBar({ socket, store, channelName, addMessage, user, userlist, emoj
             />
           </div>
           <div className='insideInputBarBtns'>
-            <div className='inputBarBtn' onClick={handleEmojiClick}>
+            <div className={'inputBarBtn' + (showEmojiPanel ? ' inputBarBtn--active' : '')} title='Emoji' onClick={handleEmojiClick}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>mood</span>
             </div>
           </div>

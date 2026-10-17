@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 
-function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
-  const [view, setView] = useState('list');
+// The upload form: drop or pick an image, name it, upload. Its own component so
+// the ":" popup and the side panel (EmojiPanel.jsx) both open it. `onDone`
+// runs after an upload attempt, whatever came of it.
+export function EmojiUploadForm({ addMessage, onDone }) {
   const [emojiUpload, setEmojiUpload] = useState(false);
   const fileRef = useRef(null);
   const imageSrcRef = useRef(null);
@@ -42,53 +44,56 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
     e.target.value = '';
   }
 
-  function renderEmojiUploadForm() {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <form className='emojiUploadForm' onSubmit={(e) => {
-          e.preventDefault();
-          const formData = new FormData();
-          formData.append('emoji', fileRef.current);
-          formData.append('id', inputRef.current.value);
-          fetch('/channel/uploadEmoji', { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then((res) => {
-              if (res.message) {
-                addMessage({ message: res.message, type: 'error', count: Math.random() });
-              }
-              fileRef.current = null;
-              imageSrcRef.current = null;
-              setEmojiUpload(false);
-            });
-        }}>
-          <div className='emojiFileContainer' onDragOver={onDragOver} onDrop={onDrop}>
-            {emojiUpload
-              ? <img src={imageSrcRef.current} />
-              : <>
-                <span className="material-symbols-outlined">upload_file</span>Drag or Drop to upload
-                <span className='orText'>or</span>
-                <button type='button' className='stdBtn chooseFileBtn' onClick={() => pickerRef.current?.click()}>Choose file</button>
-              </>
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <form className='emojiUploadForm' onSubmit={(e) => {
+        e.preventDefault();
+        const formData = new FormData();
+        formData.append('emoji', fileRef.current);
+        formData.append('id', inputRef.current.value);
+        fetch('/channel/uploadEmoji', { method: 'POST', body: formData })
+          .then(res => res.json())
+          .then((res) => {
+            if (res.message) {
+              addMessage({ message: res.message, type: 'error', count: Math.random() });
             }
-            <input
-              type='file'
-              ref={pickerRef}
-              accept='image/png,image/jpeg,image/gif,image/webp'
-              onChange={onPick}
-              style={{ display: 'none' }}
-              data-testid='emoji-file-picker'
-            />
+            fileRef.current = null;
+            imageSrcRef.current = null;
+            setEmojiUpload(false);
+            onDone?.();
+          });
+      }}>
+        <div className='emojiFileContainer' onDragOver={onDragOver} onDrop={onDrop}>
+          {emojiUpload
+            ? <img src={imageSrcRef.current} />
+            : <>
+              <span className="material-symbols-outlined">upload_file</span>Drag or Drop to upload
+              <span className='orText'>or</span>
+              <button type='button' className='stdBtn chooseFileBtn' onClick={() => pickerRef.current?.click()}>Choose file</button>
+            </>
+          }
+          <input
+            type='file'
+            ref={pickerRef}
+            accept='image/png,image/jpeg,image/gif,image/webp'
+            onChange={onPick}
+            style={{ display: 'none' }}
+            data-testid='emoji-file-picker'
+          />
+        </div>
+        <label style={{ display: 'flex', flexDirection: 'column', paddingTop: '10px' }}>
+          <div className='emojiIdField'>
+            : <input type="text" placeholder='Emoji ID' ref={inputRef} disabled={emojiUpload ? '' : 'disabled'} autoFocus /> :
           </div>
-          <label style={{ display: 'flex', flexDirection: 'column', paddingTop: '10px' }}>
-            <div className='emojiIdField'>
-              : <input type="text" placeholder='Emoji ID' ref={inputRef} disabled={emojiUpload ? '' : 'disabled'} autoFocus /> :
-            </div>
-          </label>
-          <button type="submit" className='stdBtn uploadEmojiBtn' disabled={emojiUpload ? '' : 'disabled'}>Upload</button>
-        </form>
-      </div>
-    );
-  }
+        </label>
+        <button type="submit" className='stdBtn uploadEmojiBtn' disabled={emojiUpload ? '' : 'disabled'}>Upload</button>
+      </form>
+    </div>
+  );
+}
+
+function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
+  const [view, setView] = useState('list');
 
   function renderEmojiList() {
     const startIndex = Math.floor(inputIndex / 12) * 12;
@@ -118,7 +123,7 @@ function EmojiMini({ emojis, inputIndex, addMessage, close, selectEmoji }) {
           <span className="material-symbols-outlined">close</span>
         </div>
       </div>
-      {view === 'list' ? renderEmojiList() : renderEmojiUploadForm()}
+      {view === 'list' ? renderEmojiList() : <EmojiUploadForm addMessage={addMessage} />}
     </div>
   );
 }
